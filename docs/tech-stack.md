@@ -8,24 +8,24 @@ Status per keuze:
 
 ## Overzicht
 
-| Laag                      | Keuze                                              | Status   |
-| ------------------------- | -------------------------------------------------- | -------- |
-| Taal                      | TypeScript, `strict` mode                          | Beslist  |
-| Framework                 | Next.js met App Router                             | Beslist  |
-| Runtime                   | Node.js, huidige LTS-versie                        | Beslist  |
-| Package manager           | pnpm                                               | Beslist  |
-| Styling & UI-componenten  | Tailwind CSS + shadcn/ui                           | Beslist  |
-| Validatie van input       | Zod                                                | Beslist  |
-| Database                  | PostgreSQL via Supabase, EU-regio (Frankfurt)      | Beslist  |
-| Database-toegang          | Drizzle ORM (schema en migraties in de repository) | Beslist  |
-| Authenticatie             | Supabase Auth                                      | Beslist  |
-| Bestandsopslag            | Supabase Storage                                   | Beslist  |
-| Hosting van de applicatie | Voorkeur voor hosting in de EU (GDPR)              | **Open** |
-| Unit- en componenttests   | Vitest + Testing Library                           | Beslist  |
-| End-to-end tests          | Playwright                                         | Beslist  |
-| Linting & formatting      | ESLint + Prettier                                  | Beslist  |
-| CI/CD                     | GitHub Actions                                     | Beslist  |
-| Beveiligingsscans         | Dependabot, CodeQL, `pnpm audit`                   | Beslist  |
+| Laag                      | Keuze                                               | Status   |
+| ------------------------- | --------------------------------------------------- | -------- |
+| Taal                      | TypeScript, `strict` mode                           | Beslist  |
+| Framework                 | Next.js met App Router                              | Beslist  |
+| Runtime                   | Node.js, huidige LTS-versie                         | Beslist  |
+| Package manager           | pnpm                                                | Beslist  |
+| Styling & UI-componenten  | Tailwind CSS + shadcn/ui                            | Beslist  |
+| Validatie van input       | Zod                                                 | Beslist  |
+| Database                  | PostgreSQL via Supabase, EU-regio (Frankfurt)       | Beslist  |
+| Database-toegang          | Drizzle ORM (schema en migraties in de repository)  | Beslist  |
+| Authenticatie             | Supabase Auth                                       | Beslist  |
+| Bestandsopslag            | Supabase Storage                                    | Beslist  |
+| Hosting van de applicatie | Voorkeur voor hosting in de EU (GDPR)               | **Open** |
+| Unit- en componenttests   | Vitest + Testing Library                            | Beslist  |
+| End-to-end tests          | Playwright                                          | Beslist  |
+| Linting & formatting      | ESLint + Prettier                                   | Beslist  |
+| CI/CD                     | GitHub Actions                                      | Beslist  |
+| Beveiligingsscans         | Dependabot, Semgrep Community Edition, `pnpm audit` | Beslist  |
 
 ## Richtlijnen per laag
 
@@ -72,7 +72,12 @@ Status per keuze:
 2. Typecheck
 3. Unit tests
 4. End-to-end tests
-5. Beveiligingsscan van dependencies en code
+5. Beveiligingsscan van dependencies (`pnpm audit`) en code (Semgrep)
+
+Semgrep Community Edition wordt gebruikt in plaats van CodeQL: GitHub code scanning
+is op private repositories enkel beschikbaar met het betalende GitHub Code Security.
+Een Semgrep-bevinding blokkeert de pull request. Een vals positief wordt enkel
+genegeerd met een `nosemgrep`-commentaar en een motivatie, na goedkeuring van Jurgen.
 
 Een pull request met een falende stap wordt niet gemerged.
 

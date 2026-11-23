@@ -5,6 +5,10 @@ updates:
     schedule:
       interval: weekly
       day: monday
+    # Wait a week before proposing a new release: gives time for compromised
+    # or broken releases to be detected and pulled.
+    cooldown:
+      default-days: 7
     open-pull-requests-limit: 5
     groups:
       # Bundle minor and patch updates into one pull request to keep the noise down.
@@ -16,3 +20,5 @@ updates:
     schedule:
       interval: weekly
       day: monday
+    cooldown:
+      default-days: 7
