@@ -15,10 +15,11 @@ Status per keuze:
 | Package manager | pnpm | Beslist |
 | Styling & UI-componenten | Tailwind CSS + shadcn/ui | Beslist |
 | Validatie van input | Zod | Beslist |
-| Database | PostgreSQL | Beslist |
-| Database-toegang | Drizzle ORM óf Supabase | **Open** |
-| Authenticatie | Hangt af van de databasekeuze | **Open** |
-| Hosting | Voorkeur voor hosting in de EU (GDPR) | **Open** |
+| Database | PostgreSQL via Supabase, EU-regio (Frankfurt) | Beslist |
+| Database-toegang | Drizzle ORM (schema en migraties in de repository) | Beslist |
+| Authenticatie | Supabase Auth | Beslist |
+| Bestandsopslag | Supabase Storage | Beslist |
+| Hosting van de applicatie | Voorkeur voor hosting in de EU (GDPR) | **Open** |
 | Unit- en componenttests | Vitest + Testing Library | Beslist |
 | End-to-end tests | Playwright | Beslist |
 | Linting & formatting | ESLint + Prettier | Beslist |
@@ -44,6 +45,15 @@ Status per keuze:
 - Elke functionele wijziging krijgt tests.
 - Bedrijfslogica: unit tests (Vitest). Belangrijke gebruikersstromen: end-to-end tests (Playwright).
 
+### Database en authenticatie (zie ADR-0002)
+- Data lezen en schrijven enkel via Drizzle, vanuit server-code. `supabase-js` in de browser enkel voor inloggen, uitloggen en sessiebeheer.
+- **Row Level Security staat aan op elke tabel**, in dezelfde migratie die de tabel aanmaakt.
+- Autorisatie (wie mag wat) wordt in elke Server Action gecontroleerd en getest; RLS is een tweede vangnet.
+- Schemawijzigingen enkel via Drizzle-migraties in de repository, nooit manueel in het Supabase-dashboard.
+- De service role key enkel server-side; nooit in client-code of in een `NEXT_PUBLIC_`-variabele.
+- Geen eigen loginsysteem: gebruikers en wachtwoorden via Supabase Auth.
+- Elke klant krijgt een eigen Supabase-project.
+
 ### Beveiliging
 - Volg de OWASP Top 10 als minimumniveau.
 - Geen secrets in code. Configuratie via environment variables.
@@ -59,12 +69,6 @@ Status per keuze:
 Een pull request met een falende stap wordt niet gemerged.
 
 ## Open beslissingen
-
-### Database-toegang: Drizzle óf Supabase
-- **Drizzle**: ORM bovenop een eigen PostgreSQL. Meer controle, minder vendor lock-in, maar auth en opslag apart regelen.
-- **Supabase**: beheerde PostgreSQL met ingebouwde authenticatie, opslag en beveiliging per rij. Sneller opgezet, maar meer afhankelijk van één leverancier.
-
-Deze keuze bepaalt ook de authenticatie. Wordt vastgelegd in een ADR zodra beslist.
 
 ### Hosting
 Nog te kiezen. Vereiste: data en applicatie in de EU.
