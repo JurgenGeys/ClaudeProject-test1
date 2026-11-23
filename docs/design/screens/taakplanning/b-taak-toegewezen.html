@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="nl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Taak: Fam. Van Dyck · FrisAir Planning (mockup)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      body [class*="when-"] {
+        display: none;
+      }
+      body[data-state~="open"] .when-open,
+      body[data-state~="bewaard"] .when-bewaard {
+        display: revert;
+      }
+      body[data-state~="open"] .unless-open {
+        display: none;
+      }
+    </style>
+  </head>
+  <body class="bg-slate-50 text-slate-900 antialiased">
+    <div
+      class="bg-amber-50 border-b border-amber-200 text-amber-900 text-xs px-4 py-2 flex flex-wrap items-center gap-x-3 gap-y-1"
+    >
+      <span class="font-semibold">Mockup</span><span>Backoffice · B3 Taak, Toegewezen of Open</span>
+      <a href="index.html" class="underline">Alle schermen</a>
+      <span class="flex gap-x-3"
+        >Variant: <a href="?" class="underline">Toegewezen</a>
+        <a href="?state=open" class="underline">Open (nog geen technieker)</a></span
+      >
+    </div>
+
+    <header class="bg-white border-b border-slate-200">
+      <div class="max-w-6xl mx-auto px-4 sm:px-6 py-2 flex flex-wrap items-center gap-x-6 gap-y-2">
+        <a href="b-taken.html" class="font-semibold">FrisAir Planning</a>
+        <nav class="flex gap-1 text-sm font-medium" aria-label="Hoofdmenu">
+          <a href="b-taken.html" aria-current="page" class="rounded-md bg-slate-100 px-3 py-2"
+            >Taken</a
+          >
+          <a
+            href="b-klanten.html"
+            class="rounded-md px-3 py-2 text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+            >Klanten</a
+          >
+          <a
+            href="b-techniekers.html"
+            class="rounded-md px-3 py-2 text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+            >Techniekers</a
+          >
+        </nav>
+        <div class="ml-auto flex items-center gap-3 text-sm">
+          <span class="text-slate-600">Sofie Peeters</span>
+          <a href="aanmelden.html" class="underline underline-offset-4">Uitloggen</a>
+        </div>
+      </div>
+    </header>
+
+    <main class="max-w-6xl mx-auto px-4 sm:px-6 py-6">
+      <div class="when-bewaard">
+        <div
+          role="status"
+          class="mb-4 rounded-md border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-900"
+        >
+          Taak bewaard.
+        </div>
+      </div>
+      <a href="b-taken.html" class="text-sm text-slate-700 underline-offset-4 hover:underline"
+        >← Taken</a
+      >
+
+      <div class="mt-2 flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <div class="unless-open">
+            <span class="rounded-full bg-blue-100 text-blue-800 px-2.5 py-0.5 text-xs font-medium"
+              >Toegewezen</span
+            >
+          </div>
+          <div class="when-open">
+            <span class="rounded-full bg-slate-100 text-slate-700 px-2.5 py-0.5 text-xs font-medium"
+              >Open</span
+            >
+          </div>
+          <h1 class="mt-2 text-2xl font-semibold tracking-tight">Fam. Van Dyck</h1>
+          <p class="mt-1 text-slate-700">ma 23/11/2026 om 13:30 · geschatte duur 1u00</p>
+        </div>
+        <a
+          href="b-taak-bewerken.html"
+          class="inline-flex h-10 items-center rounded-md bg-slate-900 px-4 text-sm font-medium text-white hover:bg-slate-800"
+          >Bewerken</a
+        >
+      </div>
+
+      <div class="mt-6 grid gap-6 lg:grid-cols-[1fr_20rem]">
+        <div class="space-y-4">
+          <section
+            class="rounded-lg border border-slate-200 bg-white p-5"
+            aria-labelledby="h-instr"
+          >
+            <h2 id="h-instr" class="text-sm font-semibold text-slate-500">Instructies</h2>
+            <p class="mt-2 leading-relaxed">
+              Nazicht airco slaapkamer: maakt lawaai bij opstarten.<br />Toestel is 4 jaar oud,
+              vorig onderhoud 06/2025.
+            </p>
+          </section>
+          <div class="grid gap-4 sm:grid-cols-2">
+            <section
+              class="rounded-lg border border-slate-200 bg-white p-5"
+              aria-labelledby="h-loc"
+            >
+              <h2 id="h-loc" class="text-sm font-semibold text-slate-500">Locatie</h2>
+              <p class="mt-2">Lierseweg 87<br />2200 Herentals</p>
+            </section>
+            <section
+              class="rounded-lg border border-slate-200 bg-white p-5"
+              aria-labelledby="h-klant"
+            >
+              <h2 id="h-klant" class="text-sm font-semibold text-slate-500">Klant</h2>
+              <p class="mt-2">
+                <a href="b-klant.html" class="font-medium underline underline-offset-4"
+                  >Fam. Van Dyck</a
+                >
+              </p>
+              <p class="text-sm text-slate-700">0476 21 43 65</p>
+              <p class="mt-2 text-sm text-slate-600">
+                Opmerking: hond in de tuin, aanbellen aan de voordeur.
+              </p>
+            </section>
+          </div>
+        </div>
+
+        <aside class="space-y-4">
+          <section class="rounded-lg border border-slate-200 bg-white p-5" aria-labelledby="h-tech">
+            <h2 id="h-tech" class="text-sm font-semibold text-slate-500">Technieker</h2>
+            <p class="unless-open mt-2 font-medium">Kevin Wouters</p>
+            <div class="when-open">
+              <p class="mt-2 text-slate-600 italic">Nog niet toegewezen</p>
+              <a
+                href="b-taak-bewerken.html"
+                class="mt-2 inline-block text-sm underline underline-offset-4"
+                >Technieker kiezen</a
+              >
+            </div>
+          </section>
+          <section class="rounded-lg border border-slate-200 bg-white p-5" aria-labelledby="h-tijd">
+            <h2 id="h-tijd" class="text-sm font-semibold text-slate-500">Tijdlijn</h2>
+            <ol class="mt-3 space-y-3 border-l border-slate-200 pl-4 text-sm">
+              <li>
+                <p class="font-medium">Aangemaakt</p>
+                <p class="text-slate-600">vr 13/11 om 09:12 door Sofie Peeters</p>
+              </li>
+              <li class="unless-open"><p class="font-medium">Toegewezen aan Kevin Wouters</p></li>
+              <li class="text-slate-500"><p>Nog niet opgepikt</p></li>
+            </ol>
+          </section>
+        </aside>
+      </div>
+    </main>
+    <script>
+      document.body.dataset.state = new URLSearchParams(location.search).get("state") || "";
+    </script>
+  </body>
+</html>

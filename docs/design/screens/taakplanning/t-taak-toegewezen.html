@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="nl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Taak: Bakkerij De Gouden Korst · FrisAir Planning (mockup)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      body [class*="when-"] {
+        display: none;
+      }
+      body[data-state~="fout"] .when-fout {
+        display: revert;
+      }
+      body[data-state~="fout"] .unless-fout {
+        display: none;
+      }
+      dialog::backdrop {
+        background: rgb(15 23 42 / 0.5);
+      }
+    </style>
+  </head>
+  <body class="bg-slate-50 text-slate-900 antialiased">
+    <div
+      class="bg-amber-50 border-b border-amber-200 text-amber-900 text-xs px-4 py-2 flex flex-wrap items-center gap-x-3 gap-y-1"
+    >
+      <span class="font-semibold">Mockup</span><span>Technieker · T2 Taak, nog op te pikken</span>
+      <a href="index.html" class="underline">Alle schermen</a>
+      <span class="flex gap-x-3"
+        >Variant: <a href="?" class="underline">normaal</a>
+        <a href="?state=fout" class="underline">intussen teruggezet door kantoor</a></span
+      >
+      <span class="text-amber-800">Alle kaarten uit de lijst openen dit voorbeeld.</span>
+    </div>
+
+    <header class="bg-white border-b border-slate-200">
+      <div class="max-w-md mx-auto px-4 h-14 flex items-center justify-between">
+        <a href="t-mijn-taken.html" class="text-sm font-medium underline-offset-4 hover:underline"
+          >← Mijn taken</a
+        >
+        <span class="text-sm text-slate-600">Kevin Wouters</span>
+      </div>
+    </header>
+
+    <main class="max-w-md mx-auto px-4 pb-32">
+      <div class="when-fout">
+        <div
+          role="alert"
+          class="mt-4 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900"
+        >
+          <p class="font-medium">Deze taak is niet meer aan jou toegewezen.</p>
+          <p class="mt-1">
+            Bel kantoor als dit niet klopt:
+            <a href="tel:+3214000000" class="underline font-medium">014 00 00 00</a>.
+          </p>
+          <a
+            href="t-mijn-taken.html"
+            class="mt-3 inline-flex h-10 items-center rounded-md border border-red-300 bg-white px-4 font-medium text-red-900"
+            >Terug naar mijn taken</a
+          >
+        </div>
+      </div>
+
+      <div class="mt-5 flex items-center gap-2">
+        <span class="rounded-full bg-blue-100 text-blue-800 px-2.5 py-0.5 text-xs font-medium"
+          >Toegewezen</span
+        >
+      </div>
+      <h1 class="mt-2 text-2xl font-semibold tracking-tight">Bakkerij De Gouden Korst</h1>
+      <p class="mt-1 text-lg">Vandaag, ma 23/11 om <strong>08:00</strong></p>
+      <p class="text-sm text-slate-600">Geschatte duur: 1u30</p>
+
+      <section class="mt-5 rounded-lg border border-slate-200 bg-white p-4" aria-labelledby="h-loc">
+        <h2 id="h-loc" class="text-sm font-semibold text-slate-500">Locatie</h2>
+        <a
+          href="https://maps.google.com/?q=Gasthuisstraat+23,+2300+Turnhout"
+          class="mt-1 flex items-center justify-between gap-3 rounded-md py-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-900"
+        >
+          <span class="text-base">Gasthuisstraat 23<br />2300 Turnhout</span>
+          <span
+            class="shrink-0 inline-flex h-10 items-center rounded-md border border-slate-300 px-3 text-sm font-medium"
+            >Open in kaarten</span
+          >
+        </a>
+      </section>
+
+      <section
+        class="mt-3 rounded-lg border border-slate-200 bg-white p-4"
+        aria-labelledby="h-klant"
+      >
+        <h2 id="h-klant" class="text-sm font-semibold text-slate-500">Klant</h2>
+        <p class="mt-1 font-medium">Bakkerij De Gouden Korst</p>
+        <a
+          href="tel:+3214412287"
+          class="mt-2 flex items-center justify-between gap-3 rounded-md py-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-900"
+        >
+          <span>014 41 22 87</span>
+          <span
+            class="shrink-0 inline-flex h-10 items-center rounded-md border border-slate-300 px-3 text-sm font-medium"
+            >Bellen</span
+          >
+        </a>
+        <p class="mt-2 rounded-md bg-slate-50 px-3 py-2 text-sm text-slate-700">
+          <span class="font-medium">Opmerking:</span> Ingang via de achterdeur in de Kasteelstraat.
+          Winkel open vanaf 6u30.
+        </p>
+      </section>
+
+      <section
+        class="mt-3 rounded-lg border border-slate-200 bg-white p-4"
+        aria-labelledby="h-instr"
+      >
+        <h2 id="h-instr" class="text-sm font-semibold text-slate-500">Instructies</h2>
+        <div class="mt-1 space-y-2 text-base leading-relaxed">
+          <p>Jaarlijks onderhoud 2 split-units (winkel en atelier).</p>
+          <p>
+            Filters reinigen, condensafvoer nakijken, binnenunit atelier ontsmetten. Klant meldt dat
+            de unit in het atelier soms druppelt.
+          </p>
+        </div>
+      </section>
+    </main>
+
+    <div class="unless-fout">
+      <div class="fixed inset-x-0 bottom-0 border-t border-slate-200 bg-white/95 backdrop-blur">
+        <div class="max-w-md mx-auto px-4 py-3">
+          <button
+            type="button"
+            onclick="document.getElementById('dlg-oppikken').showModal()"
+            class="w-full h-12 rounded-md bg-slate-900 text-base font-semibold text-white hover:bg-slate-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
+          >
+            Oppikken
+          </button>
+          <p class="mt-1 text-center text-xs text-slate-600">
+            Tik hierop als je vertrekt naar de klant.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <dialog
+      id="dlg-oppikken"
+      aria-labelledby="dlg-title"
+      class="w-[calc(100%-2rem)] max-w-sm rounded-lg border border-slate-200 p-0 shadow-xl"
+    >
+      <form method="dialog" class="p-5">
+        <h2 id="dlg-title" class="text-lg font-semibold">Taak oppikken?</h2>
+        <p class="mt-2 text-sm text-slate-700">
+          Kantoor ziet dan dat je onderweg bent naar <strong>Bakkerij De Gouden Korst</strong>. Je
+          kan dit niet zelf ongedaan maken.
+        </p>
+        <div class="mt-5 flex flex-col gap-2">
+          <a
+            href="t-taak-opgepikt.html"
+            class="inline-flex h-12 items-center justify-center rounded-md bg-slate-900 text-base font-semibold text-white hover:bg-slate-800"
+            >Ja, ik vertrek</a
+          >
+          <button
+            value="cancel"
+            class="h-12 rounded-md border border-slate-300 bg-white text-base font-medium hover:bg-slate-50"
+          >
+            Annuleren
+          </button>
+        </div>
+      </form>
+    </dialog>
+    <script>
+      document.body.dataset.state = new URLSearchParams(location.search).get("state") || "";
+    </script>
+  </body>
+</html>

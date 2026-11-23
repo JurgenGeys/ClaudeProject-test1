@@ -1,0 +1,398 @@
+<!doctype html>
+<html lang="nl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Nieuwe taak · FrisAir Planning (mockup)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      body [class*="when-"] {
+        display: none;
+      }
+      body[data-state~="fout"] .when-fout {
+        display: revert;
+      }
+      [hidden] {
+        display: none !important;
+      }
+    </style>
+  </head>
+  <body class="bg-slate-50 text-slate-900 antialiased">
+    <div
+      class="bg-amber-50 border-b border-amber-200 text-amber-900 text-xs px-4 py-2 flex flex-wrap items-center gap-x-3 gap-y-1"
+    >
+      <span class="font-semibold">Mockup</span><span>Backoffice · B2 Nieuwe taak</span>
+      <a href="index.html" class="underline">Alle schermen</a>
+      <span class="flex gap-x-3"
+        >Variant: <a href="?" class="underline">leeg formulier</a>
+        <a href="?state=fout" class="underline">foutmeldingen</a></span
+      >
+      <span class="text-amber-800">Typ "bak" in het klantveld, of kies "+ Nieuwe klant".</span>
+    </div>
+
+    <header class="bg-white border-b border-slate-200">
+      <div class="max-w-6xl mx-auto px-4 sm:px-6 py-2 flex flex-wrap items-center gap-x-6 gap-y-2">
+        <a href="b-taken.html" class="font-semibold">FrisAir Planning</a>
+        <nav class="flex gap-1 text-sm font-medium" aria-label="Hoofdmenu">
+          <a href="b-taken.html" aria-current="page" class="rounded-md bg-slate-100 px-3 py-2"
+            >Taken</a
+          >
+          <a
+            href="b-klanten.html"
+            class="rounded-md px-3 py-2 text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+            >Klanten</a
+          >
+          <a
+            href="b-techniekers.html"
+            class="rounded-md px-3 py-2 text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+            >Techniekers</a
+          >
+        </nav>
+        <div class="ml-auto flex items-center gap-3 text-sm">
+          <span class="text-slate-600">Sofie Peeters</span>
+          <a href="aanmelden.html" class="underline underline-offset-4">Uitloggen</a>
+        </div>
+      </div>
+    </header>
+
+    <main class="max-w-3xl mx-auto px-4 sm:px-6 py-6">
+      <a href="b-taken.html" class="text-sm text-slate-700 underline-offset-4 hover:underline"
+        >← Taken</a
+      >
+      <h1 class="mt-2 text-2xl font-semibold tracking-tight">Nieuwe taak</h1>
+      <p class="mt-1 text-sm text-slate-600">
+        Velden met <span class="text-red-700">*</span> zijn verplicht.
+      </p>
+
+      <form
+        id="form"
+        class="mt-6 space-y-6"
+        novalidate
+        onsubmit="
+          location.href = 'b-taak-toegewezen.html?state=bewaard';
+          return false;
+        "
+      >
+        <div class="when-fout">
+          <div
+            role="alert"
+            tabindex="-1"
+            class="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900"
+          >
+            <p class="font-medium">De taak is niet bewaard. Vul de 4 gemarkeerde velden in.</p>
+          </div>
+        </div>
+
+        <!-- Blok 1: klant -->
+        <section class="rounded-lg border border-slate-200 bg-white p-5" aria-labelledby="h-klant">
+          <h2 id="h-klant" class="text-lg font-semibold">
+            1. Klant <span class="text-red-700" aria-hidden="true">*</span>
+          </h2>
+
+          <div id="zoekblok" class="mt-3">
+            <label for="klant-zoek" class="block text-sm font-medium">Zoek een klant</label>
+            <input
+              id="klant-zoek"
+              type="search"
+              autocomplete="off"
+              placeholder="Naam, gemeente of telefoon"
+              aria-controls="resultaten"
+              aria-describedby="klant-fout"
+              class="mt-1 block w-full h-10 rounded-md border border-slate-300 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900"
+            />
+            <p id="klant-fout" class="when-fout mt-1 text-sm font-medium text-red-700">
+              Kies een klant of maak een nieuwe klant aan.
+            </p>
+            <ul
+              id="resultaten"
+              hidden
+              class="mt-1 rounded-md border border-slate-200 bg-white shadow-sm divide-y divide-slate-100"
+              role="listbox"
+              aria-label="Gevonden klanten"
+            >
+              <li>
+                <button
+                  type="button"
+                  class="kies w-full text-left px-3 py-2 hover:bg-slate-50 focus:bg-slate-100 focus:outline-none"
+                  data-naam="Bakkerij De Gouden Korst"
+                  data-straat="Gasthuisstraat 23"
+                  data-pc="2300"
+                  data-gem="Turnhout"
+                  data-tel="014 41 22 87"
+                >
+                  <span class="font-medium">Bakkerij De Gouden Korst</span>
+                  <span class="text-sm text-slate-600">· Turnhout · 014 41 22 87</span>
+                </button>
+              </li>
+              <li>
+                <button
+                  type="button"
+                  class="kies w-full text-left px-3 py-2 hover:bg-slate-50 focus:bg-slate-100 focus:outline-none"
+                  data-naam="Bakkerij Van Loon"
+                  data-straat="Dorp 4"
+                  data-pc="2381"
+                  data-gem="Weelde"
+                  data-tel="014 65 10 32"
+                >
+                  <span class="font-medium">Bakkerij Van Loon</span>
+                  <span class="text-sm text-slate-600">· Weelde · 014 65 10 32</span>
+                </button>
+              </li>
+            </ul>
+            <button
+              type="button"
+              id="nieuw-btn"
+              class="mt-3 inline-flex h-10 items-center rounded-md border border-slate-300 bg-white px-4 text-sm font-medium hover:bg-slate-50"
+            >
+              + Nieuwe klant
+            </button>
+          </div>
+
+          <div
+            id="gekozen"
+            hidden
+            class="mt-3 flex flex-wrap items-start justify-between gap-3 rounded-md border border-slate-200 bg-slate-50 p-4"
+          >
+            <div>
+              <p class="font-medium" id="g-naam"></p>
+              <p class="text-sm text-slate-600" id="g-info"></p>
+            </div>
+            <button type="button" id="ander" class="text-sm underline underline-offset-4">
+              Andere klant kiezen
+            </button>
+          </div>
+
+          <div id="nieuwblok" hidden class="mt-3 grid gap-4 sm:grid-cols-2">
+            <p class="sm:col-span-2 text-sm text-slate-600">
+              Nieuwe klant. Het adres vul je hieronder in bij "Locatie".
+            </p>
+            <div class="sm:col-span-2">
+              <label for="nk-naam" class="block text-sm font-medium"
+                >Naam <span class="text-red-700" aria-hidden="true">*</span></label
+              >
+              <input
+                id="nk-naam"
+                required
+                class="mt-1 block w-full h-10 rounded-md border border-slate-300 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900"
+              />
+            </div>
+            <div>
+              <label for="nk-tel" class="block text-sm font-medium">Telefoon</label>
+              <input
+                id="nk-tel"
+                type="tel"
+                class="mt-1 block w-full h-10 rounded-md border border-slate-300 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900"
+              />
+            </div>
+            <div>
+              <label for="nk-mail" class="block text-sm font-medium">E-mail</label>
+              <input
+                id="nk-mail"
+                type="email"
+                class="mt-1 block w-full h-10 rounded-md border border-slate-300 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900"
+              />
+            </div>
+            <div class="sm:col-span-2">
+              <label for="nk-opm" class="block text-sm font-medium">Opmerkingen</label>
+              <input
+                id="nk-opm"
+                placeholder="Bv. sleutel bij de buren"
+                class="mt-1 block w-full h-10 rounded-md border border-slate-300 px-3 text-sm placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-slate-900"
+              />
+            </div>
+            <div class="sm:col-span-2">
+              <button type="button" id="nieuw-weg" class="text-sm underline underline-offset-4">
+                Toch een bestaande klant zoeken
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <!-- Blok 2: locatie -->
+        <section class="rounded-lg border border-slate-200 bg-white p-5" aria-labelledby="h-loc">
+          <h2 id="h-loc" class="text-lg font-semibold">2. Locatie</h2>
+          <p class="mt-1 text-sm text-slate-600">
+            Wordt ingevuld met het adres van de klant. Wijzig je het hier, dan geldt dat enkel voor
+            deze taak.
+          </p>
+          <div class="mt-3 grid gap-4 sm:grid-cols-[1fr_8rem_1fr]">
+            <div class="sm:col-span-3">
+              <label for="straat" class="block text-sm font-medium"
+                >Straat en nummer <span class="text-red-700" aria-hidden="true">*</span></label
+              >
+              <input
+                id="straat"
+                required
+                aria-describedby="straat-fout"
+                class="mt-1 block w-full h-10 rounded-md border border-slate-300 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900"
+              />
+              <p id="straat-fout" class="when-fout mt-1 text-sm font-medium text-red-700">
+                Vul de straat en het huisnummer in.
+              </p>
+            </div>
+            <div>
+              <label for="pc" class="block text-sm font-medium"
+                >Postcode <span class="text-red-700" aria-hidden="true">*</span></label
+              >
+              <input
+                id="pc"
+                required
+                inputmode="numeric"
+                maxlength="4"
+                class="mt-1 block w-full h-10 rounded-md border border-slate-300 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900"
+              />
+            </div>
+            <div class="sm:col-span-2">
+              <label for="gem" class="block text-sm font-medium"
+                >Gemeente <span class="text-red-700" aria-hidden="true">*</span></label
+              >
+              <input
+                id="gem"
+                required
+                class="mt-1 block w-full h-10 rounded-md border border-slate-300 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900"
+              />
+            </div>
+          </div>
+        </section>
+
+        <!-- Blok 3: taak -->
+        <section class="rounded-lg border border-slate-200 bg-white p-5" aria-labelledby="h-taak">
+          <h2 id="h-taak" class="text-lg font-semibold">3. Taak</h2>
+          <div class="mt-3 grid gap-4 sm:grid-cols-3">
+            <div class="sm:col-span-3">
+              <label for="instr" class="block text-sm font-medium"
+                >Instructies <span class="text-red-700" aria-hidden="true">*</span></label
+              >
+              <textarea
+                id="instr"
+                rows="4"
+                required
+                aria-describedby="instr-hulp instr-fout"
+                placeholder="Bv. Jaarlijks onderhoud 2 split-units (winkel en atelier)"
+                class="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-slate-900"
+              ></textarea>
+              <p id="instr-hulp" class="mt-1 text-xs text-slate-600">
+                De eerste regel verschijnt als korte omschrijving in de lijsten.
+              </p>
+              <p id="instr-fout" class="when-fout mt-1 text-sm font-medium text-red-700">
+                Beschrijf wat de technieker moet doen.
+              </p>
+            </div>
+            <div>
+              <label for="datum" class="block text-sm font-medium"
+                >Datum <span class="text-red-700" aria-hidden="true">*</span></label
+              >
+              <input
+                id="datum"
+                type="date"
+                required
+                aria-describedby="datum-fout"
+                class="mt-1 block w-full h-10 rounded-md border border-slate-300 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900"
+              />
+              <p id="datum-fout" class="when-fout mt-1 text-sm font-medium text-red-700">
+                Kies een datum.
+              </p>
+            </div>
+            <div>
+              <label for="uur" class="block text-sm font-medium"
+                >Startuur <span class="text-red-700" aria-hidden="true">*</span></label
+              >
+              <input
+                id="uur"
+                type="time"
+                step="900"
+                required
+                class="mt-1 block w-full h-10 rounded-md border border-slate-300 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900"
+              />
+            </div>
+            <div>
+              <label for="duur" class="block text-sm font-medium">Geschatte duur</label>
+              <select
+                id="duur"
+                class="mt-1 block w-full h-10 rounded-md border border-slate-300 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900"
+              >
+                <option value="">Niet ingevuld</option>
+              </select>
+            </div>
+            <div class="sm:col-span-3">
+              <label for="tech" class="block text-sm font-medium">Technieker</label>
+              <select
+                id="tech"
+                aria-describedby="tech-hulp"
+                class="mt-1 block w-full sm:w-80 h-10 rounded-md border border-slate-300 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900"
+              >
+                <option>Nog niet toewijzen</option>
+                <option>Kevin Wouters</option>
+                <option>Jens Maes</option>
+                <option>Bram Claes</option>
+                <option>Dries Vermeulen</option>
+              </select>
+              <p id="tech-hulp" class="mt-1 text-xs text-slate-600">
+                Kies je een technieker, dan krijgt de taak de status Toegewezen en ziet hij ze
+                meteen in zijn lijst.
+              </p>
+            </div>
+          </div>
+        </section>
+
+        <div class="flex flex-wrap gap-2">
+          <button
+            type="submit"
+            class="h-10 rounded-md bg-slate-900 px-5 text-sm font-medium text-white hover:bg-slate-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
+          >
+            Taak bewaren
+          </button>
+          <a
+            href="b-taken.html"
+            class="inline-flex h-10 items-center rounded-md border border-slate-300 bg-white px-5 text-sm font-medium hover:bg-slate-50"
+            >Annuleren</a
+          >
+        </div>
+      </form>
+    </main>
+
+    <script>
+      document.body.dataset.state = new URLSearchParams(location.search).get("state") || "";
+      const $ = (id) => document.getElementById(id);
+      const duur = $("duur");
+      for (let m = 15; m <= 480; m += 15) {
+        const o = document.createElement("option");
+        o.value = m;
+        o.textContent = Math.floor(m / 60) + "u" + String(m % 60).padStart(2, "0");
+        duur.appendChild(o);
+      }
+      $("klant-zoek").oninput = (e) => {
+        $("resultaten").hidden = e.target.value.trim().length < 2;
+      };
+      document.querySelectorAll(".kies").forEach(
+        (b) =>
+          (b.onclick = () => {
+            $("g-naam").textContent = b.dataset.naam;
+            $("g-info").textContent =
+              b.dataset.straat + ", " + b.dataset.pc + " " + b.dataset.gem + " · " + b.dataset.tel;
+            $("straat").value = b.dataset.straat;
+            $("pc").value = b.dataset.pc;
+            $("gem").value = b.dataset.gem;
+            $("zoekblok").hidden = true;
+            $("gekozen").hidden = false;
+          }),
+      );
+      $("ander").onclick = () => {
+        $("gekozen").hidden = true;
+        $("zoekblok").hidden = false;
+        $("klant-zoek").value = "";
+        $("resultaten").hidden = true;
+        $("klant-zoek").focus();
+      };
+      $("nieuw-btn").onclick = () => {
+        $("zoekblok").hidden = true;
+        $("nieuwblok").hidden = false;
+        $("nk-naam").focus();
+      };
+      $("nieuw-weg").onclick = () => {
+        $("nieuwblok").hidden = true;
+        $("zoekblok").hidden = false;
+      };
+    </script>
+  </body>
+</html>

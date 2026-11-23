@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="nl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Exporteren · FrisAir Planning (mockup)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      body [class*="when-"] {
+        display: none;
+      }
+      body[data-state~="leeg"] .when-leeg,
+      body[data-state~="gedownload"] .when-gedownload,
+      body[data-state~="fout"] .when-fout {
+        display: revert;
+      }
+    </style>
+  </head>
+  <body class="bg-slate-50 text-slate-900 antialiased">
+    <div
+      class="bg-amber-50 border-b border-amber-200 text-amber-900 text-xs px-4 py-2 flex flex-wrap items-center gap-x-3 gap-y-1"
+    >
+      <span class="font-semibold">Mockup</span><span>Backoffice · B4 Exporteren</span>
+      <a href="index.html" class="underline">Alle schermen</a>
+      <span class="flex flex-wrap gap-x-3"
+        >Variant: <a href="?" class="underline">formulier</a>
+        <a href="?state=gedownload" class="underline">na download</a>
+        <a href="?state=leeg" class="underline">niets te exporteren</a>
+        <a href="?state=fout" class="underline">verkeerde periode</a></span
+      >
+    </div>
+
+    <header class="bg-white border-b border-slate-200">
+      <div class="max-w-6xl mx-auto px-4 sm:px-6 py-2 flex flex-wrap items-center gap-x-6 gap-y-2">
+        <a href="b-taken.html" class="font-semibold">FrisAir Planning</a>
+        <nav class="flex gap-1 text-sm font-medium" aria-label="Hoofdmenu">
+          <a href="b-taken.html" aria-current="page" class="rounded-md bg-slate-100 px-3 py-2"
+            >Taken</a
+          >
+          <a
+            href="b-klanten.html"
+            class="rounded-md px-3 py-2 text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+            >Klanten</a
+          >
+          <a
+            href="b-techniekers.html"
+            class="rounded-md px-3 py-2 text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+            >Techniekers</a
+          >
+        </nav>
+        <div class="ml-auto flex items-center gap-3 text-sm">
+          <span class="text-slate-600">Sofie Peeters</span>
+          <a href="aanmelden.html" class="underline underline-offset-4">Uitloggen</a>
+        </div>
+      </div>
+    </header>
+
+    <main class="max-w-3xl mx-auto px-4 sm:px-6 py-6">
+      <a href="b-taken.html" class="text-sm text-slate-700 underline-offset-4 hover:underline"
+        >← Taken</a
+      >
+      <h1 class="mt-2 text-2xl font-semibold tracking-tight">Exporteren voor de facturatie</h1>
+      <p class="mt-1 text-slate-600">
+        Download de afgewerkte taken van een periode. Het bestand opent in Excel.
+      </p>
+
+      <div class="when-gedownload">
+        <div
+          role="status"
+          class="mt-5 rounded-md border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-900"
+        >
+          <p>
+            Het bestand met <strong>14 taken</strong> is gedownload
+            (taken-2026-10-01-tot-2026-10-31.csv).
+          </p>
+          <p class="mt-1">
+            Markeer de taken als gefactureerd zodra je ze gefactureerd hebt.
+            <a href="b-taken-afgewerkt.html" class="font-medium underline underline-offset-4"
+              >Naar de afgewerkte taken</a
+            >
+          </p>
+        </div>
+      </div>
+      <div class="when-leeg">
+        <div
+          role="alert"
+          class="mt-5 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900"
+        >
+          Er zijn geen afgewerkte taken tussen 01/10/2026 en 31/10/2026. Er is niets te exporteren.
+          Kies een andere periode.
+        </div>
+      </div>
+
+      <form
+        class="mt-6 rounded-lg border border-slate-200 bg-white p-5 space-y-5"
+        onsubmit="
+          location.search = '?state=gedownload';
+          return false;
+        "
+      >
+        <fieldset>
+          <legend class="text-base font-semibold">
+            Periode <span class="text-red-700" aria-hidden="true">*</span>
+          </legend>
+          <p class="text-sm text-slate-600">Op de datum waarop de technieker de taak afmeldde.</p>
+          <div class="mt-3 flex flex-wrap gap-4">
+            <div>
+              <label for="van" class="block text-sm font-medium">Van</label>
+              <input
+                id="van"
+                type="date"
+                value="2026-10-01"
+                class="mt-1 h-10 rounded-md border border-slate-300 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900"
+              />
+            </div>
+            <div>
+              <label for="tot" class="block text-sm font-medium">Tot en met</label>
+              <input
+                id="tot"
+                type="date"
+                value="2026-10-31"
+                aria-describedby="tot-fout"
+                class="mt-1 h-10 rounded-md border border-slate-300 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900"
+              />
+              <p id="tot-fout" class="when-fout mt-1 text-sm font-medium text-red-700">
+                De einddatum moet na de begindatum liggen.
+              </p>
+            </div>
+          </div>
+        </fieldset>
+
+        <fieldset>
+          <legend class="text-base font-semibold">Welke taken</legend>
+          <div class="mt-2 space-y-2">
+            <label class="flex items-start gap-3"
+              ><input
+                type="radio"
+                name="scope"
+                checked
+                class="mt-1 h-4 w-4 accent-slate-900"
+              /><span
+                ><span class="font-medium">Enkel nog te factureren</span
+                ><span class="block text-sm text-slate-600">Taken met status Afgewerkt</span></span
+              ></label
+            >
+            <label class="flex items-start gap-3"
+              ><input type="radio" name="scope" class="mt-1 h-4 w-4 accent-slate-900" /><span
+                ><span class="font-medium">Afgewerkt en gefactureerd</span
+                ><span class="block text-sm text-slate-600"
+                  >Bv. om een overzicht voor de boekhouder te maken</span
+                ></span
+              ></label
+            >
+          </div>
+        </fieldset>
+
+        <div>
+          <h2 class="text-base font-semibold">Zo ziet het bestand eruit</h2>
+          <div class="mt-2 overflow-x-auto rounded-md border border-slate-200">
+            <table class="min-w-full text-left text-xs">
+              <thead class="bg-slate-50 text-slate-600">
+                <tr>
+                  <th scope="col" class="px-2 py-1.5 font-medium">Datum</th>
+                  <th scope="col" class="px-2 py-1.5 font-medium">Klant</th>
+                  <th scope="col" class="px-2 py-1.5 font-medium">Adres</th>
+                  <th scope="col" class="px-2 py-1.5 font-medium">Technieker</th>
+                  <th scope="col" class="px-2 py-1.5 font-medium">Omschrijving</th>
+                  <th scope="col" class="px-2 py-1.5 font-medium text-right">Gewerkte uren</th>
+                  <th scope="col" class="px-2 py-1.5 font-medium">Notities</th>
+                  <th scope="col" class="px-2 py-1.5 font-medium">Status</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-100">
+                <tr>
+                  <td class="px-2 py-1.5 whitespace-nowrap">02/10/2026</td>
+                  <td class="px-2 py-1.5 whitespace-nowrap">Fam. Hermans</td>
+                  <td class="px-2 py-1.5 whitespace-nowrap">Kerkstraat 9, 2350 Vosselaar</td>
+                  <td class="px-2 py-1.5 whitespace-nowrap">Bram Claes</td>
+                  <td class="px-2 py-1.5 whitespace-nowrap">Nazicht buitenunit</td>
+                  <td class="px-2 py-1.5 text-right">1,25</td>
+                  <td class="px-2 py-1.5 whitespace-nowrap">Alles in orde</td>
+                  <td class="px-2 py-1.5">Afgewerkt</td>
+                </tr>
+                <tr>
+                  <td class="px-2 py-1.5 whitespace-nowrap">05/10/2026</td>
+                  <td class="px-2 py-1.5 whitespace-nowrap">Garage Smets</td>
+                  <td class="px-2 py-1.5 whitespace-nowrap">Lindendreef 2, 2275 Lille</td>
+                  <td class="px-2 py-1.5 whitespace-nowrap">Jens Maes</td>
+                  <td class="px-2 py-1.5 whitespace-nowrap">Onderhoud showroom</td>
+                  <td class="px-2 py-1.5 text-right">2,5</td>
+                  <td class="px-2 py-1.5 whitespace-nowrap">Filter vervangen</td>
+                  <td class="px-2 py-1.5">Afgewerkt</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="mt-1 text-xs text-slate-600">
+            Uren als getal (1u30 = 1,5), zodat je ermee kan rekenen. Gecorrigeerde uren vervangen de
+            uren van de technieker.
+          </p>
+        </div>
+
+        <button
+          type="submit"
+          class="h-10 rounded-md bg-slate-900 px-5 text-sm font-medium text-white hover:bg-slate-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
+        >
+          Download
+        </button>
+      </form>
+    </main>
+    <script>
+      document.body.dataset.state = new URLSearchParams(location.search).get("state") || "";
+    </script>
+  </body>
+</html>

@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="nl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Wachtwoord vergeten · FrisAir Planning (mockup)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      body [class*="when-"] {
+        display: none;
+      }
+      body[data-state~="klaar"] .when-klaar {
+        display: revert;
+      }
+      body[data-state~="klaar"] .unless-klaar {
+        display: none;
+      }
+    </style>
+  </head>
+  <body class="bg-slate-50 text-slate-900 antialiased">
+    <div
+      class="bg-amber-50 border-b border-amber-200 text-amber-900 text-xs px-4 py-2 flex flex-wrap items-center gap-x-3 gap-y-1"
+    >
+      <span class="font-semibold">Mockup</span><span>Iedereen · G3 Wachtwoord vergeten</span>
+      <span class="rounded-full bg-amber-200 px-2 py-0.5 font-medium"
+        >Voorstel P1, niet in de analyse</span
+      >
+      <a href="index.html" class="underline">Alle schermen</a>
+    </div>
+
+    <main class="min-h-[80vh] flex items-center justify-center px-4 py-10">
+      <div class="w-full max-w-sm">
+        <h1 class="text-center text-2xl font-semibold tracking-tight">Wachtwoord vergeten</h1>
+
+        <div class="when-klaar">
+          <div
+            role="status"
+            class="mt-6 rounded-lg border border-green-200 bg-green-50 p-5 text-sm text-green-900"
+          >
+            Als dit e-mailadres bij ons gekend is, krijg je binnen enkele minuten een mail met een
+            link om een nieuw wachtwoord te kiezen.
+          </div>
+        </div>
+
+        <form
+          class="unless-klaar mt-6 rounded-lg border border-slate-200 bg-white p-6 shadow-sm space-y-4"
+          onsubmit="
+            location.search = '?state=klaar';
+            return false;
+          "
+        >
+          <p class="text-sm text-slate-600">
+            Vul je e-mailadres in. Je krijgt een mail met een link om een nieuw wachtwoord te
+            kiezen.
+          </p>
+          <div>
+            <label for="email" class="block text-sm font-medium">E-mailadres</label>
+            <input
+              id="email"
+              type="email"
+              autocomplete="email"
+              class="mt-1 block w-full h-11 rounded-md border border-slate-300 px-3 text-base focus:outline-none focus:ring-2 focus:ring-slate-900"
+            />
+          </div>
+          <button
+            type="submit"
+            class="w-full h-11 rounded-md bg-slate-900 text-base font-semibold text-white hover:bg-slate-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
+          >
+            Stuur mij een link
+          </button>
+        </form>
+
+        <p class="mt-4 text-center text-sm">
+          <a href="aanmelden.html" class="underline underline-offset-4">Terug naar aanmelden</a>
+        </p>
+      </div>
+    </main>
+    <script>
+      document.body.dataset.state = new URLSearchParams(location.search).get("state") || "";
+    </script>
+  </body>
+</html>
