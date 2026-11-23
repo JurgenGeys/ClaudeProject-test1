@@ -1,0 +1,31 @@
+name: Security scan
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "17 4 * * 1" # weekly, Monday morning: catches newly published rules
+
+permissions:
+  contents: read
+
+jobs:
+  semgrep:
+    name: Security scan (Semgrep)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    container:
+      image: semgrep/semgrep
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run Semgrep
+        # Community Edition, no account or token needed. Fails the build on any finding.
+        run: >-
+          semgrep scan
+          --config p/owasp-top-ten
+          --config p/typescript
+          --config p/react
+          --config p/secrets
+          --metrics off
+          --error
