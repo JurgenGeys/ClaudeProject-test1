@@ -20,9 +20,9 @@ Lees bij elke taak ook de technologiekeuzes:
 Werk wordt door gespecialiseerde agents (`.claude/agents/`) in deze volgorde gedaan:
 
 1. **analyst**: ruwe input (`docs/input/`) → functionele analyse (`docs/analysis/`)
-2. *Jurgen keurt de analyse goed en beantwoordt open vragen (met de klant)*
+2. _Jurgen keurt de analyse goed en beantwoordt open vragen (met de klant)_
 3. **designer**: analyse → ontwerp en klikbare schermmockups (`docs/design/`)
-4. *Jurgen keurt het ontwerp goed (eventueel samen met de klant)*
+4. _Jurgen keurt het ontwerp goed (eventueel samen met de klant)_
 5. **developer**: bouwt per bouwtaak uit het ontwerp, met tests
 6. **tester**: test vanuit de gebruiker en vult tests aan
 7. **reviewer**: beoordeelt de pull request; Jurgen merget
