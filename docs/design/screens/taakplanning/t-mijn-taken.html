@@ -1,0 +1,269 @@
+<!doctype html>
+<html lang="nl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Mijn taken · FrisAir Planning (mockup)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      body [class*="when-"] {
+        display: none;
+      }
+      body[data-state~="leeg"] .when-leeg,
+      body[data-state~="opgepikt"] .when-opgepikt,
+      body[data-state~="afgemeld"] .when-afgemeld {
+        display: revert;
+      }
+      body[data-state~="leeg"] .unless-leeg,
+      body[data-state~="opgepikt"] .unless-opgepikt,
+      body[data-state~="afgemeld"] .unless-afgemeld {
+        display: none;
+      }
+    </style>
+  </head>
+  <body class="bg-slate-50 text-slate-900 antialiased">
+    <div
+      class="bg-amber-50 border-b border-amber-200 text-amber-900 text-xs px-4 py-2 flex flex-wrap items-center gap-x-3 gap-y-1"
+    >
+      <span class="font-semibold">Mockup</span><span>Technieker · T1 Mijn taken</span>
+      <a href="index.html" class="underline">Alle schermen</a>
+      <span class="flex flex-wrap gap-x-3"
+        >Variant:
+        <a href="?" class="underline">begin van de dag</a>
+        <a href="?state=opgepikt" class="underline">na oppikken</a>
+        <a href="?state=afgemeld" class="underline">na afmelden</a>
+        <a href="?state=leeg" class="underline">lege toestand</a>
+      </span>
+    </div>
+
+    <header class="bg-white border-b border-slate-200">
+      <div class="max-w-md mx-auto px-4 h-14 flex items-center justify-between">
+        <a href="t-mijn-taken.html" class="font-semibold">FrisAir Planning</a>
+        <div class="flex items-center gap-3 text-sm">
+          <span class="text-slate-600">Kevin Wouters</span>
+          <a href="aanmelden.html" class="text-slate-900 underline underline-offset-4">Uitloggen</a>
+        </div>
+      </div>
+    </header>
+
+    <main class="max-w-md mx-auto px-4 pb-10">
+      <div class="when-afgemeld">
+        <div
+          role="status"
+          class="mt-4 rounded-md border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-900"
+        >
+          Taak afgemeld. Bedankt!
+        </div>
+      </div>
+
+      <h1 class="mt-5 text-2xl font-semibold tracking-tight">Mijn taken</h1>
+
+      <nav
+        class="mt-4 grid grid-cols-2 rounded-md bg-slate-100 p-1 text-sm font-medium"
+        aria-label="Tabs"
+      >
+        <a
+          href="t-mijn-taken.html"
+          aria-current="page"
+          class="rounded bg-white shadow-sm py-2 text-center"
+          >Te doen</a
+        >
+        <a
+          href="t-mijn-taken-afgewerkt.html"
+          class="rounded py-2 text-center text-slate-600 hover:text-slate-900"
+          >Afgewerkt</a
+        >
+      </nav>
+
+      <!-- Lege toestand -->
+      <div class="when-leeg">
+        <div
+          class="mt-10 rounded-lg border border-dashed border-slate-300 bg-white px-6 py-10 text-center"
+        >
+          <p class="font-medium">Je hebt geen taken.</p>
+          <p class="mt-1 text-sm text-slate-600">
+            Nieuwe taken verschijnen hier zodra kantoor ze aan jou toewijst.
+          </p>
+        </div>
+      </div>
+
+      <div class="unless-leeg">
+        <!-- Bezig: enkel na oppikken -->
+        <div class="when-opgepikt">
+          <section class="mt-6" aria-labelledby="h-bezig">
+            <h2 id="h-bezig" class="text-sm font-semibold uppercase tracking-wide text-amber-900">
+              Bezig
+            </h2>
+            <a
+              href="t-taak-opgepikt.html"
+              class="mt-2 block rounded-lg border-2 border-amber-400 bg-amber-50 p-4 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-900"
+            >
+              <div class="flex items-start justify-between gap-3">
+                <div>
+                  <p class="text-sm text-slate-700">Vandaag 08:00 · ca. 1u30</p>
+                  <p class="mt-0.5 text-lg font-semibold">Bakkerij De Gouden Korst</p>
+                  <p class="text-sm text-slate-700">Turnhout</p>
+                </div>
+                <span
+                  class="shrink-0 rounded-full bg-amber-100 text-amber-900 border border-amber-300 px-2.5 py-0.5 text-xs font-medium"
+                  >Opgepikt</span
+                >
+              </div>
+              <p class="mt-2 text-sm text-slate-800">
+                Jaarlijks onderhoud 2 split-units (winkel en atelier)
+              </p>
+              <p class="mt-2 text-sm font-medium text-amber-900">
+                Opgepikt om 07:48 · tik om af te melden
+              </p>
+            </a>
+          </section>
+        </div>
+
+        <section class="mt-6" aria-labelledby="h-telaat">
+          <h2 id="h-telaat" class="text-sm font-semibold uppercase tracking-wide text-red-700">
+            Te laat
+          </h2>
+          <a
+            href="t-taak-toegewezen.html"
+            class="mt-2 block rounded-lg border border-red-200 bg-white p-4 shadow-sm hover:border-slate-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-900"
+          >
+            <div class="flex items-start justify-between gap-3">
+              <div>
+                <p class="text-sm text-red-700 font-medium">vr 20/11 15:00</p>
+                <p class="mt-0.5 text-lg font-semibold">Apotheek Nijs</p>
+                <p class="text-sm text-slate-600">Arendonk</p>
+              </div>
+              <span
+                class="shrink-0 rounded-full bg-blue-100 text-blue-800 px-2.5 py-0.5 text-xs font-medium"
+                >Toegewezen</span
+              >
+            </div>
+            <p class="mt-2 text-sm text-slate-700">
+              Nazicht: afstandsbediening reageert niet, unit in de officina
+            </p>
+          </a>
+        </section>
+
+        <section class="mt-6" aria-labelledby="h-vandaag">
+          <h2 id="h-vandaag" class="text-sm font-semibold uppercase tracking-wide text-slate-500">
+            Vandaag · ma 23/11
+          </h2>
+          <div class="mt-2 space-y-3">
+            <div class="unless-opgepikt unless-afgemeld">
+              <a
+                href="t-taak-toegewezen.html"
+                class="block rounded-lg border border-slate-200 bg-white p-4 shadow-sm hover:border-slate-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-900"
+              >
+                <div class="flex items-start justify-between gap-3">
+                  <div>
+                    <p class="text-sm text-slate-600">08:00 · ca. 1u30</p>
+                    <p class="mt-0.5 text-lg font-semibold">Bakkerij De Gouden Korst</p>
+                    <p class="text-sm text-slate-600">Turnhout</p>
+                  </div>
+                  <span
+                    class="shrink-0 rounded-full bg-blue-100 text-blue-800 px-2.5 py-0.5 text-xs font-medium"
+                    >Toegewezen</span
+                  >
+                </div>
+                <p class="mt-2 text-sm text-slate-700">
+                  Jaarlijks onderhoud 2 split-units (winkel en atelier)
+                </p>
+              </a>
+            </div>
+            <a
+              href="t-taak-toegewezen.html"
+              class="block rounded-lg border border-slate-200 bg-white p-4 shadow-sm hover:border-slate-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-900"
+            >
+              <div class="flex items-start justify-between gap-3">
+                <div>
+                  <p class="text-sm text-slate-600">13:30 · ca. 1u00</p>
+                  <p class="mt-0.5 text-lg font-semibold">Fam. Van Dyck</p>
+                  <p class="text-sm text-slate-600">Herentals</p>
+                </div>
+                <span
+                  class="shrink-0 rounded-full bg-blue-100 text-blue-800 px-2.5 py-0.5 text-xs font-medium"
+                  >Toegewezen</span
+                >
+              </div>
+              <p class="mt-2 text-sm text-slate-700">
+                Nazicht airco slaapkamer: maakt lawaai bij opstarten
+              </p>
+            </a>
+          </div>
+        </section>
+
+        <section class="mt-6" aria-labelledby="h-morgen">
+          <h2 id="h-morgen" class="text-sm font-semibold uppercase tracking-wide text-slate-500">
+            Morgen · di 24/11
+          </h2>
+          <div class="mt-2 space-y-3">
+            <a
+              href="t-taak-toegewezen.html"
+              class="block rounded-lg border border-slate-200 bg-white p-4 shadow-sm hover:border-slate-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-900"
+            >
+              <div class="flex items-start justify-between gap-3">
+                <div>
+                  <p class="text-sm text-slate-600">09:00 · ca. 2u00</p>
+                  <p class="mt-0.5 text-lg font-semibold">Tandartspraktijk Smile</p>
+                  <p class="text-sm text-slate-600">Geel</p>
+                </div>
+                <span
+                  class="shrink-0 rounded-full bg-blue-100 text-blue-800 px-2.5 py-0.5 text-xs font-medium"
+                  >Toegewezen</span
+                >
+              </div>
+              <p class="mt-2 text-sm text-slate-700">Onderhoud 3 units, filters vervangen</p>
+            </a>
+            <a
+              href="t-taak-toegewezen.html"
+              class="block rounded-lg border border-slate-200 bg-white p-4 shadow-sm hover:border-slate-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-900"
+            >
+              <div class="flex items-start justify-between gap-3">
+                <div>
+                  <p class="text-sm text-slate-600">14:00</p>
+                  <p class="mt-0.5 text-lg font-semibold">Fam. Mertens</p>
+                  <p class="text-sm text-slate-600">Beerse</p>
+                </div>
+                <span
+                  class="shrink-0 rounded-full bg-blue-100 text-blue-800 px-2.5 py-0.5 text-xs font-medium"
+                  >Toegewezen</span
+                >
+              </div>
+              <p class="mt-2 text-sm text-slate-700">Nazicht na installatie (3 maanden)</p>
+            </a>
+          </div>
+        </section>
+
+        <section class="mt-6" aria-labelledby="h-wo">
+          <h2 id="h-wo" class="text-sm font-semibold uppercase tracking-wide text-slate-500">
+            wo 25/11
+          </h2>
+          <div class="mt-2 space-y-3">
+            <a
+              href="t-taak-toegewezen.html"
+              class="block rounded-lg border border-slate-200 bg-white p-4 shadow-sm hover:border-slate-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-900"
+            >
+              <div class="flex items-start justify-between gap-3">
+                <div>
+                  <p class="text-sm text-slate-600">10:00 · ca. 1u30</p>
+                  <p class="mt-0.5 text-lg font-semibold">Restaurant 't Pleintje</p>
+                  <p class="text-sm text-slate-600">Oud-Turnhout</p>
+                </div>
+                <span
+                  class="shrink-0 rounded-full bg-blue-100 text-blue-800 px-2.5 py-0.5 text-xs font-medium"
+                  >Toegewezen</span
+                >
+              </div>
+              <p class="mt-2 text-sm text-slate-700">
+                Koelt onvoldoende in de zaal, nazicht koelmiddel
+              </p>
+            </a>
+          </div>
+        </section>
+      </div>
+    </main>
+    <script>
+      document.body.dataset.state = new URLSearchParams(location.search).get("state") || "";
+    </script>
+  </body>
+</html>

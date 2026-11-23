@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="nl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Taak afmelden · FrisAir Planning (mockup)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      body [class*="when-"] {
+        display: none;
+      }
+      body[data-state~="fout"] .when-fout {
+        display: revert;
+      }
+    </style>
+  </head>
+  <body class="bg-slate-50 text-slate-900 antialiased">
+    <div
+      class="bg-amber-50 border-b border-amber-200 text-amber-900 text-xs px-4 py-2 flex flex-wrap items-center gap-x-3 gap-y-1"
+    >
+      <span class="font-semibold">Mockup</span><span>Technieker · T3 Afmelden</span>
+      <a href="index.html" class="underline">Alle schermen</a>
+      <span class="flex gap-x-3"
+        >Variant: <a href="?" class="underline">leeg formulier</a>
+        <a href="?state=fout" class="underline">foutmelding (geen uren)</a></span
+      >
+      <span class="text-amber-800"
+        >Tip: druk op "Taak afmelden" zonder uren voor de foutmelding.</span
+      >
+    </div>
+
+    <header class="bg-white border-b border-slate-200">
+      <div class="max-w-md mx-auto px-4 h-14 flex items-center justify-between">
+        <a
+          href="t-taak-opgepikt.html"
+          class="text-sm font-medium underline-offset-4 hover:underline"
+          >← Terug naar de taak</a
+        >
+        <span class="text-sm text-slate-600">Kevin Wouters</span>
+      </div>
+    </header>
+
+    <main class="max-w-md mx-auto px-4 pb-10">
+      <h1 class="mt-5 text-2xl font-semibold tracking-tight">Taak afmelden</h1>
+      <p class="mt-1 text-slate-700">Bakkerij De Gouden Korst · vandaag 08:00</p>
+
+      <form id="form" class="mt-5 space-y-6" novalidate>
+        <div id="summary" class="when-fout" tabindex="-1">
+          <div
+            role="alert"
+            class="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900"
+          >
+            Vul de gewerkte uren in om af te melden.
+          </div>
+        </div>
+
+        <fieldset class="rounded-lg border border-slate-200 bg-white p-4">
+          <legend class="px-1 text-base font-semibold">
+            Gewerkte uren <span class="text-red-700" aria-hidden="true">*</span>
+          </legend>
+          <p id="uren-hulp" class="text-sm text-slate-600">
+            Enkel de tijd bij de klant. De verplaatsing telt niet mee.
+          </p>
+
+          <div class="mt-4 flex items-center justify-between gap-3">
+            <button
+              type="button"
+              id="min"
+              aria-label="Kwartier minder"
+              class="h-14 w-14 rounded-md border border-slate-300 bg-white text-2xl font-semibold hover:bg-slate-50 disabled:opacity-40 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-900"
+            >
+              −
+            </button>
+            <output
+              id="uren"
+              for="min plus"
+              aria-live="polite"
+              aria-describedby="uren-hulp"
+              class="text-4xl font-semibold tabular-nums"
+              >0u00</output
+            >
+            <button
+              type="button"
+              id="plus"
+              aria-label="Kwartier meer"
+              class="h-14 w-14 rounded-md border border-slate-300 bg-white text-2xl font-semibold hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-900"
+            >
+              +
+            </button>
+          </div>
+          <p class="mt-1 text-center text-xs text-slate-600">Per kwartier</p>
+
+          <div class="mt-4 grid grid-cols-4 gap-2" role="group" aria-label="Snelkeuze">
+            <button
+              type="button"
+              data-min="30"
+              class="quick h-11 rounded-md border border-slate-300 bg-white text-sm font-medium hover:bg-slate-50"
+            >
+              0u30
+            </button>
+            <button
+              type="button"
+              data-min="60"
+              class="quick h-11 rounded-md border border-slate-300 bg-white text-sm font-medium hover:bg-slate-50"
+            >
+              1u00
+            </button>
+            <button
+              type="button"
+              data-min="90"
+              class="quick h-11 rounded-md border border-slate-300 bg-white text-sm font-medium hover:bg-slate-50"
+            >
+              1u30
+            </button>
+            <button
+              type="button"
+              data-min="120"
+              class="quick h-11 rounded-md border border-slate-300 bg-white text-sm font-medium hover:bg-slate-50"
+            >
+              2u00
+            </button>
+          </div>
+          <div class="when-fout">
+            <p id="uren-fout" class="mt-3 text-sm font-medium text-red-700">
+              Vul de gewerkte uren in. Dat moet minstens 0u15 zijn.
+            </p>
+          </div>
+        </fieldset>
+
+        <div class="rounded-lg border border-slate-200 bg-white p-4">
+          <label for="notities" class="text-base font-semibold"
+            >Notities <span class="font-normal text-slate-600">(niet verplicht)</span></label
+          >
+          <textarea
+            id="notities"
+            rows="5"
+            maxlength="2000"
+            placeholder="Bv. filter vervangen, toestel lekt licht aan binnenunit"
+            class="mt-2 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-base placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-slate-900"
+          ></textarea>
+          <p class="mt-1 text-xs text-slate-600">Kantoor leest dit bij het factureren.</p>
+        </div>
+
+        <div class="space-y-2">
+          <button
+            type="submit"
+            class="w-full h-12 rounded-md bg-slate-900 text-base font-semibold text-white hover:bg-slate-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
+          >
+            Taak afmelden
+          </button>
+          <a
+            href="t-taak-opgepikt.html"
+            class="flex h-12 items-center justify-center rounded-md text-base font-medium text-slate-700 underline-offset-4 hover:underline"
+            >Annuleren</a
+          >
+        </div>
+      </form>
+    </main>
+
+    <script>
+      document.body.dataset.state = new URLSearchParams(location.search).get("state") || "";
+      let minutes = 0;
+      const out = document.getElementById("uren");
+      const minBtn = document.getElementById("min");
+      const fmt = (m) => Math.floor(m / 60) + "u" + String(m % 60).padStart(2, "0");
+      function render() {
+        out.textContent = fmt(minutes);
+        minBtn.disabled = minutes === 0;
+      }
+      minBtn.onclick = () => {
+        minutes = Math.max(0, minutes - 15);
+        render();
+      };
+      document.getElementById("plus").onclick = () => {
+        minutes = Math.min(960, minutes + 15);
+        render();
+      };
+      document.querySelectorAll(".quick").forEach(
+        (b) =>
+          (b.onclick = () => {
+            minutes = +b.dataset.min;
+            render();
+          }),
+      );
+      document.getElementById("form").onsubmit = (e) => {
+        e.preventDefault();
+        if (minutes === 0) {
+          document.body.dataset.state = "fout";
+          document.getElementById("summary").focus();
+          return;
+        }
+        location.href = "t-mijn-taken.html?state=afgemeld";
+      };
+      render();
+    </script>
+  </body>
+</html>

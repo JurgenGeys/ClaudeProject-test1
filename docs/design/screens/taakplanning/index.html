@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="nl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Schermontwerpen Taakplanning · FrisAir Planning (mockup)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+  </head>
+  <body class="bg-slate-50 text-slate-900 antialiased">
+    <main class="max-w-5xl mx-auto px-4 py-10">
+      <p
+        class="text-sm font-medium text-amber-800 bg-amber-50 border border-amber-200 rounded-md px-3 py-2 inline-block"
+      >
+        Mockups: klikbaar ontwerp, geen werkende toepassing. Gegevens zijn verzonnen.
+      </p>
+      <h1 class="mt-4 text-3xl font-semibold tracking-tight">
+        Taakplanning voor FrisAir Koeltechniek
+      </h1>
+      <p class="mt-2 text-slate-600 max-w-2xl">
+        Nazicht en onderhoud van aircos. De backoffice plant taken in en wijst ze toe; de technieker
+        pikt een taak op, voert ze uit en meldt ze af met de gewerkte uren. De backoffice exporteert
+        de uren voor de facturatie.
+      </p>
+
+      <section class="mt-8 rounded-lg border border-slate-200 bg-white p-5">
+        <h2 class="text-lg font-semibold">Zo klik je door de hoofdstroom</h2>
+        <ol class="mt-3 list-decimal pl-5 space-y-1 text-slate-700 text-sm">
+          <li>
+            Backoffice:
+            <a class="underline underline-offset-4" href="b-taken.html">Takenoverzicht</a> →
+            <a class="underline underline-offset-4" href="b-taak-nieuw.html">Nieuwe taak</a> → taak
+            bewaren.
+          </li>
+          <li>
+            Technieker (op gsm):
+            <a class="underline underline-offset-4" href="t-mijn-taken.html">Mijn taken</a> →
+            Bakkerij De Gouden Korst → Oppikken → Afmelden met de uren.
+          </li>
+          <li>
+            Backoffice:
+            <a class="underline underline-offset-4" href="b-taak-afgewerkt.html">afgewerkte taak</a>
+            nakijken, eventueel uren corrigeren →
+            <a class="underline underline-offset-4" href="b-export.html">Exporteren</a> →
+            <a class="underline underline-offset-4" href="b-taken-afgewerkt.html"
+              >Markeer als gefactureerd</a
+            >.
+          </li>
+        </ol>
+        <p class="mt-3 text-sm text-slate-600">
+          Bovenaan elk scherm staat een gele mockupbalk. Daarmee schakel je tussen varianten, zoals
+          de <strong>lege toestand</strong> (nog geen gegevens) of een <strong>foutmelding</strong>.
+        </p>
+      </section>
+
+      <div class="mt-8 grid gap-6 md:grid-cols-3">
+        <section class="rounded-lg border border-slate-200 bg-white p-5">
+          <div class="flex items-center gap-2">
+            <h2 class="text-lg font-semibold">Iedereen</h2>
+          </div>
+          <p class="mt-1 text-sm text-slate-600">Aanmelden en wachtwoord.</p>
+          <ul class="mt-4 space-y-3 text-sm">
+            <li>
+              <a class="font-medium underline underline-offset-4" href="aanmelden.html"
+                >G1 Aanmelden</a
+              >
+            </li>
+            <li>
+              <a class="font-medium underline underline-offset-4" href="wachtwoord-instellen.html"
+                >G2 Wachtwoord instellen</a
+              ><br /><span class="text-slate-600">Na de uitnodigingsmail</span>
+            </li>
+            <li>
+              <a class="font-medium underline underline-offset-4" href="wachtwoord-vergeten.html"
+                >G3 Wachtwoord vergeten</a
+              >
+              <span
+                class="ml-1 rounded-full bg-amber-100 text-amber-900 px-2 py-0.5 text-xs font-medium"
+                >Voorstel P1</span
+              >
+            </li>
+          </ul>
+        </section>
+
+        <section class="rounded-lg border border-slate-200 bg-white p-5">
+          <div class="flex items-center gap-2 flex-wrap">
+            <h2 class="text-lg font-semibold">Technieker</h2>
+            <span class="rounded-full bg-blue-100 text-blue-800 px-2 py-0.5 text-xs font-medium"
+              >Gsm eerst</span
+            >
+          </div>
+          <p class="mt-1 text-sm text-slate-600">
+            Bekijk deze schermen best op gsm-breedte (of maak je browservenster smal).
+          </p>
+          <ul class="mt-4 space-y-3 text-sm">
+            <li>
+              <a class="font-medium underline underline-offset-4" href="t-mijn-taken.html"
+                >T1 Mijn taken: Te doen</a
+              >
+            </li>
+            <li>
+              <a class="font-medium underline underline-offset-4" href="t-mijn-taken-afgewerkt.html"
+                >T1 Mijn taken: Afgewerkt</a
+              >
+            </li>
+            <li>
+              <a class="font-medium underline underline-offset-4" href="t-taak-toegewezen.html"
+                >T2 Taak, nog op te pikken</a
+              >
+            </li>
+            <li>
+              <a class="font-medium underline underline-offset-4" href="t-taak-opgepikt.html"
+                >T2 Taak, opgepikt</a
+              >
+            </li>
+            <li>
+              <a class="font-medium underline underline-offset-4" href="t-afmelden.html"
+                >T3 Afmelden</a
+              >
+            </li>
+            <li>
+              <a class="font-medium underline underline-offset-4" href="t-taak-afgewerkt.html"
+                >T2 Taak, afgewerkt (enkel lezen)</a
+              >
+            </li>
+          </ul>
+        </section>
+
+        <section class="rounded-lg border border-slate-200 bg-white p-5">
+          <div class="flex items-center gap-2 flex-wrap">
+            <h2 class="text-lg font-semibold">Backoffice en zaakvoerder</h2>
+            <span class="rounded-full bg-violet-100 text-violet-800 px-2 py-0.5 text-xs font-medium"
+              >Laptop eerst</span
+            >
+          </div>
+          <p class="mt-1 text-sm text-slate-600">
+            Ook bruikbaar op gsm, maar ontworpen voor een groter scherm.
+          </p>
+          <ul class="mt-4 space-y-3 text-sm">
+            <li>
+              <a class="font-medium underline underline-offset-4" href="b-taken.html"
+                >B1 Takenoverzicht</a
+              >
+            </li>
+            <li>
+              <a class="font-medium underline underline-offset-4" href="b-taken-afgewerkt.html"
+                >B1 Takenoverzicht: Afgewerkt (facturatie)</a
+              >
+            </li>
+            <li>
+              <a class="font-medium underline underline-offset-4" href="b-taak-nieuw.html"
+                >B2 Nieuwe taak</a
+              >
+            </li>
+            <li>
+              <a class="font-medium underline underline-offset-4" href="b-taak-bewerken.html"
+                >B2 Taak bewerken</a
+              >
+            </li>
+            <li>
+              <a class="font-medium underline underline-offset-4" href="b-taak-toegewezen.html"
+                >B3 Taak: Toegewezen</a
+              >
+            </li>
+            <li>
+              <a class="font-medium underline underline-offset-4" href="b-taak-opgepikt.html"
+                >B3 Taak: Opgepikt (terugzetten)</a
+              >
+            </li>
+            <li>
+              <a class="font-medium underline underline-offset-4" href="b-taak-afgewerkt.html"
+                >B3 Taak: Afgewerkt (uren corrigeren)</a
+              >
+            </li>
+            <li>
+              <a class="font-medium underline underline-offset-4" href="b-taak-gefactureerd.html"
+                >B3 Taak: Gefactureerd</a
+              >
+            </li>
+            <li>
+              <a class="font-medium underline underline-offset-4" href="b-export.html"
+                >B4 Exporteren</a
+              >
+            </li>
+            <li>
+              <a class="font-medium underline underline-offset-4" href="b-klanten.html"
+                >B5 Klanten</a
+              >
+            </li>
+            <li>
+              <a class="font-medium underline underline-offset-4" href="b-klant.html"
+                >B6 Klant bewerken</a
+              >
+            </li>
+            <li>
+              <a class="font-medium underline underline-offset-4" href="b-techniekers.html"
+                >B7 Techniekers</a
+              >
+            </li>
+          </ul>
+        </section>
+      </div>
+
+      <section class="mt-8 rounded-lg border border-slate-200 bg-white p-5">
+        <h2 class="text-lg font-semibold">Statussen van een taak</h2>
+        <div class="mt-3 flex flex-wrap items-center gap-2 text-sm">
+          <span
+            class="inline-flex rounded-full bg-slate-100 text-slate-700 px-2.5 py-0.5 text-xs font-medium"
+            >Open</span
+          ><span aria-hidden="true">→</span>
+          <span
+            class="inline-flex rounded-full bg-blue-100 text-blue-800 px-2.5 py-0.5 text-xs font-medium"
+            >Toegewezen</span
+          ><span aria-hidden="true">→</span>
+          <span
+            class="inline-flex rounded-full bg-amber-100 text-amber-900 px-2.5 py-0.5 text-xs font-medium"
+            >Opgepikt</span
+          ><span aria-hidden="true">→</span>
+          <span
+            class="inline-flex rounded-full bg-green-100 text-green-800 px-2.5 py-0.5 text-xs font-medium"
+            >Afgewerkt</span
+          ><span aria-hidden="true">→</span>
+          <span
+            class="inline-flex rounded-full bg-violet-100 text-violet-800 px-2.5 py-0.5 text-xs font-medium"
+            >Gefactureerd</span
+          >
+        </div>
+        <p class="mt-3 text-sm text-slate-600">
+          Het volledige ontwerp staat in
+          <code class="rounded bg-slate-100 px-1">docs/design/taakplanning.md</code>.
+        </p>
+      </section>
+    </main>
+  </body>
+</html>

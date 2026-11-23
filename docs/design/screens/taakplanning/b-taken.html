@@ -1,0 +1,575 @@
+<!doctype html>
+<html lang="nl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Taken · FrisAir Planning (mockup)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      body [class*="when-"] {
+        display: none;
+      }
+      body[data-state~="leeg"] .when-leeg,
+      body[data-state~="filter"] .when-filter,
+      body[data-state~="bewaard"] .when-bewaard {
+        display: revert;
+      }
+      body[data-state~="leeg"] .unless-leeg,
+      body[data-state~="filter"] .unless-filter {
+        display: none;
+      }
+    </style>
+  </head>
+  <body class="bg-slate-50 text-slate-900 antialiased">
+    <div
+      class="bg-amber-50 border-b border-amber-200 text-amber-900 text-xs px-4 py-2 flex flex-wrap items-center gap-x-3 gap-y-1"
+    >
+      <span class="font-semibold">Mockup</span><span>Backoffice · B1 Takenoverzicht</span>
+      <a href="index.html" class="underline">Alle schermen</a>
+      <span class="flex flex-wrap gap-x-3"
+        >Variant: <a href="?" class="underline">met gegevens</a>
+        <a href="?state=leeg" class="underline">nog geen taken</a>
+        <a href="?state=filter" class="underline">filter zonder resultaat</a></span
+      >
+    </div>
+
+    <header class="bg-white border-b border-slate-200">
+      <div class="max-w-6xl mx-auto px-4 sm:px-6 py-2 flex flex-wrap items-center gap-x-6 gap-y-2">
+        <a href="b-taken.html" class="font-semibold">FrisAir Planning</a>
+        <nav class="flex gap-1 text-sm font-medium" aria-label="Hoofdmenu">
+          <a href="b-taken.html" aria-current="page" class="rounded-md bg-slate-100 px-3 py-2"
+            >Taken</a
+          >
+          <a
+            href="b-klanten.html"
+            class="rounded-md px-3 py-2 text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+            >Klanten</a
+          >
+          <a
+            href="b-techniekers.html"
+            class="rounded-md px-3 py-2 text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+            >Techniekers</a
+          >
+        </nav>
+        <div class="ml-auto flex items-center gap-3 text-sm">
+          <span class="text-slate-600">Sofie Peeters</span>
+          <a href="aanmelden.html" class="underline underline-offset-4">Uitloggen</a>
+        </div>
+      </div>
+    </header>
+
+    <main class="max-w-6xl mx-auto px-4 sm:px-6 py-6">
+      <div class="when-bewaard">
+        <div
+          role="status"
+          class="mb-4 rounded-md border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-900"
+        >
+          Taak bewaard.
+        </div>
+      </div>
+
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <h1 class="text-2xl font-semibold tracking-tight">Taken</h1>
+        <div class="flex gap-2">
+          <a
+            href="b-export.html"
+            class="inline-flex h-10 items-center rounded-md border border-slate-300 bg-white px-4 text-sm font-medium hover:bg-slate-50"
+            >Exporteren</a
+          >
+          <a
+            href="b-taak-nieuw.html"
+            class="inline-flex h-10 items-center rounded-md bg-slate-900 px-4 text-sm font-medium text-white hover:bg-slate-800"
+            >+ Nieuwe taak</a
+          >
+        </div>
+      </div>
+
+      <!-- Lege toestand: nog geen enkele taak -->
+      <div class="when-leeg">
+        <div
+          class="mt-8 rounded-lg border border-dashed border-slate-300 bg-white px-6 py-14 text-center"
+        >
+          <p class="text-lg font-medium">Er zijn nog geen taken.</p>
+          <p class="mt-1 text-slate-600">
+            Maak je eerste taak aan en wijs ze toe aan een technieker.
+          </p>
+          <a
+            href="b-taak-nieuw.html"
+            class="mt-4 inline-flex h-10 items-center rounded-md bg-slate-900 px-4 text-sm font-medium text-white hover:bg-slate-800"
+            >+ Nieuwe taak</a
+          >
+        </div>
+      </div>
+
+      <div class="unless-leeg">
+        <nav
+          class="mt-5 flex flex-wrap gap-1 rounded-md bg-slate-100 p-1 text-sm font-medium w-fit"
+          aria-label="Status"
+        >
+          <a href="b-taken.html" aria-current="page" class="rounded bg-white shadow-sm px-3 py-1.5"
+            >Actief <span class="text-slate-500">16</span></a
+          >
+          <a href="b-taken.html" class="rounded px-3 py-1.5 text-slate-600 hover:text-slate-900"
+            >Open <span class="text-slate-500">2</span></a
+          >
+          <a href="b-taken.html" class="rounded px-3 py-1.5 text-slate-600 hover:text-slate-900"
+            >Toegewezen <span class="text-slate-500">6</span></a
+          >
+          <a href="b-taken.html" class="rounded px-3 py-1.5 text-slate-600 hover:text-slate-900"
+            >Opgepikt <span class="text-slate-500">2</span></a
+          >
+          <a
+            href="b-taken-afgewerkt.html"
+            class="rounded px-3 py-1.5 text-slate-600 hover:text-slate-900"
+            >Afgewerkt <span class="text-slate-500">6</span></a
+          >
+          <a href="b-taken.html" class="rounded px-3 py-1.5 text-slate-600 hover:text-slate-900"
+            >Gefactureerd</a
+          >
+          <a href="b-taken.html" class="rounded px-3 py-1.5 text-slate-600 hover:text-slate-900"
+            >Alle</a
+          >
+        </nav>
+
+        <form
+          class="mt-4 flex flex-wrap items-end gap-3"
+          onsubmit="return false;"
+          aria-label="Filters"
+        >
+          <div>
+            <label for="f-tech" class="block text-xs font-medium text-slate-700">Technieker</label>
+            <select
+              id="f-tech"
+              class="mt-1 h-10 rounded-md border border-slate-300 bg-white px-3 text-sm"
+            >
+              <option>Alle techniekers</option>
+              <option>Kevin Wouters</option>
+              <option>Jens Maes</option>
+              <option>Bram Claes</option>
+              <option>Dries Vermeulen</option>
+              <option>Tom Hendrickx (uitgeschakeld)</option>
+            </select>
+          </div>
+          <div>
+            <label for="f-van" class="block text-xs font-medium text-slate-700">Van</label>
+            <input
+              id="f-van"
+              type="date"
+              class="mt-1 h-10 rounded-md border border-slate-300 bg-white px-3 text-sm"
+            />
+          </div>
+          <div>
+            <label for="f-tot" class="block text-xs font-medium text-slate-700">Tot en met</label>
+            <input
+              id="f-tot"
+              type="date"
+              class="mt-1 h-10 rounded-md border border-slate-300 bg-white px-3 text-sm"
+            />
+          </div>
+          <a
+            href="b-taken.html"
+            class="h-10 inline-flex items-center px-2 text-sm text-slate-700 underline underline-offset-4"
+            >Filters wissen</a
+          >
+        </form>
+
+        <div class="when-filter">
+          <div
+            class="mt-6 rounded-lg border border-dashed border-slate-300 bg-white px-6 py-10 text-center"
+          >
+            <p class="font-medium">Geen taken gevonden voor deze filter.</p>
+            <a
+              href="b-taken.html"
+              class="mt-3 inline-flex h-10 items-center rounded-md border border-slate-300 bg-white px-4 text-sm font-medium hover:bg-slate-50"
+              >Filters wissen</a
+            >
+          </div>
+        </div>
+
+        <div class="unless-filter mt-4 rounded-lg border border-slate-200 bg-white">
+          <div
+            class="hidden md:grid grid-cols-[8.5rem_1fr_1.3fr_9rem_8rem_4rem] gap-4 border-b border-slate-200 px-4 py-2 text-xs font-medium uppercase tracking-wide text-slate-500"
+            aria-hidden="true"
+          >
+            <span>Gepland</span><span>Klant</span><span>Instructies</span><span>Technieker</span
+            ><span>Status</span><span class="text-right">Uren</span>
+          </div>
+          <ul class="divide-y divide-slate-200">
+            <li>
+              <a
+                href="b-taak-afgewerkt.html"
+                class="grid gap-1 md:gap-4 md:grid-cols-[8.5rem_1fr_1.3fr_9rem_8rem_4rem] items-center px-4 py-3 hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-slate-900"
+              >
+                <span class="text-sm"><span class="font-medium">di 17/11</span> 13:00</span>
+                <span
+                  ><span class="font-medium">Optiek Van Gool</span
+                  ><span class="block text-sm text-slate-600">Geel</span></span
+                >
+                <span class="text-sm text-slate-700 truncate">Onderhoud cassette-unit winkel</span>
+                <span class="text-sm">Jens Maes</span>
+                <span
+                  ><span
+                    class="rounded-full bg-green-100 text-green-800 px-2.5 py-0.5 text-xs font-medium"
+                    >Afgewerkt</span
+                  ></span
+                >
+                <span class="text-sm md:text-right font-medium">1u30</span>
+              </a>
+            </li>
+            <li>
+              <a
+                href="b-taak-afgewerkt.html"
+                class="grid gap-1 md:gap-4 md:grid-cols-[8.5rem_1fr_1.3fr_9rem_8rem_4rem] items-center px-4 py-3 hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-slate-900"
+              >
+                <span class="text-sm"><span class="font-medium">wo 18/11</span> 08:00</span>
+                <span
+                  ><span class="font-medium">Fam. Jacobs</span
+                  ><span class="block text-sm text-slate-600">Beerse</span></span
+                >
+                <span class="text-sm text-slate-700 truncate">Nazicht airco zolderkamer</span>
+                <span class="text-sm">Bram Claes</span>
+                <span
+                  ><span
+                    class="rounded-full bg-green-100 text-green-800 px-2.5 py-0.5 text-xs font-medium"
+                    >Afgewerkt</span
+                  ></span
+                >
+                <span class="text-sm md:text-right font-medium">0u45</span>
+              </a>
+            </li>
+            <li>
+              <a
+                href="b-taak-afgewerkt.html"
+                class="grid gap-1 md:gap-4 md:grid-cols-[8.5rem_1fr_1.3fr_9rem_8rem_4rem] items-center px-4 py-3 hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-slate-900"
+              >
+                <span class="text-sm"><span class="font-medium">do 19/11</span> 10:00</span>
+                <span
+                  ><span class="font-medium">Fam. De Smedt</span
+                  ><span class="block text-sm text-slate-600">Turnhout</span></span
+                >
+                <span class="text-sm text-slate-700 truncate"
+                  >Nazicht buitenunit: klant hoort water lopen</span
+                >
+                <span class="text-sm">Kevin Wouters</span>
+                <span
+                  ><span
+                    class="rounded-full bg-green-100 text-green-800 px-2.5 py-0.5 text-xs font-medium"
+                    >Afgewerkt</span
+                  ></span
+                >
+                <span class="text-sm md:text-right font-medium">1u00</span>
+              </a>
+            </li>
+            <li>
+              <a
+                href="b-taak-afgewerkt.html"
+                class="grid gap-1 md:gap-4 md:grid-cols-[8.5rem_1fr_1.3fr_9rem_8rem_4rem] items-center px-4 py-3 hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-slate-900"
+              >
+                <span class="text-sm"><span class="font-medium">do 19/11</span> 13:30</span>
+                <span
+                  ><span class="font-medium">Brasserie Den Engel</span
+                  ><span class="block text-sm text-slate-600">Kasterlee</span></span
+                >
+                <span class="text-sm text-slate-700 truncate"
+                  >Onderhoud 3 units zaal en keuken</span
+                >
+                <span class="text-sm">Dries Vermeulen</span>
+                <span
+                  ><span
+                    class="rounded-full bg-green-100 text-green-800 px-2.5 py-0.5 text-xs font-medium"
+                    >Afgewerkt</span
+                  ></span
+                >
+                <span class="text-sm md:text-right font-medium"
+                  >2u30<span class="block text-xs font-normal text-slate-600"
+                    >gecorrigeerd</span
+                  ></span
+                >
+              </a>
+            </li>
+            <li>
+              <a
+                href="b-taak-toegewezen.html"
+                class="grid gap-1 md:gap-4 md:grid-cols-[8.5rem_1fr_1.3fr_9rem_8rem_4rem] items-center px-4 py-3 hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-slate-900"
+              >
+                <span class="text-sm"
+                  ><span class="font-medium">vr 20/11</span> 15:00<span
+                    class="block text-xs font-medium text-red-700"
+                    >Te laat</span
+                  ></span
+                >
+                <span
+                  ><span class="font-medium">Apotheek Nijs</span
+                  ><span class="block text-sm text-slate-600">Arendonk</span></span
+                >
+                <span class="text-sm text-slate-700 truncate"
+                  >Nazicht: afstandsbediening reageert niet</span
+                >
+                <span class="text-sm">Kevin Wouters</span>
+                <span
+                  ><span
+                    class="rounded-full bg-blue-100 text-blue-800 px-2.5 py-0.5 text-xs font-medium"
+                    >Toegewezen</span
+                  ></span
+                >
+                <span class="text-sm md:text-right text-slate-500">–</span>
+              </a>
+            </li>
+            <li>
+              <a
+                href="b-taak-afgewerkt.html"
+                class="grid gap-1 md:gap-4 md:grid-cols-[8.5rem_1fr_1.3fr_9rem_8rem_4rem] items-center px-4 py-3 hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-slate-900"
+              >
+                <span class="text-sm"><span class="font-medium">vr 20/11</span> 15:30</span>
+                <span
+                  ><span class="font-medium">Notariskantoor Lambrechts</span
+                  ><span class="block text-sm text-slate-600">Mol</span></span
+                >
+                <span class="text-sm text-slate-700 truncate"
+                  >Onderhoud 4 units kantoren en wachtzaal</span
+                >
+                <span class="text-sm">Jens Maes</span>
+                <span
+                  ><span
+                    class="rounded-full bg-green-100 text-green-800 px-2.5 py-0.5 text-xs font-medium"
+                    >Afgewerkt</span
+                  ></span
+                >
+                <span class="text-sm md:text-right font-medium">2u00</span>
+              </a>
+            </li>
+            <li>
+              <a
+                href="b-taak-opgepikt.html"
+                class="grid gap-1 md:gap-4 md:grid-cols-[8.5rem_1fr_1.3fr_9rem_8rem_4rem] items-center px-4 py-3 hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-slate-900"
+              >
+                <span class="text-sm"><span class="font-medium">ma 23/11</span> 08:00</span>
+                <span
+                  ><span class="font-medium">Bakkerij De Gouden Korst</span
+                  ><span class="block text-sm text-slate-600">Turnhout</span></span
+                >
+                <span class="text-sm text-slate-700 truncate"
+                  >Jaarlijks onderhoud 2 split-units (winkel en atelier)</span
+                >
+                <span class="text-sm">Kevin Wouters</span>
+                <span
+                  ><span
+                    class="rounded-full bg-amber-100 text-amber-900 px-2.5 py-0.5 text-xs font-medium"
+                    >Opgepikt</span
+                  ><span class="block mt-0.5 text-xs text-slate-600">sinds 07:48</span></span
+                >
+                <span class="text-sm md:text-right text-slate-500">–</span>
+              </a>
+            </li>
+            <li>
+              <a
+                href="b-taak-afgewerkt.html"
+                class="grid gap-1 md:gap-4 md:grid-cols-[8.5rem_1fr_1.3fr_9rem_8rem_4rem] items-center px-4 py-3 hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-slate-900"
+              >
+                <span class="text-sm"><span class="font-medium">ma 23/11</span> 08:30</span>
+                <span
+                  ><span class="font-medium">Fam. Hermans</span
+                  ><span class="block text-sm text-slate-600">Vosselaar</span></span
+                >
+                <span class="text-sm text-slate-700 truncate">Jaarlijks onderhoud multisplit</span>
+                <span class="text-sm">Bram Claes</span>
+                <span
+                  ><span
+                    class="rounded-full bg-green-100 text-green-800 px-2.5 py-0.5 text-xs font-medium"
+                    >Afgewerkt</span
+                  ></span
+                >
+                <span class="text-sm md:text-right font-medium">1u15</span>
+              </a>
+            </li>
+            <li>
+              <a
+                href="b-taak-opgepikt.html"
+                class="grid gap-1 md:gap-4 md:grid-cols-[8.5rem_1fr_1.3fr_9rem_8rem_4rem] items-center px-4 py-3 hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-slate-900"
+              >
+                <span class="text-sm"><span class="font-medium">ma 23/11</span> 10:00</span>
+                <span
+                  ><span class="font-medium">Garage Smets</span
+                  ><span class="block text-sm text-slate-600">Lille</span></span
+                >
+                <span class="text-sm text-slate-700 truncate"
+                  >Nazicht koeling showroom, foutcode E5</span
+                >
+                <span class="text-sm">Jens Maes</span>
+                <span
+                  ><span
+                    class="rounded-full bg-amber-100 text-amber-900 px-2.5 py-0.5 text-xs font-medium"
+                    >Opgepikt</span
+                  ><span class="block mt-0.5 text-xs text-slate-600">sinds 09:52</span></span
+                >
+                <span class="text-sm md:text-right text-slate-500">–</span>
+              </a>
+            </li>
+            <li>
+              <a
+                href="b-taak-toegewezen.html"
+                class="grid gap-1 md:gap-4 md:grid-cols-[8.5rem_1fr_1.3fr_9rem_8rem_4rem] items-center px-4 py-3 hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-slate-900"
+              >
+                <span class="text-sm"><span class="font-medium">ma 23/11</span> 13:30</span>
+                <span
+                  ><span class="font-medium">Fam. Van Dyck</span
+                  ><span class="block text-sm text-slate-600">Herentals</span></span
+                >
+                <span class="text-sm text-slate-700 truncate"
+                  >Nazicht airco slaapkamer: maakt lawaai bij opstarten</span
+                >
+                <span class="text-sm">Kevin Wouters</span>
+                <span
+                  ><span
+                    class="rounded-full bg-blue-100 text-blue-800 px-2.5 py-0.5 text-xs font-medium"
+                    >Toegewezen</span
+                  ></span
+                >
+                <span class="text-sm md:text-right text-slate-500">–</span>
+              </a>
+            </li>
+            <li>
+              <a
+                href="b-taak-toegewezen.html"
+                class="grid gap-1 md:gap-4 md:grid-cols-[8.5rem_1fr_1.3fr_9rem_8rem_4rem] items-center px-4 py-3 hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-slate-900"
+              >
+                <span class="text-sm"><span class="font-medium">di 24/11</span> 09:00</span>
+                <span
+                  ><span class="font-medium">Tandartspraktijk Smile</span
+                  ><span class="block text-sm text-slate-600">Geel</span></span
+                >
+                <span class="text-sm text-slate-700 truncate"
+                  >Onderhoud 3 units, filters vervangen</span
+                >
+                <span class="text-sm">Kevin Wouters</span>
+                <span
+                  ><span
+                    class="rounded-full bg-blue-100 text-blue-800 px-2.5 py-0.5 text-xs font-medium"
+                    >Toegewezen</span
+                  ></span
+                >
+                <span class="text-sm md:text-right text-slate-500">–</span>
+              </a>
+            </li>
+            <li>
+              <a
+                href="b-taak-toegewezen.html"
+                class="grid gap-1 md:gap-4 md:grid-cols-[8.5rem_1fr_1.3fr_9rem_8rem_4rem] items-center px-4 py-3 hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-slate-900"
+              >
+                <span class="text-sm"><span class="font-medium">di 24/11</span> 10:00</span>
+                <span
+                  ><span class="font-medium">Kapsalon Lien</span
+                  ><span class="block text-sm text-slate-600">Ravels</span></span
+                >
+                <span class="text-sm text-slate-700 truncate">Jaarlijks onderhoud</span>
+                <span class="text-sm">Dries Vermeulen</span>
+                <span
+                  ><span
+                    class="rounded-full bg-blue-100 text-blue-800 px-2.5 py-0.5 text-xs font-medium"
+                    >Toegewezen</span
+                  ></span
+                >
+                <span class="text-sm md:text-right text-slate-500">–</span>
+              </a>
+            </li>
+            <li>
+              <a
+                href="b-taak-toegewezen.html"
+                class="grid gap-1 md:gap-4 md:grid-cols-[8.5rem_1fr_1.3fr_9rem_8rem_4rem] items-center px-4 py-3 hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-slate-900"
+              >
+                <span class="text-sm"><span class="font-medium">di 24/11</span> 14:00</span>
+                <span
+                  ><span class="font-medium">Fam. Mertens</span
+                  ><span class="block text-sm text-slate-600">Beerse</span></span
+                >
+                <span class="text-sm text-slate-700 truncate"
+                  >Nazicht na installatie (3 maanden)</span
+                >
+                <span class="text-sm">Kevin Wouters</span>
+                <span
+                  ><span
+                    class="rounded-full bg-blue-100 text-blue-800 px-2.5 py-0.5 text-xs font-medium"
+                    >Toegewezen</span
+                  ></span
+                >
+                <span class="text-sm md:text-right text-slate-500">–</span>
+              </a>
+            </li>
+            <li>
+              <a
+                href="b-taak-toegewezen.html"
+                class="grid gap-1 md:gap-4 md:grid-cols-[8.5rem_1fr_1.3fr_9rem_8rem_4rem] items-center px-4 py-3 hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-slate-900"
+              >
+                <span class="text-sm"><span class="font-medium">wo 25/11</span> 10:00</span>
+                <span
+                  ><span class="font-medium">Restaurant 't Pleintje</span
+                  ><span class="block text-sm text-slate-600">Oud-Turnhout</span></span
+                >
+                <span class="text-sm text-slate-700 truncate"
+                  >Koelt onvoldoende in de zaal, nazicht koelmiddel</span
+                >
+                <span class="text-sm">Kevin Wouters</span>
+                <span
+                  ><span
+                    class="rounded-full bg-blue-100 text-blue-800 px-2.5 py-0.5 text-xs font-medium"
+                    >Toegewezen</span
+                  ></span
+                >
+                <span class="text-sm md:text-right text-slate-500">–</span>
+              </a>
+            </li>
+            <li>
+              <a
+                href="b-taak-toegewezen.html?state=open"
+                class="grid gap-1 md:gap-4 md:grid-cols-[8.5rem_1fr_1.3fr_9rem_8rem_4rem] items-center px-4 py-3 hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-slate-900"
+              >
+                <span class="text-sm"><span class="font-medium">do 26/11</span> 09:00</span>
+                <span
+                  ><span class="font-medium">Fam. Wuyts</span
+                  ><span class="block text-sm text-slate-600">Merksplas</span></span
+                >
+                <span class="text-sm text-slate-700 truncate"
+                  >Onderhoud 2 units woonkamer en bureau</span
+                >
+                <span class="text-sm text-slate-500 italic">Nog niet toegewezen</span>
+                <span
+                  ><span
+                    class="rounded-full bg-slate-100 text-slate-700 px-2.5 py-0.5 text-xs font-medium"
+                    >Open</span
+                  ></span
+                >
+                <span class="text-sm md:text-right text-slate-500">–</span>
+              </a>
+            </li>
+            <li>
+              <a
+                href="b-taak-toegewezen.html?state=open"
+                class="grid gap-1 md:gap-4 md:grid-cols-[8.5rem_1fr_1.3fr_9rem_8rem_4rem] items-center px-4 py-3 hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-slate-900"
+              >
+                <span class="text-sm"><span class="font-medium">vr 27/11</span> 08:00</span>
+                <span
+                  ><span class="font-medium">Bouwbedrijf Geerts</span
+                  ><span class="block text-sm text-slate-600">Retie</span></span
+                >
+                <span class="text-sm text-slate-700 truncate"
+                  >Nazicht 6 units werfkeet en kantoor</span
+                >
+                <span class="text-sm text-slate-500 italic">Nog niet toegewezen</span>
+                <span
+                  ><span
+                    class="rounded-full bg-slate-100 text-slate-700 px-2.5 py-0.5 text-xs font-medium"
+                    >Open</span
+                  ></span
+                >
+                <span class="text-sm md:text-right text-slate-500">–</span>
+              </a>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </main>
+    <script>
+      document.body.dataset.state = new URLSearchParams(location.search).get("state") || "";
+    </script>
+  </body>
+</html>

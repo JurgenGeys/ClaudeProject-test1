@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="nl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Taak: Bakkerij De Gouden Korst · FrisAir Planning (mockup)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      body [class*="when-"] {
+        display: none;
+      }
+      body[data-state~="teruggezet"] .when-teruggezet {
+        display: revert;
+      }
+      body[data-state~="teruggezet"] .unless-teruggezet {
+        display: none;
+      }
+      dialog::backdrop {
+        background: rgb(15 23 42 / 0.5);
+      }
+    </style>
+  </head>
+  <body class="bg-slate-50 text-slate-900 antialiased">
+    <div
+      class="bg-amber-50 border-b border-amber-200 text-amber-900 text-xs px-4 py-2 flex flex-wrap items-center gap-x-3 gap-y-1"
+    >
+      <span class="font-semibold">Mockup</span><span>Backoffice · B3 Taak, Opgepikt</span>
+      <a href="index.html" class="underline">Alle schermen</a>
+      <span class="flex gap-x-3"
+        >Variant: <a href="?" class="underline">Opgepikt</a>
+        <a href="?state=teruggezet" class="underline">na terugzetten</a></span
+      >
+    </div>
+
+    <header class="bg-white border-b border-slate-200">
+      <div class="max-w-6xl mx-auto px-4 sm:px-6 py-2 flex flex-wrap items-center gap-x-6 gap-y-2">
+        <a href="b-taken.html" class="font-semibold">FrisAir Planning</a>
+        <nav class="flex gap-1 text-sm font-medium" aria-label="Hoofdmenu">
+          <a href="b-taken.html" aria-current="page" class="rounded-md bg-slate-100 px-3 py-2"
+            >Taken</a
+          >
+          <a
+            href="b-klanten.html"
+            class="rounded-md px-3 py-2 text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+            >Klanten</a
+          >
+          <a
+            href="b-techniekers.html"
+            class="rounded-md px-3 py-2 text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+            >Techniekers</a
+          >
+        </nav>
+        <div class="ml-auto flex items-center gap-3 text-sm">
+          <span class="text-slate-600">Sofie Peeters</span>
+          <a href="aanmelden.html" class="underline underline-offset-4">Uitloggen</a>
+        </div>
+      </div>
+    </header>
+
+    <main class="max-w-6xl mx-auto px-4 sm:px-6 py-6">
+      <div class="when-teruggezet">
+        <div
+          role="status"
+          class="mb-4 rounded-md border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-900"
+        >
+          Taak teruggezet. Ze staat opnieuw op Toegewezen bij Kevin Wouters, voor di 24/11 om 08:00.
+        </div>
+      </div>
+      <a href="b-taken.html" class="text-sm text-slate-700 underline-offset-4 hover:underline"
+        >← Taken</a
+      >
+
+      <div class="mt-2 flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <div class="unless-teruggezet">
+            <span class="rounded-full bg-amber-100 text-amber-900 px-2.5 py-0.5 text-xs font-medium"
+              >Opgepikt</span
+            >
+            <span class="ml-1 text-sm text-slate-700">sinds 07:48</span>
+          </div>
+          <div class="when-teruggezet">
+            <span class="rounded-full bg-blue-100 text-blue-800 px-2.5 py-0.5 text-xs font-medium"
+              >Toegewezen</span
+            >
+          </div>
+          <h1 class="mt-2 text-2xl font-semibold tracking-tight">Bakkerij De Gouden Korst</h1>
+          <p class="mt-1 text-slate-700">ma 23/11/2026 om 08:00 · geschatte duur 1u30</p>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <a
+            href="b-taak-bewerken.html?state=opgepikt"
+            class="inline-flex h-10 items-center rounded-md border border-slate-300 bg-white px-4 text-sm font-medium hover:bg-slate-50"
+            >Bewerken</a
+          >
+          <button
+            type="button"
+            onclick="document.getElementById('dlg').showModal()"
+            class="unless-teruggezet h-10 rounded-md bg-slate-900 px-4 text-sm font-medium text-white hover:bg-slate-800"
+          >
+            Terugzetten
+          </button>
+        </div>
+      </div>
+
+      <div class="mt-6 grid gap-6 lg:grid-cols-[1fr_20rem]">
+        <div class="space-y-4">
+          <section
+            class="rounded-lg border border-slate-200 bg-white p-5"
+            aria-labelledby="h-instr"
+          >
+            <h2 id="h-instr" class="text-sm font-semibold text-slate-500">Instructies</h2>
+            <p class="mt-2 leading-relaxed">
+              Jaarlijks onderhoud 2 split-units (winkel en atelier).<br />Filters reinigen,
+              condensafvoer nakijken, binnenunit atelier ontsmetten. Klant meldt dat de unit in het
+              atelier soms druppelt.
+            </p>
+          </section>
+          <div class="grid gap-4 sm:grid-cols-2">
+            <section
+              class="rounded-lg border border-slate-200 bg-white p-5"
+              aria-labelledby="h-loc"
+            >
+              <h2 id="h-loc" class="text-sm font-semibold text-slate-500">Locatie</h2>
+              <p class="mt-2">Gasthuisstraat 23<br />2300 Turnhout</p>
+            </section>
+            <section
+              class="rounded-lg border border-slate-200 bg-white p-5"
+              aria-labelledby="h-klant"
+            >
+              <h2 id="h-klant" class="text-sm font-semibold text-slate-500">Klant</h2>
+              <p class="mt-2">
+                <a href="b-klant.html" class="font-medium underline underline-offset-4"
+                  >Bakkerij De Gouden Korst</a
+                >
+              </p>
+              <p class="text-sm text-slate-700">014 41 22 87 · info@bakkerijgoudenkorst.be</p>
+              <p class="mt-2 text-sm text-slate-600">
+                Opmerking: ingang via de achterdeur in de Kasteelstraat.
+              </p>
+            </section>
+          </div>
+        </div>
+
+        <aside class="space-y-4">
+          <section class="rounded-lg border border-slate-200 bg-white p-5" aria-labelledby="h-tech">
+            <h2 id="h-tech" class="text-sm font-semibold text-slate-500">Technieker</h2>
+            <p class="mt-2 font-medium">Kevin Wouters</p>
+          </section>
+          <section class="rounded-lg border border-slate-200 bg-white p-5" aria-labelledby="h-tijd">
+            <h2 id="h-tijd" class="text-sm font-semibold text-slate-500">Tijdlijn</h2>
+            <ol class="mt-3 space-y-3 border-l border-slate-200 pl-4 text-sm">
+              <li>
+                <p class="font-medium">Aangemaakt</p>
+                <p class="text-slate-600">ma 09/11 om 14:20 door Sofie Peeters</p>
+              </li>
+              <li><p class="font-medium">Toegewezen aan Kevin Wouters</p></li>
+              <li class="unless-teruggezet">
+                <p class="font-medium text-amber-900">Opgepikt</p>
+                <p class="text-slate-600">vandaag om 07:48</p>
+              </li>
+              <li class="text-slate-500"><p>Nog niet afgemeld</p></li>
+            </ol>
+          </section>
+        </aside>
+      </div>
+    </main>
+
+    <dialog
+      id="dlg"
+      aria-labelledby="dlg-t"
+      class="w-[calc(100%-2rem)] max-w-md rounded-lg border border-slate-200 p-0 shadow-xl"
+    >
+      <form method="dialog" class="p-6">
+        <h2 id="dlg-t" class="text-lg font-semibold">Taak terugzetten</h2>
+        <p class="mt-2 text-sm text-slate-700">
+          Gebruik dit als de taak niet kon doorgaan, bv. omdat de klant niet thuis was. De taak komt
+          terug op <strong>Toegewezen</strong>. Je kan meteen een andere technieker of datum kiezen.
+        </p>
+        <div class="mt-4 space-y-4">
+          <div>
+            <label for="t-tech" class="block text-sm font-medium">Technieker</label>
+            <select
+              id="t-tech"
+              class="mt-1 block w-full h-10 rounded-md border border-slate-300 bg-white px-3 text-sm"
+            >
+              <option selected>Kevin Wouters</option>
+              <option>Jens Maes</option>
+              <option>Bram Claes</option>
+              <option>Dries Vermeulen</option>
+            </select>
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label for="t-datum" class="block text-sm font-medium">Datum</label>
+              <input
+                id="t-datum"
+                type="date"
+                value="2026-11-24"
+                class="mt-1 block w-full h-10 rounded-md border border-slate-300 px-3 text-sm"
+              />
+            </div>
+            <div>
+              <label for="t-uur" class="block text-sm font-medium">Startuur</label>
+              <input
+                id="t-uur"
+                type="time"
+                step="900"
+                value="08:00"
+                class="mt-1 block w-full h-10 rounded-md border border-slate-300 px-3 text-sm"
+              />
+            </div>
+          </div>
+        </div>
+        <div class="mt-6 flex justify-end gap-2">
+          <button
+            value="cancel"
+            class="h-10 rounded-md border border-slate-300 bg-white px-4 text-sm font-medium hover:bg-slate-50"
+          >
+            Annuleren
+          </button>
+          <a
+            href="?state=teruggezet"
+            class="inline-flex h-10 items-center rounded-md bg-slate-900 px-4 text-sm font-medium text-white hover:bg-slate-800"
+            >Terugzetten</a
+          >
+        </div>
+      </form>
+    </dialog>
+    <script>
+      document.body.dataset.state = new URLSearchParams(location.search).get("state") || "";
+    </script>
+  </body>
+</html>

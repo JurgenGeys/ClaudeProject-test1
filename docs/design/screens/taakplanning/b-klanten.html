@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="nl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Klanten · FrisAir Planning (mockup)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      body [class*="when-"] {
+        display: none;
+      }
+      body[data-state~="leeg"] .when-leeg,
+      body[data-state~="zoek"] .when-zoek {
+        display: revert;
+      }
+      body[data-state~="leeg"] .unless-leeg,
+      body[data-state~="zoek"] .unless-zoek {
+        display: none;
+      }
+    </style>
+  </head>
+  <body class="bg-slate-50 text-slate-900 antialiased">
+    <div
+      class="bg-amber-50 border-b border-amber-200 text-amber-900 text-xs px-4 py-2 flex flex-wrap items-center gap-x-3 gap-y-1"
+    >
+      <span class="font-semibold">Mockup</span><span>Backoffice · B5 Klanten</span>
+      <a href="index.html" class="underline">Alle schermen</a>
+      <span class="flex flex-wrap gap-x-3"
+        >Variant: <a href="?" class="underline">met gegevens</a>
+        <a href="?state=leeg" class="underline">nog geen klanten</a>
+        <a href="?state=zoek" class="underline">zoeken zonder resultaat</a></span
+      >
+    </div>
+
+    <header class="bg-white border-b border-slate-200">
+      <div class="max-w-6xl mx-auto px-4 sm:px-6 py-2 flex flex-wrap items-center gap-x-6 gap-y-2">
+        <a href="b-taken.html" class="font-semibold">FrisAir Planning</a>
+        <nav class="flex gap-1 text-sm font-medium" aria-label="Hoofdmenu">
+          <a
+            href="b-taken.html"
+            class="rounded-md px-3 py-2 text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+            >Taken</a
+          >
+          <a href="b-klanten.html" aria-current="page" class="rounded-md bg-slate-100 px-3 py-2"
+            >Klanten</a
+          >
+          <a
+            href="b-techniekers.html"
+            class="rounded-md px-3 py-2 text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+            >Techniekers</a
+          >
+        </nav>
+        <div class="ml-auto flex items-center gap-3 text-sm">
+          <span class="text-slate-600">Sofie Peeters</span>
+          <a href="aanmelden.html" class="underline underline-offset-4">Uitloggen</a>
+        </div>
+      </div>
+    </header>
+
+    <main class="max-w-6xl mx-auto px-4 sm:px-6 py-6">
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <h1 class="text-2xl font-semibold tracking-tight">Klanten</h1>
+        <a
+          href="b-klant.html?state=nieuw"
+          class="inline-flex h-10 items-center rounded-md bg-slate-900 px-4 text-sm font-medium text-white hover:bg-slate-800"
+          >+ Nieuwe klant</a
+        >
+      </div>
+
+      <div class="when-leeg">
+        <div
+          class="mt-8 rounded-lg border border-dashed border-slate-300 bg-white px-6 py-14 text-center"
+        >
+          <p class="text-lg font-medium">Er zijn nog geen klanten.</p>
+          <p class="mt-1 text-slate-600">
+            Klanten worden ook automatisch toegevoegd als je een taak voor een nieuwe klant
+            aanmaakt.
+          </p>
+          <a
+            href="b-klant.html?state=nieuw"
+            class="mt-4 inline-flex h-10 items-center rounded-md bg-slate-900 px-4 text-sm font-medium text-white hover:bg-slate-800"
+            >+ Nieuwe klant</a
+          >
+        </div>
+      </div>
+
+      <div class="unless-leeg">
+        <div class="mt-5 max-w-md">
+          <label for="zoek" class="block text-sm font-medium">Zoeken</label>
+          <input
+            id="zoek"
+            type="search"
+            placeholder="Naam, gemeente of telefoon"
+            class="mt-1 block w-full h-10 rounded-md border border-slate-300 px-3 text-sm placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-slate-900"
+          />
+        </div>
+
+        <div class="when-zoek">
+          <p
+            class="mt-6 rounded-lg border border-dashed border-slate-300 bg-white px-6 py-8 text-center"
+          >
+            Geen klant gevonden voor "Janssens".
+            <a href="b-klant.html?state=nieuw" class="underline underline-offset-4"
+              >Nieuwe klant aanmaken</a
+            >
+          </p>
+        </div>
+
+        <div class="unless-zoek mt-4 overflow-x-auto rounded-lg border border-slate-200 bg-white">
+          <table class="min-w-full text-left text-sm">
+            <thead class="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-500">
+              <tr>
+                <th scope="col" class="px-4 py-2 font-medium">Naam</th>
+                <th scope="col" class="px-4 py-2 font-medium">Adres</th>
+                <th scope="col" class="px-4 py-2 font-medium">Telefoon</th>
+                <th scope="col" class="px-4 py-2 font-medium text-right">Taken</th>
+                <th scope="col" class="px-4 py-2 font-medium">Laatste taak</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-200">
+              <tr class="hover:bg-slate-50">
+                <td class="px-4 py-3">
+                  <a href="b-klant.html" class="font-medium underline-offset-4 hover:underline"
+                    >Apotheek Nijs</a
+                  >
+                </td>
+                <td class="px-4 py-3 whitespace-nowrap">Vrijheid 18, 2370 Arendonk</td>
+                <td class="px-4 py-3 whitespace-nowrap">014 67 20 41</td>
+                <td class="px-4 py-3 text-right">3</td>
+                <td class="px-4 py-3 whitespace-nowrap">20/11/2026</td>
+              </tr>
+              <tr class="hover:bg-slate-50">
+                <td class="px-4 py-3">
+                  <a href="b-klant.html" class="font-medium underline-offset-4 hover:underline"
+                    >Bakkerij De Gouden Korst</a
+                  >
+                </td>
+                <td class="px-4 py-3 whitespace-nowrap">Gasthuisstraat 23, 2300 Turnhout</td>
+                <td class="px-4 py-3 whitespace-nowrap">014 41 22 87</td>
+                <td class="px-4 py-3 text-right">5</td>
+                <td class="px-4 py-3 whitespace-nowrap">23/11/2026</td>
+              </tr>
+              <tr class="hover:bg-slate-50">
+                <td class="px-4 py-3">
+                  <a href="b-klant.html" class="font-medium underline-offset-4 hover:underline"
+                    >Bouwbedrijf Geerts</a
+                  >
+                </td>
+                <td class="px-4 py-3 whitespace-nowrap">Industrieweg 12, 2470 Retie</td>
+                <td class="px-4 py-3 whitespace-nowrap">014 37 55 90</td>
+                <td class="px-4 py-3 text-right">1</td>
+                <td class="px-4 py-3 whitespace-nowrap">27/11/2026</td>
+              </tr>
+              <tr class="hover:bg-slate-50">
+                <td class="px-4 py-3">
+                  <a href="b-klant.html" class="font-medium underline-offset-4 hover:underline"
+                    >Brasserie Den Engel</a
+                  >
+                </td>
+                <td class="px-4 py-3 whitespace-nowrap">Markt 3, 2460 Kasterlee</td>
+                <td class="px-4 py-3 whitespace-nowrap">014 85 12 76</td>
+                <td class="px-4 py-3 text-right">4</td>
+                <td class="px-4 py-3 whitespace-nowrap">19/11/2026</td>
+              </tr>
+              <tr class="hover:bg-slate-50">
+                <td class="px-4 py-3">
+                  <a href="b-klant.html" class="font-medium underline-offset-4 hover:underline"
+                    >Fam. De Smedt</a
+                  >
+                </td>
+                <td class="px-4 py-3 whitespace-nowrap">Otterstraat 112, 2300 Turnhout</td>
+                <td class="px-4 py-3 whitespace-nowrap">0485 33 19 08</td>
+                <td class="px-4 py-3 text-right">2</td>
+                <td class="px-4 py-3 whitespace-nowrap">19/11/2026</td>
+              </tr>
+              <tr class="hover:bg-slate-50">
+                <td class="px-4 py-3">
+                  <a href="b-klant.html" class="font-medium underline-offset-4 hover:underline"
+                    >Fam. Hermans</a
+                  >
+                </td>
+                <td class="px-4 py-3 whitespace-nowrap">Kerkstraat 9, 2350 Vosselaar</td>
+                <td class="px-4 py-3 whitespace-nowrap">0472 58 61 14</td>
+                <td class="px-4 py-3 text-right">3</td>
+                <td class="px-4 py-3 whitespace-nowrap">23/11/2026</td>
+              </tr>
+              <tr class="hover:bg-slate-50">
+                <td class="px-4 py-3">
+                  <a href="b-klant.html" class="font-medium underline-offset-4 hover:underline"
+                    >Fam. Van Dyck</a
+                  >
+                </td>
+                <td class="px-4 py-3 whitespace-nowrap">Lierseweg 87, 2200 Herentals</td>
+                <td class="px-4 py-3 whitespace-nowrap">0476 21 43 65</td>
+                <td class="px-4 py-3 text-right">2</td>
+                <td class="px-4 py-3 whitespace-nowrap">23/11/2026</td>
+              </tr>
+              <tr class="hover:bg-slate-50">
+                <td class="px-4 py-3">
+                  <a href="b-klant.html" class="font-medium underline-offset-4 hover:underline"
+                    >Garage Smets</a
+                  >
+                </td>
+                <td class="px-4 py-3 whitespace-nowrap">Lindendreef 2, 2275 Lille</td>
+                <td class="px-4 py-3 whitespace-nowrap">014 88 40 23</td>
+                <td class="px-4 py-3 text-right">6</td>
+                <td class="px-4 py-3 whitespace-nowrap">23/11/2026</td>
+              </tr>
+              <tr class="hover:bg-slate-50">
+                <td class="px-4 py-3">
+                  <a href="b-klant.html" class="font-medium underline-offset-4 hover:underline"
+                    >Notariskantoor Lambrechts</a
+                  >
+                </td>
+                <td class="px-4 py-3 whitespace-nowrap">Statiestraat 41, 2400 Mol</td>
+                <td class="px-4 py-3 whitespace-nowrap">014 31 08 52</td>
+                <td class="px-4 py-3 text-right">2</td>
+                <td class="px-4 py-3 whitespace-nowrap">20/11/2026</td>
+              </tr>
+              <tr class="hover:bg-slate-50">
+                <td class="px-4 py-3">
+                  <a href="b-klant.html" class="font-medium underline-offset-4 hover:underline"
+                    >Restaurant 't Pleintje</a
+                  >
+                </td>
+                <td class="px-4 py-3 whitespace-nowrap">Dorp 15, 2360 Oud-Turnhout</td>
+                <td class="px-4 py-3 whitespace-nowrap">014 45 09 77</td>
+                <td class="px-4 py-3 text-right">1</td>
+                <td class="px-4 py-3 whitespace-nowrap">25/11/2026</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </main>
+    <script>
+      document.body.dataset.state = new URLSearchParams(location.search).get("state") || "";
+    </script>
+  </body>
+</html>
