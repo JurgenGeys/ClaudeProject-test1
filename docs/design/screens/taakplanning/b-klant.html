@@ -1,0 +1,258 @@
+<!doctype html>
+<html lang="nl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Klant · FrisAir Planning (mockup)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      body [class*="when-"] {
+        display: none;
+      }
+      body[data-state~="nieuw"] .when-nieuw,
+      body[data-state~="fout"] .when-fout,
+      body[data-state~="bewaard"] .when-bewaard {
+        display: revert;
+      }
+      body[data-state~="nieuw"] .unless-nieuw {
+        display: none;
+      }
+    </style>
+  </head>
+  <body class="bg-slate-50 text-slate-900 antialiased">
+    <div
+      class="bg-amber-50 border-b border-amber-200 text-amber-900 text-xs px-4 py-2 flex flex-wrap items-center gap-x-3 gap-y-1"
+    >
+      <span class="font-semibold">Mockup</span><span>Backoffice · B6 Klant</span>
+      <a href="index.html" class="underline">Alle schermen</a>
+      <span class="flex flex-wrap gap-x-3"
+        >Variant: <a href="?" class="underline">bewerken</a>
+        <a href="?state=nieuw" class="underline">nieuwe klant</a>
+        <a href="?state=nieuw+fout" class="underline">foutmeldingen</a></span
+      >
+    </div>
+
+    <header class="bg-white border-b border-slate-200">
+      <div class="max-w-6xl mx-auto px-4 sm:px-6 py-2 flex flex-wrap items-center gap-x-6 gap-y-2">
+        <a href="b-taken.html" class="font-semibold">FrisAir Planning</a>
+        <nav class="flex gap-1 text-sm font-medium" aria-label="Hoofdmenu">
+          <a
+            href="b-taken.html"
+            class="rounded-md px-3 py-2 text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+            >Taken</a
+          >
+          <a href="b-klanten.html" aria-current="page" class="rounded-md bg-slate-100 px-3 py-2"
+            >Klanten</a
+          >
+          <a
+            href="b-techniekers.html"
+            class="rounded-md px-3 py-2 text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+            >Techniekers</a
+          >
+        </nav>
+        <div class="ml-auto flex items-center gap-3 text-sm">
+          <span class="text-slate-600">Sofie Peeters</span>
+          <a href="aanmelden.html" class="underline underline-offset-4">Uitloggen</a>
+        </div>
+      </div>
+    </header>
+
+    <main class="max-w-3xl mx-auto px-4 sm:px-6 py-6">
+      <div class="when-bewaard">
+        <div
+          role="status"
+          class="mb-4 rounded-md border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-900"
+        >
+          Klant bewaard.
+        </div>
+      </div>
+      <a href="b-klanten.html" class="text-sm text-slate-700 underline-offset-4 hover:underline"
+        >← Klanten</a
+      >
+      <div class="mt-2 flex flex-wrap items-center justify-between gap-3">
+        <h1 class="text-2xl font-semibold tracking-tight">
+          <span class="unless-nieuw">Bakkerij De Gouden Korst</span
+          ><span class="when-nieuw">Nieuwe klant</span>
+        </h1>
+        <a
+          href="b-taak-nieuw.html"
+          class="unless-nieuw inline-flex h-10 items-center rounded-md border border-slate-300 bg-white px-4 text-sm font-medium hover:bg-slate-50"
+          >+ Nieuwe taak voor deze klant</a
+        >
+      </div>
+      <p class="mt-1 text-sm text-slate-600">
+        Velden met <span class="text-red-700">*</span> zijn verplicht.
+      </p>
+
+      <form
+        class="mt-6 rounded-lg border border-slate-200 bg-white p-5"
+        novalidate
+        onsubmit="
+          location.search = '?state=bewaard';
+          return false;
+        "
+      >
+        <div class="when-fout">
+          <div
+            role="alert"
+            class="mb-4 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900"
+          >
+            De klant is niet bewaard. Verbeter de 2 gemarkeerde velden.
+          </div>
+        </div>
+        <div class="grid gap-4 sm:grid-cols-[1fr_8rem_1fr]">
+          <div class="sm:col-span-3">
+            <label for="naam" class="block text-sm font-medium"
+              >Naam <span class="text-red-700" aria-hidden="true">*</span></label
+            >
+            <input
+              id="naam"
+              value="Bakkerij De Gouden Korst"
+              aria-describedby="naam-fout"
+              class="mt-1 block w-full h-10 rounded-md border border-slate-300 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900"
+            />
+            <p id="naam-fout" class="when-fout mt-1 text-sm font-medium text-red-700">
+              Vul de naam van de klant in.
+            </p>
+          </div>
+          <div class="sm:col-span-3">
+            <label for="straat" class="block text-sm font-medium">Straat en nummer</label>
+            <input
+              id="straat"
+              value="Gasthuisstraat 23"
+              class="mt-1 block w-full h-10 rounded-md border border-slate-300 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900"
+            />
+          </div>
+          <div>
+            <label for="pc" class="block text-sm font-medium">Postcode</label>
+            <input
+              id="pc"
+              value="2300"
+              inputmode="numeric"
+              class="mt-1 block w-full h-10 rounded-md border border-slate-300 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900"
+            />
+          </div>
+          <div class="sm:col-span-2">
+            <label for="gem" class="block text-sm font-medium">Gemeente</label>
+            <input
+              id="gem"
+              value="Turnhout"
+              class="mt-1 block w-full h-10 rounded-md border border-slate-300 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900"
+            />
+          </div>
+          <div>
+            <label for="tel" class="block text-sm font-medium">Telefoon</label>
+            <input
+              id="tel"
+              type="tel"
+              value="014 41 22 87"
+              class="mt-1 block w-full h-10 rounded-md border border-slate-300 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900"
+            />
+          </div>
+          <div class="sm:col-span-2">
+            <label for="mail" class="block text-sm font-medium">E-mail</label>
+            <input
+              id="mail"
+              type="email"
+              value="info@bakkerijgoudenkorst.be"
+              aria-describedby="mail-fout"
+              class="mt-1 block w-full h-10 rounded-md border border-slate-300 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900"
+            />
+            <p id="mail-fout" class="when-fout mt-1 text-sm font-medium text-red-700">
+              Dit e-mailadres is niet geldig. Controleer het of laat het leeg.
+            </p>
+          </div>
+          <div class="sm:col-span-3">
+            <label for="opm" class="block text-sm font-medium">Opmerkingen</label>
+            <textarea
+              id="opm"
+              rows="2"
+              aria-describedby="opm-hulp"
+              class="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900"
+            >
+Ingang via de achterdeur in de Kasteelstraat. Winkel open vanaf 6u30.</textarea>
+            <p id="opm-hulp" class="mt-1 text-xs text-slate-600">
+              De technieker ziet deze opmerking bij elke taak voor deze klant.
+            </p>
+          </div>
+        </div>
+        <p class="unless-nieuw mt-4 text-xs text-slate-600">
+          Een adreswijziging hier past de locatie van bestaande taken niet aan.
+        </p>
+        <div class="mt-5 flex flex-wrap gap-2">
+          <button
+            type="submit"
+            class="h-10 rounded-md bg-slate-900 px-5 text-sm font-medium text-white hover:bg-slate-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
+          >
+            Klant bewaren
+          </button>
+          <a
+            href="b-klanten.html"
+            class="inline-flex h-10 items-center rounded-md border border-slate-300 bg-white px-5 text-sm font-medium hover:bg-slate-50"
+            >Annuleren</a
+          >
+        </div>
+      </form>
+
+      <section class="unless-nieuw mt-8" aria-labelledby="h-taken">
+        <h2 id="h-taken" class="text-lg font-semibold">Taken voor deze klant</h2>
+        <ul class="mt-3 divide-y divide-slate-200 rounded-lg border border-slate-200 bg-white">
+          <li>
+            <a
+              href="b-taak-opgepikt.html"
+              class="flex flex-wrap items-center justify-between gap-2 px-4 py-3 hover:bg-slate-50"
+              ><span
+                ><span class="font-medium">ma 23/11/2026</span>
+                <span class="text-sm text-slate-600"
+                  >· Kevin Wouters · Jaarlijks onderhoud 2 split-units</span
+                ></span
+              ><span
+                class="rounded-full bg-amber-100 text-amber-900 px-2.5 py-0.5 text-xs font-medium"
+                >Opgepikt</span
+              ></a
+            >
+          </li>
+          <li>
+            <a
+              href="b-taak-gefactureerd.html"
+              class="flex flex-wrap items-center justify-between gap-2 px-4 py-3 hover:bg-slate-50"
+              ><span
+                ><span class="font-medium">ma 16/11/2026</span>
+                <span class="text-sm text-slate-600"
+                  >· Kevin Wouters · Nazicht druppelende unit atelier</span
+                ></span
+              ><span
+                class="rounded-full bg-violet-100 text-violet-800 px-2.5 py-0.5 text-xs font-medium"
+                >Gefactureerd</span
+              ></a
+            >
+          </li>
+          <li>
+            <a
+              href="b-taak-gefactureerd.html"
+              class="flex flex-wrap items-center justify-between gap-2 px-4 py-3 hover:bg-slate-50"
+              ><span
+                ><span class="font-medium">di 03/06/2026</span>
+                <span class="text-sm text-slate-600"
+                  >· Bram Claes · Nazicht voor de zomer</span
+                ></span
+              ><span
+                class="rounded-full bg-violet-100 text-violet-800 px-2.5 py-0.5 text-xs font-medium"
+                >Gefactureerd</span
+              ></a
+            >
+          </li>
+        </ul>
+      </section>
+    </main>
+    <script>
+      const s = new URLSearchParams(location.search).get("state") || "";
+      document.body.dataset.state = s;
+      if (s.includes("nieuw"))
+        document
+          .querySelectorAll("input:not([type=search]), textarea")
+          .forEach((el) => (el.value = ""));
+      if (s.includes("fout")) document.getElementById("mail").value = "info@goudenkorst";
+    </script>
+  </body>
+</html>

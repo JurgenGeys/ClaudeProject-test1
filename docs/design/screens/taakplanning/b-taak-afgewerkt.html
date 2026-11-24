@@ -1,0 +1,306 @@
+<!doctype html>
+<html lang="nl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Taak: Notariskantoor Lambrechts · FrisAir Planning (mockup)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      body [class*="when-"] {
+        display: none;
+      }
+      body[data-state~="gecorrigeerd"] .when-gecorrigeerd {
+        display: revert;
+      }
+      body[data-state~="gecorrigeerd"] .unless-gecorrigeerd {
+        display: none;
+      }
+      [hidden] {
+        display: none !important;
+      }
+      dialog::backdrop {
+        background: rgb(15 23 42 / 0.5);
+      }
+    </style>
+  </head>
+  <body class="bg-slate-50 text-slate-900 antialiased">
+    <div
+      class="bg-amber-50 border-b border-amber-200 text-amber-900 text-xs px-4 py-2 flex flex-wrap items-center gap-x-3 gap-y-1"
+    >
+      <span class="font-semibold">Mockup</span><span>Backoffice · B3 Taak, Afgewerkt</span>
+      <a href="index.html" class="underline">Alle schermen</a>
+      <span class="flex gap-x-3"
+        >Variant: <a href="?" class="underline">zoals afgemeld</a>
+        <a href="?state=gecorrigeerd" class="underline">na correctie van de uren</a></span
+      >
+      <span class="text-amber-800">Tip: bewaar de correctie zonder reden voor de foutmelding.</span>
+    </div>
+
+    <header class="bg-white border-b border-slate-200">
+      <div class="max-w-6xl mx-auto px-4 sm:px-6 py-2 flex flex-wrap items-center gap-x-6 gap-y-2">
+        <a href="b-taken.html" class="font-semibold">FrisAir Planning</a>
+        <nav class="flex gap-1 text-sm font-medium" aria-label="Hoofdmenu">
+          <a href="b-taken.html" aria-current="page" class="rounded-md bg-slate-100 px-3 py-2"
+            >Taken</a
+          >
+          <a
+            href="b-klanten.html"
+            class="rounded-md px-3 py-2 text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+            >Klanten</a
+          >
+          <a
+            href="b-techniekers.html"
+            class="rounded-md px-3 py-2 text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+            >Techniekers</a
+          >
+        </nav>
+        <div class="ml-auto flex items-center gap-3 text-sm">
+          <span class="text-slate-600">Sofie Peeters</span>
+          <a href="aanmelden.html" class="underline underline-offset-4">Uitloggen</a>
+        </div>
+      </div>
+    </header>
+
+    <main class="max-w-6xl mx-auto px-4 sm:px-6 py-6">
+      <div class="when-gecorrigeerd">
+        <div
+          role="status"
+          class="mb-4 rounded-md border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-900"
+        >
+          Uren gecorrigeerd.
+        </div>
+      </div>
+      <a
+        href="b-taken-afgewerkt.html"
+        class="text-sm text-slate-700 underline-offset-4 hover:underline"
+        >← Taken</a
+      >
+
+      <div class="mt-2 flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <span class="rounded-full bg-green-100 text-green-800 px-2.5 py-0.5 text-xs font-medium"
+            >Afgewerkt</span
+          >
+          <h1 class="mt-2 text-2xl font-semibold tracking-tight">Notariskantoor Lambrechts</h1>
+          <p class="mt-1 text-slate-700">vr 20/11/2026 om 15:30 · Jens Maes</p>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onclick="openCorr()"
+            class="h-10 rounded-md border border-slate-300 bg-white px-4 text-sm font-medium hover:bg-slate-50"
+          >
+            Uren corrigeren
+          </button>
+          <button
+            type="button"
+            onclick="document.getElementById('dlg-fact').showModal()"
+            class="h-10 rounded-md bg-slate-900 px-4 text-sm font-medium text-white hover:bg-slate-800"
+          >
+            Markeer als gefactureerd
+          </button>
+        </div>
+      </div>
+
+      <div class="mt-6 grid gap-6 lg:grid-cols-[1fr_20rem]">
+        <div class="space-y-4">
+          <section class="rounded-lg border border-green-200 bg-white p-5" aria-labelledby="h-afm">
+            <h2 id="h-afm" class="text-sm font-semibold text-slate-500">Afmelding</h2>
+            <div class="mt-2 flex flex-wrap items-baseline gap-x-3">
+              <p class="text-3xl font-semibold">
+                <span class="unless-gecorrigeerd">2u00</span
+                ><span class="when-gecorrigeerd">1u30</span>
+              </p>
+              <p class="text-sm text-slate-600">gewerkte uren, zonder verplaatsing</p>
+            </div>
+            <div class="when-gecorrigeerd">
+              <div class="mt-3 rounded-md border border-slate-200 bg-slate-50 p-3 text-sm">
+                <p>
+                  <span class="font-medium">Gecorrigeerd</span> door Sofie Peeters op ma 23/11 om
+                  10:05.
+                </p>
+                <p>Oorspronkelijk door Jens Maes ingevuld: <strong>2u00</strong>.</p>
+                <p class="mt-1">
+                  Reden: wachttijd voor de sleutel (30 min) niet aanrekenen, afgesproken met de
+                  klant.
+                </p>
+              </div>
+            </div>
+            <h3 class="mt-4 text-sm font-semibold text-slate-500">Notities van de technieker</h3>
+            <p class="mt-1">
+              4 units gereinigd en filters vervangen. Unit in de wachtzaal heeft een licht rammelend
+              ventilatorblad; best vervangen bij volgend bezoek. 30 min gewacht op de sleutel van
+              het archief.
+            </p>
+            <p class="mt-3 text-sm text-slate-600">Afgemeld door Jens Maes op vr 20/11 om 17:31.</p>
+          </section>
+
+          <section
+            class="rounded-lg border border-slate-200 bg-white p-5"
+            aria-labelledby="h-instr"
+          >
+            <h2 id="h-instr" class="text-sm font-semibold text-slate-500">Instructies</h2>
+            <p class="mt-2 leading-relaxed">
+              Onderhoud 4 units kantoren en wachtzaal.<br />Sleutel archief vragen aan het onthaal.
+            </p>
+          </section>
+          <div class="grid gap-4 sm:grid-cols-2">
+            <section
+              class="rounded-lg border border-slate-200 bg-white p-5"
+              aria-labelledby="h-loc"
+            >
+              <h2 id="h-loc" class="text-sm font-semibold text-slate-500">Locatie</h2>
+              <p class="mt-2">Statiestraat 41<br />2400 Mol</p>
+            </section>
+            <section
+              class="rounded-lg border border-slate-200 bg-white p-5"
+              aria-labelledby="h-klant"
+            >
+              <h2 id="h-klant" class="text-sm font-semibold text-slate-500">Klant</h2>
+              <p class="mt-2">
+                <a href="b-klant.html" class="font-medium underline underline-offset-4"
+                  >Notariskantoor Lambrechts</a
+                >
+              </p>
+              <p class="text-sm text-slate-700">014 31 08 52</p>
+            </section>
+          </div>
+        </div>
+
+        <aside class="space-y-4">
+          <section class="rounded-lg border border-slate-200 bg-white p-5" aria-labelledby="h-tijd">
+            <h2 id="h-tijd" class="text-sm font-semibold text-slate-500">Tijdlijn</h2>
+            <ol class="mt-3 space-y-3 border-l border-slate-200 pl-4 text-sm">
+              <li>
+                <p class="font-medium">Aangemaakt</p>
+                <p class="text-slate-600">di 10/11 om 11:02 door Sofie Peeters</p>
+              </li>
+              <li><p class="font-medium">Toegewezen aan Jens Maes</p></li>
+              <li>
+                <p class="font-medium">Opgepikt</p>
+                <p class="text-slate-600">vr 20/11 om 15:12</p>
+              </li>
+              <li>
+                <p class="font-medium text-green-800">Afgemeld</p>
+                <p class="text-slate-600">vr 20/11 om 17:31 · 2u00</p>
+              </li>
+              <li class="when-gecorrigeerd">
+                <p class="font-medium">Uren gecorrigeerd naar 1u30</p>
+                <p class="text-slate-600">ma 23/11 om 10:05 door Sofie Peeters</p>
+              </li>
+              <li class="text-slate-500"><p>Nog niet gefactureerd</p></li>
+            </ol>
+          </section>
+        </aside>
+      </div>
+    </main>
+
+    <dialog
+      id="dlg-corr"
+      aria-labelledby="corr-t"
+      class="w-[calc(100%-2rem)] max-w-md rounded-lg border border-slate-200 p-0 shadow-xl"
+    >
+      <form id="corr-form" class="p-6" novalidate>
+        <h2 id="corr-t" class="text-lg font-semibold">Uren corrigeren</h2>
+        <p class="mt-2 text-sm text-slate-700">
+          Ingevuld door Jens Maes: <strong>2u00</strong>. De oorspronkelijke uren blijven zichtbaar.
+        </p>
+        <div class="mt-4 space-y-4">
+          <div>
+            <label for="c-uren" class="block text-sm font-medium"
+              >Nieuwe uren <span class="text-red-700" aria-hidden="true">*</span></label
+            >
+            <select
+              id="c-uren"
+              class="mt-1 block w-40 h-10 rounded-md border border-slate-300 bg-white px-3 text-sm"
+            ></select>
+            <p class="mt-1 text-xs text-slate-600">Per kwartier, zonder verplaatsing.</p>
+          </div>
+          <div>
+            <label for="c-reden" class="block text-sm font-medium"
+              >Reden <span class="text-red-700" aria-hidden="true">*</span></label
+            >
+            <textarea
+              id="c-reden"
+              rows="3"
+              aria-describedby="c-reden-fout"
+              placeholder="Bv. pauze niet afgetrokken"
+              class="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-slate-900"
+            ></textarea>
+            <p id="c-reden-fout" hidden class="mt-1 text-sm font-medium text-red-700">
+              Geef een reden voor de correctie, bv. "pauze niet afgetrokken".
+            </p>
+          </div>
+        </div>
+        <div class="mt-6 flex justify-end gap-2">
+          <button
+            type="button"
+            onclick="document.getElementById('dlg-corr').close()"
+            class="h-10 rounded-md border border-slate-300 bg-white px-4 text-sm font-medium hover:bg-slate-50"
+          >
+            Annuleren
+          </button>
+          <button
+            type="submit"
+            class="h-10 rounded-md bg-slate-900 px-4 text-sm font-medium text-white hover:bg-slate-800"
+          >
+            Correctie bewaren
+          </button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog
+      id="dlg-fact"
+      aria-labelledby="fact-t"
+      class="w-[calc(100%-2rem)] max-w-md rounded-lg border border-slate-200 p-0 shadow-xl"
+    >
+      <form method="dialog" class="p-6">
+        <h2 id="fact-t" class="text-lg font-semibold">Markeren als gefactureerd?</h2>
+        <p class="mt-2 text-sm text-slate-700">
+          De uren van deze taak kunnen daarna niet meer gewijzigd worden.
+        </p>
+        <div class="mt-6 flex justify-end gap-2">
+          <button
+            value="cancel"
+            class="h-10 rounded-md border border-slate-300 bg-white px-4 text-sm font-medium hover:bg-slate-50"
+          >
+            Annuleren
+          </button>
+          <a
+            href="b-taak-gefactureerd.html"
+            class="inline-flex h-10 items-center rounded-md bg-slate-900 px-4 text-sm font-medium text-white hover:bg-slate-800"
+            >Markeer als gefactureerd</a
+          >
+        </div>
+      </form>
+    </dialog>
+
+    <script>
+      document.body.dataset.state = new URLSearchParams(location.search).get("state") || "";
+      const sel = document.getElementById("c-uren");
+      for (let m = 15; m <= 960; m += 15) {
+        const o = document.createElement("option");
+        o.value = m;
+        o.textContent = Math.floor(m / 60) + "u" + String(m % 60).padStart(2, "0");
+        if (m === 120) o.selected = true;
+        sel.appendChild(o);
+      }
+      function openCorr() {
+        document.getElementById("c-reden-fout").hidden = true;
+        document.getElementById("dlg-corr").showModal();
+      }
+      document.getElementById("corr-form").onsubmit = (e) => {
+        e.preventDefault();
+        const reden = document.getElementById("c-reden");
+        if (!reden.value.trim()) {
+          document.getElementById("c-reden-fout").hidden = false;
+          reden.setAttribute("aria-invalid", "true");
+          reden.focus();
+          return;
+        }
+        location.search = "?state=gecorrigeerd";
+      };
+    </script>
+  </body>
+</html>

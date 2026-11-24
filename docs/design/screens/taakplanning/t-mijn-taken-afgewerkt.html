@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="nl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Mijn taken: afgewerkt · FrisAir Planning (mockup)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      body [class*="when-"] {
+        display: none;
+      }
+      body[data-state~="leeg"] .when-leeg {
+        display: revert;
+      }
+      body[data-state~="leeg"] .unless-leeg {
+        display: none;
+      }
+    </style>
+  </head>
+  <body class="bg-slate-50 text-slate-900 antialiased">
+    <div
+      class="bg-amber-50 border-b border-amber-200 text-amber-900 text-xs px-4 py-2 flex flex-wrap items-center gap-x-3 gap-y-1"
+    >
+      <span class="font-semibold">Mockup</span
+      ><span>Technieker · T1 Mijn taken, tab Afgewerkt</span>
+      <a href="index.html" class="underline">Alle schermen</a>
+      <span class="flex gap-x-3"
+        >Variant: <a href="?" class="underline">met gegevens</a>
+        <a href="?state=leeg" class="underline">lege toestand</a></span
+      >
+    </div>
+
+    <header class="bg-white border-b border-slate-200">
+      <div class="max-w-md mx-auto px-4 h-14 flex items-center justify-between">
+        <a href="t-mijn-taken.html" class="font-semibold">FrisAir Planning</a>
+        <div class="flex items-center gap-3 text-sm">
+          <span class="text-slate-600">Kevin Wouters</span>
+          <a href="aanmelden.html" class="text-slate-900 underline underline-offset-4">Uitloggen</a>
+        </div>
+      </div>
+    </header>
+
+    <main class="max-w-md mx-auto px-4 pb-10">
+      <h1 class="mt-5 text-2xl font-semibold tracking-tight">Mijn taken</h1>
+
+      <nav
+        class="mt-4 grid grid-cols-2 rounded-md bg-slate-100 p-1 text-sm font-medium"
+        aria-label="Tabs"
+      >
+        <a
+          href="t-mijn-taken.html"
+          class="rounded py-2 text-center text-slate-600 hover:text-slate-900"
+          >Te doen</a
+        >
+        <a
+          href="t-mijn-taken-afgewerkt.html"
+          aria-current="page"
+          class="rounded bg-white shadow-sm py-2 text-center"
+          >Afgewerkt</a
+        >
+      </nav>
+
+      <p class="mt-4 text-sm text-slate-600">Je afgemelde taken van de laatste 30 dagen.</p>
+
+      <div class="when-leeg">
+        <div
+          class="mt-6 rounded-lg border border-dashed border-slate-300 bg-white px-6 py-10 text-center"
+        >
+          <p class="font-medium">Je hebt de laatste 30 dagen nog geen taken afgemeld.</p>
+        </div>
+      </div>
+
+      <ul
+        class="unless-leeg mt-3 divide-y divide-slate-200 rounded-lg border border-slate-200 bg-white"
+      >
+        <li>
+          <a
+            href="t-taak-afgewerkt.html"
+            class="flex items-center justify-between gap-3 p-4 hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-900"
+          >
+            <span>
+              <span class="block font-medium">Fam. De Smedt</span>
+              <span class="block text-sm text-slate-600">do 19/11 · Turnhout</span>
+            </span>
+            <span class="text-right">
+              <span class="block font-semibold">1u00</span>
+              <span class="block text-xs text-green-800">Afgewerkt</span>
+            </span>
+          </a>
+        </li>
+        <li>
+          <a
+            href="t-taak-afgewerkt.html"
+            class="flex items-center justify-between gap-3 p-4 hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-900"
+          >
+            <span>
+              <span class="block font-medium">Bakkerij De Gouden Korst</span>
+              <span class="block text-sm text-slate-600">ma 16/11 · Turnhout</span>
+            </span>
+            <span class="text-right">
+              <span class="block font-semibold">0u45</span>
+              <span class="block text-xs text-green-800">Afgewerkt</span>
+            </span>
+          </a>
+        </li>
+        <li>
+          <a
+            href="t-taak-afgewerkt.html"
+            class="flex items-center justify-between gap-3 p-4 hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-900"
+          >
+            <span>
+              <span class="block font-medium">Garage Smets</span>
+              <span class="block text-sm text-slate-600">vr 13/11 · Lille</span>
+            </span>
+            <span class="text-right">
+              <span class="block font-semibold">2u30</span>
+              <span class="block text-xs text-green-800">Afgewerkt</span>
+            </span>
+          </a>
+        </li>
+        <li>
+          <a
+            href="t-taak-afgewerkt.html"
+            class="flex items-center justify-between gap-3 p-4 hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-900"
+          >
+            <span>
+              <span class="block font-medium">Kapsalon Lien</span>
+              <span class="block text-sm text-slate-600">do 12/11 · Ravels</span>
+            </span>
+            <span class="text-right">
+              <span class="block font-semibold">1u15</span>
+              <span class="block text-xs text-green-800">Afgewerkt</span>
+            </span>
+          </a>
+        </li>
+      </ul>
+    </main>
+    <script>
+      document.body.dataset.state = new URLSearchParams(location.search).get("state") || "";
+    </script>
+  </body>
+</html>

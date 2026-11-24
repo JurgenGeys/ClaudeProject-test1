@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="nl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Taak gefactureerd: Notariskantoor Lambrechts · FrisAir Planning (mockup)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      dialog::backdrop {
+        background: rgb(15 23 42 / 0.5);
+      }
+    </style>
+  </head>
+  <body class="bg-slate-50 text-slate-900 antialiased">
+    <div
+      class="bg-amber-50 border-b border-amber-200 text-amber-900 text-xs px-4 py-2 flex flex-wrap items-center gap-x-3 gap-y-1"
+    >
+      <span class="font-semibold">Mockup</span><span>Backoffice · B3 Taak, Gefactureerd</span>
+      <a href="index.html" class="underline">Alle schermen</a>
+    </div>
+
+    <header class="bg-white border-b border-slate-200">
+      <div class="max-w-6xl mx-auto px-4 sm:px-6 py-2 flex flex-wrap items-center gap-x-6 gap-y-2">
+        <a href="b-taken.html" class="font-semibold">FrisAir Planning</a>
+        <nav class="flex gap-1 text-sm font-medium" aria-label="Hoofdmenu">
+          <a href="b-taken.html" aria-current="page" class="rounded-md bg-slate-100 px-3 py-2"
+            >Taken</a
+          >
+          <a
+            href="b-klanten.html"
+            class="rounded-md px-3 py-2 text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+            >Klanten</a
+          >
+          <a
+            href="b-techniekers.html"
+            class="rounded-md px-3 py-2 text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+            >Techniekers</a
+          >
+        </nav>
+        <div class="ml-auto flex items-center gap-3 text-sm">
+          <span class="text-slate-600">Sofie Peeters</span>
+          <a href="aanmelden.html" class="underline underline-offset-4">Uitloggen</a>
+        </div>
+      </div>
+    </header>
+
+    <main class="max-w-6xl mx-auto px-4 sm:px-6 py-6">
+      <div
+        role="status"
+        class="mb-4 rounded-md border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-900"
+      >
+        Taak gemarkeerd als gefactureerd.
+      </div>
+      <a href="b-taken.html" class="text-sm text-slate-700 underline-offset-4 hover:underline"
+        >← Taken</a
+      >
+
+      <div class="mt-2 flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <span class="rounded-full bg-violet-100 text-violet-800 px-2.5 py-0.5 text-xs font-medium"
+            >Gefactureerd</span
+          >
+          <h1 class="mt-2 text-2xl font-semibold tracking-tight">Notariskantoor Lambrechts</h1>
+          <p class="mt-1 text-slate-700">vr 20/11/2026 om 15:30 · Jens Maes</p>
+        </div>
+        <button
+          type="button"
+          onclick="document.getElementById('dlg').showModal()"
+          class="h-10 rounded-md border border-slate-300 bg-white px-4 text-sm font-medium hover:bg-slate-50"
+        >
+          Markering ongedaan maken
+        </button>
+      </div>
+
+      <div class="mt-6 grid gap-6 lg:grid-cols-[1fr_20rem]">
+        <div class="space-y-4">
+          <section class="rounded-lg border border-violet-200 bg-white p-5" aria-labelledby="h-afm">
+            <h2 id="h-afm" class="text-sm font-semibold text-slate-500">Afmelding</h2>
+            <div class="mt-2 flex flex-wrap items-baseline gap-x-3">
+              <p class="text-3xl font-semibold">1u30</p>
+              <p class="text-sm text-slate-600">gefactureerde uren · vergrendeld</p>
+            </div>
+            <div class="mt-3 rounded-md border border-slate-200 bg-slate-50 p-3 text-sm">
+              <p>
+                <span class="font-medium">Gecorrigeerd</span> door Sofie Peeters op ma 23/11 om
+                10:05.
+              </p>
+              <p>Oorspronkelijk door Jens Maes ingevuld: <strong>2u00</strong>.</p>
+              <p class="mt-1">
+                Reden: wachttijd voor de sleutel (30 min) niet aanrekenen, afgesproken met de klant.
+              </p>
+            </div>
+            <h3 class="mt-4 text-sm font-semibold text-slate-500">Notities van de technieker</h3>
+            <p class="mt-1">
+              4 units gereinigd en filters vervangen. Unit in de wachtzaal heeft een licht rammelend
+              ventilatorblad; best vervangen bij volgend bezoek. 30 min gewacht op de sleutel van
+              het archief.
+            </p>
+            <p class="mt-3 text-sm text-slate-600">
+              De uren van een gefactureerde taak kunnen niet gewijzigd worden. Maak eerst de
+              markering ongedaan als dat toch nodig is.
+            </p>
+          </section>
+          <div class="grid gap-4 sm:grid-cols-2">
+            <section
+              class="rounded-lg border border-slate-200 bg-white p-5"
+              aria-labelledby="h-loc"
+            >
+              <h2 id="h-loc" class="text-sm font-semibold text-slate-500">Locatie</h2>
+              <p class="mt-2">Statiestraat 41<br />2400 Mol</p>
+            </section>
+            <section
+              class="rounded-lg border border-slate-200 bg-white p-5"
+              aria-labelledby="h-klant"
+            >
+              <h2 id="h-klant" class="text-sm font-semibold text-slate-500">Klant</h2>
+              <p class="mt-2">
+                <a href="b-klant.html" class="font-medium underline underline-offset-4"
+                  >Notariskantoor Lambrechts</a
+                >
+              </p>
+              <p class="text-sm text-slate-700">014 31 08 52</p>
+            </section>
+          </div>
+        </div>
+
+        <aside>
+          <section class="rounded-lg border border-slate-200 bg-white p-5" aria-labelledby="h-tijd">
+            <h2 id="h-tijd" class="text-sm font-semibold text-slate-500">Tijdlijn</h2>
+            <ol class="mt-3 space-y-3 border-l border-slate-200 pl-4 text-sm">
+              <li>
+                <p class="font-medium">Aangemaakt</p>
+                <p class="text-slate-600">di 10/11 om 11:02 door Sofie Peeters</p>
+              </li>
+              <li><p class="font-medium">Toegewezen aan Jens Maes</p></li>
+              <li>
+                <p class="font-medium">Opgepikt</p>
+                <p class="text-slate-600">vr 20/11 om 15:12</p>
+              </li>
+              <li>
+                <p class="font-medium">Afgemeld</p>
+                <p class="text-slate-600">vr 20/11 om 17:31 · 2u00</p>
+              </li>
+              <li>
+                <p class="font-medium">Uren gecorrigeerd naar 1u30</p>
+                <p class="text-slate-600">ma 23/11 om 10:05 door Sofie Peeters</p>
+              </li>
+              <li>
+                <p class="font-medium text-violet-800">Gefactureerd</p>
+                <p class="text-slate-600">ma 23/11 om 10:20 door Sofie Peeters</p>
+              </li>
+            </ol>
+          </section>
+        </aside>
+      </div>
+    </main>
+
+    <dialog
+      id="dlg"
+      aria-labelledby="dlg-t"
+      class="w-[calc(100%-2rem)] max-w-md rounded-lg border border-slate-200 p-0 shadow-xl"
+    >
+      <form method="dialog" class="p-6">
+        <h2 id="dlg-t" class="text-lg font-semibold">Markering ongedaan maken?</h2>
+        <p class="mt-2 text-sm text-slate-700">
+          De taak staat dan terug op Afgewerkt en de uren kunnen weer gewijzigd worden.
+        </p>
+        <div class="mt-6 flex justify-end gap-2">
+          <button
+            value="cancel"
+            class="h-10 rounded-md border border-slate-300 bg-white px-4 text-sm font-medium hover:bg-slate-50"
+          >
+            Annuleren
+          </button>
+          <a
+            href="b-taak-afgewerkt.html?state=gecorrigeerd"
+            class="inline-flex h-10 items-center rounded-md bg-slate-900 px-4 text-sm font-medium text-white hover:bg-slate-800"
+            >Ongedaan maken</a
+          >
+        </div>
+      </form>
+    </dialog>
+  </body>
+</html>
