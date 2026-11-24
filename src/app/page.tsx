@@ -1,10 +1,14 @@
+import { Suspense } from "react";
+
+import { GateFallback } from "@/components/auth/gate-fallback";
+
+import { RoleRedirect } from "./role-redirect";
+
+/** `/` has no content of its own: it reads the session (request data) and redirects. */
 export default function Home() {
   return (
-    <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col justify-center gap-4 px-4 py-16">
-      <h1 className="text-3xl font-semibold tracking-tight">Elmija – testproject</h1>
-      <p className="text-muted-foreground text-lg">
-        De basis staat klaar. Hier komt straks de eerste toepassing.
-      </p>
-    </main>
+    <Suspense fallback={<GateFallback />}>
+      <RoleRedirect />
+    </Suspense>
   );
 }

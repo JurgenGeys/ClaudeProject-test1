@@ -14,14 +14,14 @@ pnpm dev          # applicatie starten op http://localhost:3000
 
 ## Controles
 
-| Commando         | Wat het doet                                                                          |
-| ---------------- | ------------------------------------------------------------------------------------- |
-| `pnpm lint`      | ESLint en Prettier (formatting)                                                       |
-| `pnpm format`    | Formatting automatisch rechtzetten                                                    |
-| `pnpm typecheck` | TypeScript-controle                                                                   |
-| `pnpm test`      | Unit- en componenttests (Vitest)                                                      |
-| `pnpm test:db`   | Databasetests (Vitest) tegen de lokale Supabase; zie [Database](#database)            |
-| `pnpm test:e2e`  | End-to-end-tests (Playwright); eenmalig eerst `pnpm exec playwright install chromium` |
+| Commando         | Wat het doet                                                                                      |
+| ---------------- | ------------------------------------------------------------------------------------------------- |
+| `pnpm lint`      | ESLint en Prettier (formatting)                                                                   |
+| `pnpm format`    | Formatting automatisch rechtzetten                                                                |
+| `pnpm typecheck` | TypeScript-controle                                                                               |
+| `pnpm test`      | Unit- en componenttests (Vitest)                                                                  |
+| `pnpm test:db`   | Databasetests (Vitest) tegen de lokale Supabase; zie [Database](#database)                        |
+| `pnpm test:e2e`  | End-to-end-tests (Playwright) tegen de lokale Supabase; zie [End-to-end tests](#end-to-end-tests) |
 
 Dezelfde controles draaien automatisch bij elke pull request (`.github/workflows/`).
 
@@ -76,10 +76,52 @@ Een gebruiker met een profiel kan niet via het Supabase-dashboard verwijderd wor
 `profiles.id`). Dat is bedoeld: zo blijven gewerkte uren traceerbaar. Gebruikers worden in de toepassing
 uitgeschakeld, nooit verwijderd.
 
+### Aanmelden in de toepassing
+
+Aanmelden (`/login`) gaat met e-mail en wachtwoord via Supabase Auth. Na het aanmelden gaat een technieker
+naar `/my-tasks` en een backoffice-gebruiker naar `/tasks`; `/` stuurt iedereen naar de juiste startpagina
+(of naar `/login` zonder sessie). Lokaal aanmelden, met de lokale Supabase of met een eigen Supabase-project:
+
+```bash
+supabase start                                   # enkel voor de lokale Supabase; zie `.env.example` voor de waarden
+pnpm db:migrate
+SEED_BACKOFFICE_PASSWORD="kies-een-wachtwoord-van-12+" pnpm seed:backoffice "Voornaam Achternaam" naam@bedrijf.be
+pnpm dev                                         # open http://localhost:3000 en meld aan met dat adres
+```
+
+Met een eigen Supabase-project vul je de URL, de sleutels en `DATABASE_URL` van dat project in `.env.local` in
+(zie de tabel hierboven) en voer je dezelfde `db:migrate`- en `seed:backoffice`-stappen uit. Een technieker
+kan je pas aanmaken zodra het uitnodigen is gebouwd (BT-06). Een uitgeschakelde gebruiker kan niet aanmelden;
+is hij al aangemeld, dan wordt hij bij het volgende verzoek afgemeld en naar `/login` gestuurd.
+
+### End-to-end tests
+
+`pnpm test:e2e` bouwt de toepassing, start ze en draait Playwright (desktop en gsm). De tests melden echt aan,
+dus ze hebben een draaiende Supabase nodig (Docker en de Supabase CLI), met gemigreerde database:
+
+```bash
+supabase start
+pnpm db:migrate
+supabase status -o env       # zet NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
+                             # SUPABASE_SECRET_KEY en DATABASE_URL in .env.local (zie .env.example)
+pnpm exec playwright install chromium   # eenmalig
+pnpm test:e2e
+```
+
+Een Playwright global setup (`e2e/global-setup.ts`) maakt vóór de tests de testgebruikers aan (backoffice,
+technieker, een uitgeschakelde en een geblokkeerde technieker): in Supabase Auth via de admin-API en hun profiel
+via Drizzle. Het testwachtwoord staat in `e2e/support/test-users.ts` (of in `E2E_TEST_PASSWORD`); het is enkel een
+testwaarde voor de lokale Supabase, geen geheim. Gebruik de tests nooit tegen een echt Supabase-project: ze maken
+gebruikers aan.
+
+In CI doet de job `End-to-end tests` hetzelfde op de runner: Supabase CLI via de officiële action, `supabase start`,
+`pnpm db:migrate`, de lokale URL en sleutels uit `supabase status -o env` als omgeving voor build en tests, en
+daarna `pnpm test:e2e`. Die sleutels bestaan enkel op de runner.
+
 `pnpm test` draait zonder database; databasetests (`*.db.test.ts`) lopen enkel via `pnpm test:db`.
 
 ## CI
 
 Elke pull request draait drie jobs: `Lint, typecheck, unit tests, audit`, `End-to-end tests` en
-`Database tests`. De laatste start een lokale Supabase op de runner, past de Drizzle-migraties toe en draait
-`pnpm test:db`. Acties staan vastgezet op een commit-SHA (vereiste van de Semgrep-scan).
+`Database tests`. De laatste twee starten een lokale Supabase op de runner en passen de Drizzle-migraties toe;
+`Database tests` draait daarna `pnpm test:db`, `End-to-end tests` draait `pnpm test:e2e`. Acties staan vastgezet op een commit-SHA (vereiste van de Semgrep-scan).

@@ -38,7 +38,10 @@ jobs:
   e2e:
     name: End-to-end tests
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
+    env:
+      # Test credentials of the local Supabase that only exists on this runner (K4).
+      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
@@ -47,6 +50,34 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - uses: supabase/setup-cli@689adcfb80d947100a1eab127289b97d1fb07b13 # v3.2.0
+        with:
+          version: 3.4.0
+      - name: Start local Supabase
+        run: supabase start
+      - name: Run Drizzle migrations
+        run: pnpm db:migrate
+      - name: Point the app and the tests at the local Supabase
+        # `supabase status -o env` prints the URL and the keys of the local instance. They are
+        # throwaway test values that exist only on this runner, not real secrets. Newer CLI
+        # versions print PUBLISHABLE_KEY and SECRET_KEY, older ones ANON_KEY and SERVICE_ROLE_KEY.
+        # The values go to the environment of the next steps (build, app and tests).
+        run: |
+          set -euo pipefail
+          supabase status -o env > "$RUNNER_TEMP/supabase-status.env"
+          set -a
+          source "$RUNNER_TEMP/supabase-status.env"
+          set +a
+          publishable_key="${PUBLISHABLE_KEY:-${ANON_KEY:-}}"
+          secret_key="${SECRET_KEY:-${SERVICE_ROLE_KEY:-}}"
+          : "${API_URL:?supabase status did not print API_URL}"
+          : "${publishable_key:?supabase status printed no publishable or anon key}"
+          : "${secret_key:?supabase status printed no secret or service role key}"
+          {
+            echo "NEXT_PUBLIC_SUPABASE_URL=$API_URL"
+            echo "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=$publishable_key"
+            echo "SUPABASE_SECRET_KEY=$secret_key"
+          } >> "$GITHUB_ENV"
       - name: Install Playwright browser
         run: pnpm exec playwright install --with-deps chromium
       - name: End-to-end tests
@@ -58,6 +89,9 @@ jobs:
           name: playwright-report
           path: playwright-report/
           retention-days: 7
+      - name: Stop local Supabase
+        if: always()
+        run: supabase stop --no-backup
 
   database:
     name: Database tests

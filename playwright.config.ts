@@ -1,10 +1,19 @@
+import { existsSync } from "node:fs";
+
 import { defineConfig, devices } from "@playwright/test";
+
+// Same as drizzle.config.ts: existing environment variables win over .env.local.
+if (existsSync(".env.local")) {
+  process.loadEnvFile(".env.local");
+}
 
 const port = 3000;
 const baseURL = `http://localhost:${port}`;
 
 export default defineConfig({
   testDir: "./e2e",
+  // Creates the test users in the local Supabase (needs the variables of .env.example).
+  globalSetup: "./e2e/global-setup.ts",
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,

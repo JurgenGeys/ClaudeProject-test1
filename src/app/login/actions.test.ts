@@ -1,0 +1,169 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+// Neither module may load for real in a unit test: `server-only` throws outside a server
+// bundle and the database client needs DATABASE_URL.
+vi.mock("server-only", () => ({}));
+
+const signInWithPassword = vi.fn();
+const signOut = vi.fn();
+const findProfile = vi.fn();
+
+vi.mock("@/lib/supabase/server", () => ({
+  createSupabaseServerClient: async () => ({ auth: { signInWithPassword, signOut } }),
+}));
+vi.mock("@/db/client", () => ({
+  getDb: () => ({ query: { profiles: { findFirst: findProfile } } }),
+}));
+vi.mock("next/navigation", () => ({
+  redirect: (path: string) => {
+    throw new Error(`NEXT_REDIRECT:${path}`);
+  },
+}));
+
+import { AuthApiError, AuthRetryableFetchError } from "@supabase/supabase-js";
+
+import { login } from "./actions";
+
+function form(values: Record<string, string>): FormData {
+  const data = new FormData();
+  for (const [key, value] of Object.entries(values)) {
+    data.set(key, value);
+  }
+  return data;
+}
+
+const credentials = { email: "kevin@frisair.be", password: "geheim-wachtwoord" };
+
+beforeEach(() => {
+  vi.resetAllMocks();
+  signOut.mockResolvedValue({ error: null });
+});
+
+describe("login: validation", () => {
+  it("asks for both fields when the form is empty, without calling Supabase", async () => {
+    const state = await login(null, form({ email: "", password: "" }));
+    expect(state).toEqual({
+      email: "",
+      fieldErrors: { email: "Vul je e-mailadres in.", password: "Vul je wachtwoord in." },
+    });
+    expect(signInWithPassword).not.toHaveBeenCalled();
+  });
+
+  it("keeps the typed e-mail address when only the password is missing", async () => {
+    const state = await login(null, form({ email: "kevin@frisair.be", password: "" }));
+    expect(state).toEqual({
+      email: "kevin@frisair.be",
+      fieldErrors: { password: "Vul je wachtwoord in." },
+    });
+  });
+
+  it("treats missing form fields like empty ones", async () => {
+    const state = await login(null, new FormData());
+    expect(state?.fieldErrors).toEqual({
+      email: "Vul je e-mailadres in.",
+      password: "Vul je wachtwoord in.",
+    });
+  });
+});
+
+describe("login: refused", () => {
+  const mismatch = "Dit e-mailadres en wachtwoord passen niet bij elkaar. Probeer opnieuw.";
+
+  it("gives one message for a wrong password and an unknown address", async () => {
+    signInWithPassword.mockResolvedValue({
+      data: { user: null, session: null },
+      error: new AuthApiError("Invalid login credentials", 400, "invalid_credentials"),
+    });
+    const state = await login(null, form(credentials));
+    expect(state).toEqual({ email: credentials.email, fieldErrors: {}, formError: mismatch });
+    expect(findProfile).not.toHaveBeenCalled();
+  });
+
+  it("shows the disabled message when Supabase reports a blocked user", async () => {
+    signInWithPassword.mockResolvedValue({
+      data: { user: null, session: null },
+      error: new AuthApiError("User is banned", 400, "user_banned"),
+    });
+    const state = await login(null, form(credentials));
+    expect(state?.formError).toBe("Je account is uitgeschakeld. Neem contact op met kantoor.");
+  });
+
+  it("refuses a deactivated profile and removes the session again", async () => {
+    signInWithPassword.mockResolvedValue({
+      data: { user: { id: "u1" }, session: {} },
+      error: null,
+    });
+    findProfile.mockResolvedValue({ id: "u1", role: "technician", isActive: false });
+    const state = await login(null, form(credentials));
+    expect(state?.formError).toBe("Je account is uitgeschakeld. Neem contact op met kantoor.");
+    expect(signOut).toHaveBeenCalledWith({ scope: "local" });
+  });
+
+  it("refuses a user without a profile in the same way", async () => {
+    signInWithPassword.mockResolvedValue({
+      data: { user: { id: "u1" }, session: {} },
+      error: null,
+    });
+    findProfile.mockResolvedValue(undefined);
+    const state = await login(null, form(credentials));
+    expect(state?.formError).toBe("Je account is uitgeschakeld. Neem contact op met kantoor.");
+    expect(signOut).toHaveBeenCalledWith({ scope: "local" });
+  });
+
+  it("shows the technical message when Auth cannot be reached", async () => {
+    signInWithPassword.mockResolvedValue({
+      data: { user: null, session: null },
+      error: new AuthRetryableFetchError("fetch failed", 0),
+    });
+    const state = await login(null, form(credentials));
+    expect(state?.formError).toBe(
+      "Dat is niet gelukt. Controleer je internetverbinding en probeer opnieuw.",
+    );
+  });
+
+  it("shows the technical message when Auth answers with a server error", async () => {
+    signInWithPassword.mockResolvedValue({
+      data: { user: null, session: null },
+      error: new AuthApiError("Internal error", 500, "unexpected_failure"),
+    });
+    const state = await login(null, form(credentials));
+    expect(state?.formError).toContain("Dat is niet gelukt.");
+  });
+
+  it("shows the technical message when something throws, and keeps the address", async () => {
+    signInWithPassword.mockRejectedValue(new Error("boom"));
+    const state = await login(null, form(credentials));
+    expect(state).toEqual({
+      email: credentials.email,
+      fieldErrors: {},
+      formError: "Dat is niet gelukt. Controleer je internetverbinding en probeer opnieuw.",
+    });
+  });
+});
+
+describe("login: success", () => {
+  it.each([
+    ["technician", "/my-tasks"],
+    ["backoffice", "/tasks"],
+  ] as const)("sends a %s to %s", async (role, path) => {
+    signInWithPassword.mockResolvedValue({
+      data: { user: { id: "u1" }, session: {} },
+      error: null,
+    });
+    findProfile.mockResolvedValue({ id: "u1", role, isActive: true });
+    await expect(login(null, form(credentials))).rejects.toThrow(`NEXT_REDIRECT:${path}`);
+    expect(signInWithPassword).toHaveBeenCalledWith(credentials);
+  });
+
+  it("trims the e-mail address before signing in", async () => {
+    signInWithPassword.mockResolvedValue({
+      data: { user: { id: "u1" }, session: {} },
+      error: null,
+    });
+    findProfile.mockResolvedValue({ id: "u1", role: "technician", isActive: true });
+    await expect(
+      login(null, form({ email: "  kevin@frisair.be  ", password: credentials.password })),
+    ).rejects.toThrow("NEXT_REDIRECT");
+    expect(signInWithPassword).toHaveBeenCalledWith(credentials);
+  });
+});
