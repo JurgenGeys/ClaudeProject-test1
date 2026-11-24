@@ -3,18 +3,23 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Taak: Fam. Van Dyck · FrisAir Planning (mockup)</title>
+    <title>Taak #1043: Fam. Van Dyck · FrisAir Planning (mockup)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
       body [class*="when-"] {
         display: none;
       }
       body[data-state~="open"] .when-open,
-      body[data-state~="bewaard"] .when-bewaard {
+      body[data-state~="bewaard"] .when-bewaard,
+      body[data-state~="geannuleerd"] .when-geannuleerd {
         display: revert;
       }
-      body[data-state~="open"] .unless-open {
+      body[data-state~="open"] .unless-open,
+      body[data-state~="geannuleerd"] .unless-geannuleerd {
         display: none;
+      }
+      dialog::backdrop {
+        background: rgb(15 23 42 / 0.5);
       }
     </style>
   </head>
@@ -22,12 +27,15 @@
     <div
       class="bg-amber-50 border-b border-amber-200 text-amber-900 text-xs px-4 py-2 flex flex-wrap items-center gap-x-3 gap-y-1"
     >
-      <span class="font-semibold">Mockup</span><span>Backoffice · B3 Taak, Toegewezen of Open</span>
+      <span class="font-semibold">Mockup</span
+      ><span>Backoffice · B3 Taak, Toegewezen, Open of Geannuleerd</span>
       <a href="index.html" class="underline">Alle schermen</a>
-      <span class="flex gap-x-3"
+      <span class="flex flex-wrap gap-x-3"
         >Variant: <a href="?" class="underline">Toegewezen</a>
-        <a href="?state=open" class="underline">Open (nog geen technieker)</a></span
+        <a href="?state=open" class="underline">Open (nog geen technieker)</a>
+        <a href="?state=geannuleerd" class="underline">Geannuleerd</a></span
       >
+      <span class="text-amber-800">Probeer "Taak annuleren".</span>
     </div>
 
     <header class="bg-white border-b border-slate-200">
@@ -61,7 +69,15 @@
           role="status"
           class="mb-4 rounded-md border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-900"
         >
-          Taak bewaard.
+          Taak #1043 bewaard.
+        </div>
+      </div>
+      <div class="when-geannuleerd">
+        <div
+          role="status"
+          class="mb-4 rounded-md border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-900"
+        >
+          Taak #1043 is geannuleerd.
         </div>
       </div>
       <a href="b-taken.html" class="text-sm text-slate-700 underline-offset-4 hover:underline"
@@ -70,24 +86,64 @@
 
       <div class="mt-2 flex flex-wrap items-start justify-between gap-3">
         <div>
-          <div class="unless-open">
-            <span class="rounded-full bg-blue-100 text-blue-800 px-2.5 py-0.5 text-xs font-medium"
-              >Toegewezen</span
-            >
-          </div>
-          <div class="when-open">
-            <span class="rounded-full bg-slate-100 text-slate-700 px-2.5 py-0.5 text-xs font-medium"
-              >Open</span
-            >
+          <div class="flex items-center gap-2">
+            <span class="unless-open unless-geannuleerd">
+              <span class="rounded-full bg-blue-100 text-blue-800 px-2.5 py-0.5 text-xs font-medium"
+                >Toegewezen</span
+              >
+            </span>
+            <span class="when-open">
+              <span
+                class="rounded-full bg-slate-100 text-slate-700 px-2.5 py-0.5 text-xs font-medium"
+                >Open</span
+              >
+            </span>
+            <span class="when-geannuleerd">
+              <span class="rounded-full bg-red-100 text-red-800 px-2.5 py-0.5 text-xs font-medium"
+                >Geannuleerd</span
+              >
+            </span>
+            <span class="text-sm text-slate-600">Taak #1043</span>
           </div>
           <h1 class="mt-2 text-2xl font-semibold tracking-tight">Fam. Van Dyck</h1>
-          <p class="mt-1 text-slate-700">ma 23/11/2026 om 13:30 · geschatte duur 1u00</p>
+          <p class="mt-1 text-slate-700">
+            <span class="font-medium text-slate-900">Nazicht</span> · ma 23/11/2026 om 13:30 ·
+            geschatte duur 1u00
+          </p>
         </div>
-        <a
-          href="b-taak-bewerken.html"
-          class="inline-flex h-10 items-center rounded-md bg-slate-900 px-4 text-sm font-medium text-white hover:bg-slate-800"
-          >Bewerken</a
+        <div class="unless-geannuleerd">
+          <div class="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onclick="openAnnuleren()"
+              class="h-10 rounded-md border border-slate-300 bg-white px-4 text-sm font-medium text-red-700 hover:bg-red-50"
+            >
+              Taak annuleren
+            </button>
+            <a
+              href="b-taak-bewerken.html"
+              class="inline-flex h-10 items-center rounded-md bg-slate-900 px-4 text-sm font-medium text-white hover:bg-slate-800"
+              >Bewerken</a
+            >
+          </div>
+        </div>
+      </div>
+
+      <div class="when-geannuleerd">
+        <div
+          class="mt-5 rounded-lg border border-slate-300 bg-slate-100 px-5 py-4 text-sm text-slate-800"
         >
+          <p class="font-medium">
+            Deze taak is geannuleerd op ma 23/11 om 11:20 door Sofie Peeters.
+          </p>
+          <p class="mt-1">Reden: klant heeft zelf afgezegd, belt terug in het voorjaar.</p>
+          <p class="mt-2 text-slate-600">
+            Een geannuleerde taak kan je niet meer wijzigen. Moet het werk toch gebeuren?
+            <a href="b-taak-nieuw.html" class="font-medium underline underline-offset-4"
+              >Maak een nieuwe taak aan</a
+            >.
+          </p>
+        </div>
       </div>
 
       <div class="mt-6 grid gap-6 lg:grid-cols-[1fr_20rem]">
@@ -149,14 +205,72 @@
                 <p class="text-slate-600">vr 13/11 om 09:12 door Sofie Peeters</p>
               </li>
               <li class="unless-open"><p class="font-medium">Toegewezen aan Kevin Wouters</p></li>
-              <li class="text-slate-500"><p>Nog niet opgepikt</p></li>
+              <li class="unless-geannuleerd text-slate-500"><p>Nog niet opgepikt</p></li>
+              <li class="when-geannuleerd">
+                <p class="font-medium text-red-800">Geannuleerd</p>
+                <p class="text-slate-600">ma 23/11 om 11:20 door Sofie Peeters</p>
+              </li>
             </ol>
           </section>
         </aside>
       </div>
     </main>
+
+    <!-- Dialoog: taak annuleren -->
+    <dialog
+      id="dlg-annuleren"
+      aria-labelledby="ann-t"
+      aria-describedby="ann-uitleg"
+      class="w-[calc(100%-2rem)] max-w-md rounded-lg border border-slate-200 p-0 shadow-xl"
+    >
+      <form method="dialog" class="p-6">
+        <h2 id="ann-t" class="text-lg font-semibold">Taak #1043 annuleren?</h2>
+        <div id="ann-uitleg" class="mt-2 space-y-2 text-sm text-slate-700">
+          <p>
+            Gebruik dit als de afspraak niet meer doorgaat, bv. omdat de klant afzegt. De taak
+            verdwijnt uit de planning<span class="unless-open">
+              en uit de lijst van <strong>Kevin Wouters</strong></span
+            >. Ze blijft bewaard onder "Geannuleerd".
+          </p>
+          <p>
+            Annuleren kan je niet ongedaan maken. Moet het werk toch gebeuren, maak dan een nieuwe
+            taak aan.
+          </p>
+        </div>
+        <div class="mt-4">
+          <label for="ann-reden" class="block text-sm font-medium"
+            >Reden <span class="font-normal text-slate-600">(niet verplicht)</span></label
+          >
+          <textarea
+            id="ann-reden"
+            rows="2"
+            maxlength="500"
+            placeholder="Bv. klant heeft zelf afgezegd"
+            class="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-slate-900"
+          ></textarea>
+        </div>
+        <div class="mt-6 flex flex-wrap justify-end gap-2">
+          <button
+            value="cancel"
+            class="h-10 rounded-md border border-slate-300 bg-white px-4 text-sm font-medium hover:bg-slate-50"
+          >
+            Taak behouden
+          </button>
+          <a
+            href="?state=geannuleerd"
+            class="inline-flex h-10 items-center rounded-md bg-red-700 px-4 text-sm font-medium text-white hover:bg-red-800"
+            >Taak annuleren</a
+          >
+        </div>
+      </form>
+    </dialog>
+
     <script>
       document.body.dataset.state = new URLSearchParams(location.search).get("state") || "";
+      function openAnnuleren() {
+        document.getElementById("ann-reden").value = "";
+        document.getElementById("dlg-annuleren").showModal();
+      }
     </script>
   </body>
 </html>

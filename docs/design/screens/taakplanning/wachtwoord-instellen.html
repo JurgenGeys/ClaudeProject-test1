@@ -10,10 +10,12 @@
         display: none;
       }
       body[data-state~="fout"] .when-fout,
-      body[data-state~="verlopen"] .when-verlopen {
+      body[data-state~="verlopen"] .when-verlopen,
+      body[data-state~="reset"] .when-reset {
         display: revert;
       }
-      body[data-state~="verlopen"] .unless-verlopen {
+      body[data-state~="verlopen"] .unless-verlopen,
+      body[data-state~="reset"] .unless-reset {
         display: none;
       }
     </style>
@@ -22,13 +24,16 @@
     <div
       class="bg-amber-50 border-b border-amber-200 text-amber-900 text-xs px-4 py-2 flex flex-wrap items-center gap-x-3 gap-y-1"
     >
-      <span class="font-semibold">Mockup</span
-      ><span>Iedereen · G2 Wachtwoord instellen (via uitnodigingsmail)</span>
+      <span class="font-semibold">Mockup</span><span>Iedereen · G2 Wachtwoord instellen</span>
       <a href="index.html" class="underline">Alle schermen</a>
       <span class="flex flex-wrap gap-x-3"
-        >Variant: <a href="?" class="underline">normaal</a>
+        >Na uitnodiging: <a href="?" class="underline">normaal</a>
         <a href="?state=fout" class="underline">foutmeldingen</a>
         <a href="?state=verlopen" class="underline">verlopen link</a></span
+      >
+      <span class="flex flex-wrap gap-x-3"
+        >Na wachtwoord vergeten: <a href="?state=reset" class="underline">normaal</a>
+        <a href="?state=reset+verlopen" class="underline">verlopen link</a></span
       >
     </div>
 
@@ -36,9 +41,13 @@
       <div class="w-full max-w-sm">
         <div class="text-center">
           <p class="text-sm font-medium text-slate-600">FrisAir Koeltechniek</p>
-          <h1 class="mt-1 text-2xl font-semibold tracking-tight">Welkom, Kevin</h1>
+          <h1 class="mt-1 text-2xl font-semibold tracking-tight">
+            <span class="unless-reset">Welkom, Kevin</span
+            ><span class="when-reset">Nieuw wachtwoord kiezen</span>
+          </h1>
           <p class="mt-2 text-slate-600 unless-verlopen">
-            Kies een wachtwoord om de planning te gebruiken.
+            <span class="unless-reset">Kies een wachtwoord om de planning te gebruiken.</span
+            ><span class="when-reset">Kies een nieuw wachtwoord voor kevin@frisair.be.</span>
           </p>
         </div>
 
@@ -48,7 +57,15 @@
             class="mt-6 rounded-lg border border-red-200 bg-red-50 p-5 text-sm text-red-900"
           >
             <p class="font-medium">Deze link is niet meer geldig.</p>
-            <p class="mt-1">Vraag kantoor om een nieuwe uitnodiging.</p>
+            <p class="mt-1 unless-reset">Vraag kantoor om een nieuwe uitnodiging.</p>
+            <div class="when-reset">
+              <p class="mt-1">Vraag een nieuwe link aan.</p>
+              <a
+                href="wachtwoord-vergeten.html"
+                class="mt-3 inline-flex h-10 items-center rounded-md border border-red-300 bg-white px-4 font-medium text-red-900"
+                >Nieuwe link aanvragen</a
+              >
+            </div>
           </div>
         </div>
 
