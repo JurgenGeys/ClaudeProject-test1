@@ -14,6 +14,6 @@ export default defineConfig({
     setupFiles: ["./vitest.setup.ts"],
     include: ["src/**/*.test.{ts,tsx}"],
     // Database tests need a real database; they run via `pnpm test:db`.
-    exclude: [...configDefaults.exclude, "src/**/*.db.test.ts"],
+    exclude: [...configDefaults.exclude, "src/**/*.db.test.{ts,tsx}"],
   },
 });

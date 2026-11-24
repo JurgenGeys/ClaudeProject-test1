@@ -8,6 +8,7 @@ describe("getDb", () => {
 
   beforeEach(() => {
     vi.resetModules();
+    delete (globalThis as { __database?: unknown }).__database;
   });
 
   afterEach(() => {
@@ -35,5 +36,13 @@ describe("getDb", () => {
     const first = getDb();
     expect(first).toBeDefined();
     expect(getDb()).toBe(first);
+  });
+
+  it("reuses the client across module reloads outside production", async () => {
+    process.env.DATABASE_URL = "postgresql://user:pw@127.0.0.1:5432/db";
+    const first = (await import("./client")).getDb();
+    vi.resetModules();
+    const second = (await import("./client")).getDb();
+    expect(second).toBe(first);
   });
 });

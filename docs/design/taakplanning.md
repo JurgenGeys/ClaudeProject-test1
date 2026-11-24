@@ -497,7 +497,7 @@ src/
       technicians/page.tsx         # B7
       technicians/actions.ts       # inviteTechnician, resendInvite, deactivateTechnician, reactivateTechnician
   db/
-    schema.ts                      # Drizzle-schema (enige plaats voor tabeldefinities)
+    schema/                        # Drizzle-schema: één bestand per domein, geëxporteerd via index.ts (enige plaats voor tabeldefinities)
     client.ts                      # 'server-only'; Drizzle-client
   lib/
     auth/session.ts                # getCurrentUser(), requireRole(); leest sessie + profiel, checkt is_active
