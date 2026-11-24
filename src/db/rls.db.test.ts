@@ -41,6 +41,14 @@ describe("Row Level Security", () => {
     expect(await tablesWithoutRls(sql)).toEqual([]);
   });
 
+  it("covers the tables the migrations created (the check is not vacuous)", async () => {
+    const tables = await sql<{ table_name: string }[]>`
+      select table_name from information_schema.tables
+      where table_schema = 'public' and table_type = 'BASE TABLE'
+    `;
+    expect(tables.map((table) => table.table_name)).toContain("profiles");
+  });
+
   it("detects a table without RLS (rolled back afterwards)", async () => {
     let found: string[] = [];
     let foundWithRls: string[] = [];

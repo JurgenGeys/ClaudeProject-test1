@@ -20,5 +20,8 @@ export default defineConfig({
   dialect: "postgresql",
   schema: "./src/db/schema/index.ts",
   out: "./drizzle",
+  // Only manage `public`. The `auth` schema belongs to Supabase Auth (profiles only
+  // references `auth.users`), so drizzle-kit must never create or change it.
+  schemaFilter: ["public"],
   ...(url ? { dbCredentials: { url } } : {}),
 });

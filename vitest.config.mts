@@ -12,7 +12,7 @@ export default defineConfig({
   test: {
     environment: "jsdom",
     setupFiles: ["./vitest.setup.ts"],
-    include: ["src/**/*.test.{ts,tsx}"],
+    include: ["src/**/*.test.{ts,tsx}", "scripts/**/*.test.mts"],
     // Database tests need a real database; they run via `pnpm test:db`.
     exclude: [...configDefaults.exclude, "src/**/*.db.test.{ts,tsx}"],
   },

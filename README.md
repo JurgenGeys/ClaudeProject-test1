@@ -42,6 +42,40 @@ pnpm test:db                 # databasetests, o.a. "elke tabel in public heeft R
 supabase stop                # lokale Supabase stoppen
 ```
 
+### Omgevingsvariabelen
+
+Zie `.env.example`; de waarden komen in `.env.local` (nooit committen). Lokaal toont `supabase status -o env` de sleutels.
+
+| Variabele                              | Waarvoor                                                                    | Waar zichtbaar |
+| -------------------------------------- | --------------------------------------------------------------------------- | -------------- |
+| `DATABASE_URL`                         | Verbinding voor Drizzle en `pnpm db:migrate`                                | Enkel server   |
+| `NEXT_PUBLIC_SUPABASE_URL`             | URL van het Supabase-project                                                | Ook browser    |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Publieke sleutel, enkel voor aanmelden en sessies                           | Ook browser    |
+| `SUPABASE_SECRET_KEY`                  | Geheime sleutel (omzeilt alle beveiliging per rij): enkel server en scripts | Enkel server   |
+| `SEED_BACKOFFICE_PASSWORD`             | Optioneel: wachtwoord voor de eerste backoffice-gebruiker (min. 12 tekens)  | Enkel script   |
+
+### Gebruikers en rollen
+
+Elke gebruiker bestaat in Supabase Auth (login) en heeft een rij in `profiles` (rol `backoffice` of
+`technician`, naam, actief of uitgeschakeld). Er is geen scherm om backoffice-gebruikers toe te voegen;
+de eerste (zaakvoerder of backoffice-medewerker) maak je eenmalig aan na `pnpm db:migrate`:
+
+```bash
+pnpm seed:backoffice "Voornaam Achternaam" naam@bedrijf.be
+```
+
+Voer eerst `pnpm db:migrate` uit: het script controleert vooraf of de database bereikbaar is en `profiles`
+bestaat, en maakt anders niets aan. Het script maakt de gebruiker in Supabase Auth en het profiel met rol
+`backoffice`. Het wachtwoord komt uit `SEED_BACKOFFICE_PASSWORD`; is dat leeg, dan wordt er een gegenereerd en
+meteen getoond zodra het account bestaat (één keer, bewaar het). Opnieuw uitvoeren
+is veilig: een bestaande gebruiker of een bestaand profiel blijft ongemoeid, en een half afgewerkte eerdere
+poging wordt aangevuld. Een bestaande Auth-gebruiker zonder profiel of een uitgeschakeld backoffice-profiel
+levert een duidelijke waarschuwing op. Het script heeft `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SECRET_KEY` en `DATABASE_URL` nodig.
+
+Een gebruiker met een profiel kan niet via het Supabase-dashboard verwijderd worden (`ON DELETE RESTRICT` op
+`profiles.id`). Dat is bedoeld: zo blijven gewerkte uren traceerbaar. Gebruikers worden in de toepassing
+uitgeschakeld, nooit verwijderd.
+
 `pnpm test` draait zonder database; databasetests (`*.db.test.ts`) lopen enkel via `pnpm test:db`.
 
 ## CI
