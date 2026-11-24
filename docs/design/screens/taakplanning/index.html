@@ -72,11 +72,14 @@
             <li>
               <a class="font-medium underline underline-offset-4" href="wachtwoord-vergeten.html"
                 >G3 Wachtwoord vergeten</a
-              >
-              <span
-                class="ml-1 rounded-full bg-amber-100 text-amber-900 px-2 py-0.5 text-xs font-medium"
-                >Voorstel P1</span
-              >
+              ><br /><span class="text-slate-600">Link op het aanmeldscherm</span>
+            </li>
+            <li>
+              <a
+                class="font-medium underline underline-offset-4"
+                href="wachtwoord-instellen.html?state=reset"
+                >G2 Nieuw wachtwoord kiezen</a
+              ><br /><span class="text-slate-600">Na de mail "wachtwoord vergeten"</span>
             </li>
           </ul>
         </section>
@@ -158,7 +161,14 @@
             </li>
             <li>
               <a class="font-medium underline underline-offset-4" href="b-taak-toegewezen.html"
-                >B3 Taak: Toegewezen</a
+                >B3 Taak: Toegewezen (annuleren)</a
+              >
+            </li>
+            <li>
+              <a
+                class="font-medium underline underline-offset-4"
+                href="b-taak-toegewezen.html?state=geannuleerd"
+                >B3 Taak: Geannuleerd</a
               >
             </li>
             <li>
@@ -194,7 +204,7 @@
             <li>
               <a class="font-medium underline underline-offset-4" href="b-techniekers.html"
                 >B7 Techniekers</a
-              >
+              ><br /><span class="text-slate-600">Uitnodigen, uitschakelen, opnieuw activeren</span>
             </li>
           </ul>
         </section>
@@ -224,6 +234,17 @@
             >Gefactureerd</span
           >
         </div>
+        <div class="mt-3 flex flex-wrap items-center gap-2 text-sm text-slate-700">
+          <span>Een taak die niet meer doorgaat (Open of Toegewezen):</span>
+          <span
+            class="inline-flex rounded-full bg-red-100 text-red-800 px-2.5 py-0.5 text-xs font-medium"
+            >Geannuleerd</span
+          >
+        </div>
+        <p class="mt-3 text-sm text-slate-600">
+          Elke taak heeft een <strong>taaknummer</strong> (bv. #1042) en een
+          <strong>soort werk</strong>: Nazicht, Onderhoud of Herstelling.
+        </p>
         <p class="mt-3 text-sm text-slate-600">
           Het volledige ontwerp staat in
           <code class="rounded bg-slate-100 px-1">docs/design/taakplanning.md</code>.
