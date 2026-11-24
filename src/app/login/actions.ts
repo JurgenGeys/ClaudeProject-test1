@@ -8,6 +8,7 @@ import { getDb } from "@/db/client";
 import { profiles } from "@/db/schema";
 import { homePathForRole } from "@/lib/auth/routes";
 import { LOGIN_MESSAGES } from "@/lib/auth/messages";
+import { createSupabaseCredentialsClient } from "@/lib/supabase/credentials";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { loginSchema } from "@/lib/validation/login";
 
@@ -30,9 +31,10 @@ function failure(email: string, formError: string): LoginState {
  * 1. Zod validation on the server, even though the form validates too.
  * 2. Supabase Auth checks the credentials. A wrong e-mail address, a wrong password and a
  *    blocked account (`user_banned`) all give the same message.
- * 3. The profile must exist and be active; otherwise the session is removed again and the
- *    same message is shown.
- * 4. Redirect to the start page of the role.
+ * 3. The profile must exist and be active; otherwise the session is ended again and the
+ *    same message is shown. Until this point no cookie has been written.
+ * 4. The session is written to the cookies.
+ * 5. Redirect to the start page of the role.
  */
 export async function login(_previous: LoginState, formData: FormData): Promise<LoginState> {
   const raw = {
@@ -56,10 +58,12 @@ export async function login(_previous: LoginState, formData: FormData): Promise<
   // `redirect()` throws, so it must stay outside the try/catch below.
   let destination: string;
   try {
-    const supabase = await createSupabaseServerClient();
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    // Check the password and the profile with a client that keeps nothing, so a refused
+    // login leaves the cookies alone (see `createSupabaseCredentialsClient`).
+    const verifier = createSupabaseCredentialsClient();
+    const { data, error } = await verifier.auth.signInWithPassword({ email, password });
 
-    if (error || !data.user) {
+    if (error || !data.user || !data.session) {
       // A blocked account (`user_banned`) gets the same message as a wrong password: the login
       // screen never reveals whether an account exists or is disabled (decision Jurgen, 24/11/2026).
       if (error?.code === "over_request_rate_limit" || error?.status === 429) {
@@ -75,11 +79,21 @@ export async function login(_previous: LoginState, formData: FormData): Promise<
       where: eq(profiles.id, data.user.id),
     });
     if (!profile || !profile.isActive) {
-      // The password was right but the account may not be used: remove the session again and
-      // give the same message as for a wrong password. "Je account is uitgeschakeld" is only
-      // shown to someone who was already signed in (`/auth/inactive`).
-      await supabase.auth.signOut({ scope: "local" });
+      // The password was right but the account may not be used: end the session that was just
+      // created and give the same message as for a wrong password. "Je account is
+      // uitgeschakeld" is only shown to someone who was already signed in (`/auth/inactive`).
+      await verifier.auth.signOut({ scope: "local" });
       return failure(email, LOGIN_MESSAGES.invalidCredentials);
+    }
+
+    // Allowed: now the session goes into the cookies.
+    const supabase = await createSupabaseServerClient();
+    const { error: sessionError } = await supabase.auth.setSession({
+      access_token: data.session.access_token,
+      refresh_token: data.session.refresh_token,
+    });
+    if (sessionError) {
+      return failure(email, LOGIN_MESSAGES.technicalProblem);
     }
     destination = homePathForRole(profile.role);
   } catch (error) {

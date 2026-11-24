@@ -4,12 +4,19 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 // bundle and the database client needs DATABASE_URL.
 vi.mock("server-only", () => ({}));
 
+// `verifier` checks the password without cookies; `server` writes the session to the cookies.
 const signInWithPassword = vi.fn();
-const signOut = vi.fn();
+const verifierSignOut = vi.fn();
+const setSession = vi.fn();
 const findProfile = vi.fn();
 
+vi.mock("@/lib/supabase/credentials", () => ({
+  createSupabaseCredentialsClient: () => ({
+    auth: { signInWithPassword, signOut: verifierSignOut },
+  }),
+}));
 vi.mock("@/lib/supabase/server", () => ({
-  createSupabaseServerClient: async () => ({ auth: { signInWithPassword, signOut } }),
+  createSupabaseServerClient: async () => ({ auth: { setSession } }),
 }));
 vi.mock("@/db/client", () => ({
   getDb: () => ({ query: { profiles: { findFirst: findProfile } } }),
@@ -32,11 +39,13 @@ function form(values: Record<string, string>): FormData {
   return data;
 }
 
+const session = { access_token: "access-1", refresh_token: "refresh-1" };
 const credentials = { email: "kevin@frisair.be", password: "geheim-wachtwoord" };
 
 beforeEach(() => {
   vi.resetAllMocks();
-  signOut.mockResolvedValue({ error: null });
+  verifierSignOut.mockResolvedValue({ error: null });
+  setSession.mockResolvedValue({ error: null });
 });
 
 describe("login: validation", () => {
@@ -89,6 +98,7 @@ describe("login: refused", () => {
     const state = await login(null, form(credentials));
     expect(state).toEqual({ email: credentials.email, fieldErrors: {}, formError: mismatch });
     expect(findProfile).not.toHaveBeenCalled();
+    expect(setSession).not.toHaveBeenCalled();
   });
 
   it("gives the general message when Supabase reports a blocked user", async () => {
@@ -102,24 +112,28 @@ describe("login: refused", () => {
 
   it("refuses a deactivated profile with the general message and removes the session again", async () => {
     signInWithPassword.mockResolvedValue({
-      data: { user: { id: "u1" }, session: {} },
+      data: { user: { id: "u1" }, session: session },
       error: null,
     });
     findProfile.mockResolvedValue({ id: "u1", role: "technician", isActive: false });
     const state = await login(null, form(credentials));
     expect(state?.formError).toBe(mismatch);
-    expect(signOut).toHaveBeenCalledWith({ scope: "local" });
+    // The session that was just created is ended, and no cookie was ever written.
+    expect(verifierSignOut).toHaveBeenCalledWith({ scope: "local" });
+    expect(setSession).not.toHaveBeenCalled();
   });
 
   it("refuses a user without a profile in the same way", async () => {
     signInWithPassword.mockResolvedValue({
-      data: { user: { id: "u1" }, session: {} },
+      data: { user: { id: "u1" }, session: session },
       error: null,
     });
     findProfile.mockResolvedValue(undefined);
     const state = await login(null, form(credentials));
     expect(state?.formError).toBe(mismatch);
-    expect(signOut).toHaveBeenCalledWith({ scope: "local" });
+    // The session that was just created is ended, and no cookie was ever written.
+    expect(verifierSignOut).toHaveBeenCalledWith({ scope: "local" });
+    expect(setSession).not.toHaveBeenCalled();
   });
 
   it("shows the technical message when Auth cannot be reached", async () => {
@@ -172,17 +186,33 @@ describe("login: success", () => {
     ["backoffice", "/tasks"],
   ] as const)("sends a %s to %s", async (role, path) => {
     signInWithPassword.mockResolvedValue({
-      data: { user: { id: "u1" }, session: {} },
+      data: { user: { id: "u1" }, session: session },
       error: null,
     });
     findProfile.mockResolvedValue({ id: "u1", role, isActive: true });
     await expect(login(null, form(credentials))).rejects.toThrow(`NEXT_REDIRECT:${path}`);
     expect(signInWithPassword).toHaveBeenCalledWith(credentials);
+    // Only an allowed login writes the session to the cookies.
+    expect(setSession).toHaveBeenCalledWith({
+      access_token: "access-1",
+      refresh_token: "refresh-1",
+    });
+  });
+
+  it("shows the technical message when the session cannot be stored", async () => {
+    signInWithPassword.mockResolvedValue({
+      data: { user: { id: "u1" }, session },
+      error: null,
+    });
+    findProfile.mockResolvedValue({ id: "u1", role: "technician", isActive: true });
+    setSession.mockResolvedValue({ error: new Error("nope") });
+    const state = await login(null, form(credentials));
+    expect(state?.formError).toContain("Dat is niet gelukt.");
   });
 
   it("trims the e-mail address before signing in", async () => {
     signInWithPassword.mockResolvedValue({
-      data: { user: { id: "u1" }, session: {} },
+      data: { user: { id: "u1" }, session: session },
       error: null,
     });
     findProfile.mockResolvedValue({ id: "u1", role: "technician", isActive: true });

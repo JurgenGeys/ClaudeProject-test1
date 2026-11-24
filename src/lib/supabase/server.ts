@@ -2,6 +2,7 @@ import "server-only";
 
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import { connection } from "next/server";
 
 import { getSupabasePublicEnv } from "./env";
 
@@ -12,6 +13,11 @@ import { getSupabasePublicEnv } from "./env";
  */
 export async function createSupabaseServerClient() {
   const cookieStore = await cookies();
+  // The Auth client reads the clock (`Date.now()`) as soon as it is created, to check whether
+  // the session has expired. Next.js also renders pages ahead of the request (runtime
+  // prerender for prefetching), where cookies are known but the clock is not allowed.
+  // `connection()` stops that prerender here; at a real request it resolves immediately.
+  await connection();
   const { url, publishableKey } = getSupabasePublicEnv();
 
   return createServerClient(url, publishableKey, {
