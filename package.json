@@ -14,7 +14,7 @@
     "test:db": "vitest run --config vitest.db.config.mts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
-    "seed:backoffice": "node scripts/seed-backoffice.mts",
+    "seed:backoffice": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/seed-backoffice.mts",
     "test:e2e": "playwright test"
   },
   "dependencies": {

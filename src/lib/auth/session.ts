@@ -90,7 +90,8 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
  * Returns the current user if they are active and have one of the given roles, otherwise
  * throws an `AuthError`. Every Server Action starts with this (ADR-0002, rule 3).
  */
-export async function requireRole(...roles: UserRole[]): Promise<CurrentUser> {
+export async function requireRole(role: UserRole, ...more: UserRole[]): Promise<CurrentUser> {
+  const roles = [role, ...more];
   const state = await getAuthState();
   if (state.status !== "authenticated") {
     throw new AuthError(state.status);

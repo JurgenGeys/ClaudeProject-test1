@@ -144,10 +144,5 @@ describe("auth helpers", () => {
       signedInAs(undefined);
       expect(await codeOf(requireRole("technician"))).toBe("inactive");
     });
-
-    it("refuses when no role is allowed", async () => {
-      signedInAs(backofficeProfile);
-      expect(await codeOf(requireRole())).toBe("forbidden");
-    });
   });
 });

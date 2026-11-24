@@ -64,10 +64,17 @@ de eerste (zaakvoerder of backoffice-medewerker) maak je eenmalig aan na `pnpm d
 pnpm seed:backoffice "Voornaam Achternaam" naam@bedrijf.be
 ```
 
-Het script maakt de gebruiker in Supabase Auth en het profiel met rol `backoffice`. Het wachtwoord komt uit
-`SEED_BACKOFFICE_PASSWORD`; is dat leeg, dan wordt er een gegenereerd en één keer getoond. Opnieuw uitvoeren
+Voer eerst `pnpm db:migrate` uit: het script controleert vooraf of de database bereikbaar is en `profiles`
+bestaat, en maakt anders niets aan. Het script maakt de gebruiker in Supabase Auth en het profiel met rol
+`backoffice`. Het wachtwoord komt uit `SEED_BACKOFFICE_PASSWORD`; is dat leeg, dan wordt er een gegenereerd en
+meteen getoond zodra het account bestaat (één keer, bewaar het). Opnieuw uitvoeren
 is veilig: een bestaande gebruiker of een bestaand profiel blijft ongemoeid, en een half afgewerkte eerdere
-poging wordt aangevuld. Het script heeft `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SECRET_KEY` en `DATABASE_URL` nodig.
+poging wordt aangevuld. Een bestaande Auth-gebruiker zonder profiel of een uitgeschakeld backoffice-profiel
+levert een duidelijke waarschuwing op. Het script heeft `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SECRET_KEY` en `DATABASE_URL` nodig.
+
+Een gebruiker met een profiel kan niet via het Supabase-dashboard verwijderd worden (`ON DELETE RESTRICT` op
+`profiles.id`). Dat is bedoeld: zo blijven gewerkte uren traceerbaar. Gebruikers worden in de toepassing
+uitgeschakeld, nooit verwijderd.
 
 `pnpm test` draait zonder database; databasetests (`*.db.test.ts`) lopen enkel via `pnpm test:db`.
 
