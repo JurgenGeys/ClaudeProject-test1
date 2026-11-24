@@ -26,6 +26,17 @@ describe("loginSchema", () => {
     ]);
   });
 
+  it("limits the length of both fields", () => {
+    expect(loginSchema.safeParse({ email: "a".repeat(321), password: "x" }).success).toBe(false);
+    expect(loginSchema.safeParse({ email: "a".repeat(320), password: "x" }).success).toBe(true);
+    expect(loginSchema.safeParse({ email: "a@b.be", password: "x".repeat(1025) }).success).toBe(
+      false,
+    );
+    expect(loginSchema.safeParse({ email: "a@b.be", password: "x".repeat(1024) }).success).toBe(
+      true,
+    );
+  });
+
   it("does not judge the format of the address (that would reveal which addresses exist)", () => {
     expect(loginSchema.safeParse({ email: "geen-adres", password: "x" }).success).toBe(true);
   });

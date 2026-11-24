@@ -4,6 +4,7 @@ import { drizzle } from "drizzle-orm/postgres-js";
 import { authUsers } from "drizzle-orm/supabase";
 import postgres from "postgres";
 
+import { assertLocalSupabase } from "../../src/lib/supabase/local-only";
 import { profiles } from "../../src/db/schema/profiles";
 
 import { TEST_PASSWORD, type TestUser } from "./test-users";
@@ -35,6 +36,7 @@ async function withDb<T>(work: (db: ReturnType<typeof drizzle>) => Promise<T>): 
  * and that the profile matches. Safe to run again: it resets an existing user to that state.
  */
 export async function ensureUser(user: TestUser): Promise<void> {
+  assertLocalSupabase(process.env);
   const admin = createClient(
     requireEnv("NEXT_PUBLIC_SUPABASE_URL"),
     requireEnv("SUPABASE_SECRET_KEY"),
@@ -89,6 +91,7 @@ export async function ensureUser(user: TestUser): Promise<void> {
 
 /** Activates or deactivates the profile of a user, like the "uitschakelen" feature will do. */
 export async function setProfileActive(email: string, isActive: boolean): Promise<void> {
+  assertLocalSupabase(process.env);
   await withDb(async (db) => {
     await db
       .update(profiles)

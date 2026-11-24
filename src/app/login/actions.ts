@@ -28,9 +28,10 @@ function failure(email: string, formError: string): LoginState {
 /**
  * Signs in with e-mail and password (design G1). Order of the checks:
  * 1. Zod validation on the server, even though the form validates too.
- * 2. Supabase Auth checks the credentials. A wrong e-mail address and a wrong password
- *    give the same message; a blocked account (`user_banned`) gets the disabled message.
- * 3. The profile must exist and be active; otherwise the session is removed again.
+ * 2. Supabase Auth checks the credentials. A wrong e-mail address, a wrong password and a
+ *    blocked account (`user_banned`) all give the same message.
+ * 3. The profile must exist and be active; otherwise the session is removed again and the
+ *    same message is shown.
  * 4. Redirect to the start page of the role.
  */
 export async function login(_previous: LoginState, formData: FormData): Promise<LoginState> {
@@ -59,8 +60,10 @@ export async function login(_previous: LoginState, formData: FormData): Promise<
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
     if (error || !data.user) {
-      if (error?.code === "user_banned") {
-        return failure(email, LOGIN_MESSAGES.accountDisabled);
+      // A blocked account (`user_banned`) gets the same message as a wrong password: the login
+      // screen never reveals whether an account exists or is disabled (decision Jurgen, 24/11/2026).
+      if (error?.code === "over_request_rate_limit" || error?.status === 429) {
+        return failure(email, LOGIN_MESSAGES.tooManyAttempts);
       }
       if (error && (isAuthRetryableFetchError(error) || (error.status ?? 0) >= 500)) {
         return failure(email, LOGIN_MESSAGES.technicalProblem);
@@ -72,12 +75,16 @@ export async function login(_previous: LoginState, formData: FormData): Promise<
       where: eq(profiles.id, data.user.id),
     });
     if (!profile || !profile.isActive) {
-      // The password was right but the account may not be used: remove the session again.
+      // The password was right but the account may not be used: remove the session again and
+      // give the same message as for a wrong password. "Je account is uitgeschakeld" is only
+      // shown to someone who was already signed in (`/auth/inactive`).
       await supabase.auth.signOut({ scope: "local" });
-      return failure(email, LOGIN_MESSAGES.accountDisabled);
+      return failure(email, LOGIN_MESSAGES.invalidCredentials);
     }
     destination = homePathForRole(profile.role);
-  } catch {
+  } catch (error) {
+    // Only the type of the error: the message could contain the e-mail address or password.
+    console.error("Login failed unexpectedly:", error instanceof Error ? error.name : typeof error);
     return failure(email, LOGIN_MESSAGES.technicalProblem);
   }
 

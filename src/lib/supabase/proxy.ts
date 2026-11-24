@@ -9,8 +9,8 @@ import { getSupabasePublicEnv } from "./env";
  * The work of `src/proxy.ts`, kept here so it can be tested:
  * 1. Refresh the Supabase session when the access token has expired and write the new
  *    cookies to both the request (so pages see them) and the response (so the browser does).
- * 2. Optimistic access check: no session on a protected page means redirect to `/login`;
- *    a signed-in user on `/login` goes to `/`.
+ * 2. Optimistic access check: no session on a protected page means redirect to `/login`.
+ *    Signed-in users on `/login` are handled by the login page itself (see `accessRedirect`).
  *
  * Only the session is checked here, with `getClaims()` (the token signature is verified;
  * no database access in the proxy). Role and "account deactivated" are checked per request
@@ -49,7 +49,6 @@ export async function updateSession(request: NextRequest): Promise<NextResponse>
 
   const target = accessRedirect({
     pathname: request.nextUrl.pathname,
-    method: request.method,
     signedIn,
   });
   if (!target) {

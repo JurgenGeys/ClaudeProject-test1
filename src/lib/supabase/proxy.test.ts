@@ -47,10 +47,10 @@ describe("updateSession", () => {
     expect(response.status).toBe(200);
   });
 
-  it("sends a signed-in user from the login page to the root", async () => {
+  it("leaves a signed-in user on the login page (the page itself decides, to avoid a loop)", async () => {
     getClaims.mockResolvedValue({ data: { claims: { sub: "u1" } }, error: null });
     const response = await updateSession(request("/login"));
-    expect(response.headers.get("location")).toBe("http://localhost:3000/");
+    expect(response.headers.get("location")).toBeNull();
   });
 
   it("lets a signed-in user through to a protected page", async () => {
@@ -72,8 +72,14 @@ describe("updateSession", () => {
     expect(passed.cookies.get("sb-session")?.value).toBe("new-token");
     expect(passed.headers.get("Cache-Control")).toBe("private, no-store");
 
-    const redirected = await updateSession(request("/login"));
-    expect(redirected.headers.get("location")).toBe("http://localhost:3000/");
+    getClaims.mockImplementation(async () => {
+      setAll?.([{ name: "sb-session", value: "new-token", options: { path: "/" } }], {
+        "Cache-Control": "private, no-store",
+      });
+      return { data: null, error: new Error("refresh failed") };
+    });
+    const redirected = await updateSession(request("/tasks"));
+    expect(redirected.headers.get("location")).toBe("http://localhost:3000/login");
     expect(redirected.cookies.get("sb-session")?.value).toBe("new-token");
     expect(redirected.headers.get("Cache-Control")).toBe("private, no-store");
   });

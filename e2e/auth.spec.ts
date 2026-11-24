@@ -115,18 +115,24 @@ test.describe("sign in", () => {
 });
 
 test.describe("disabled accounts", () => {
-  test("a deactivated profile is refused with the right message", async ({ page }) => {
+  test("a deactivated profile is refused with the general message", async ({ page }) => {
     await signIn(page, INACTIVE_TECHNICIAN);
-    await expect(formMessage(page)).toHaveText(DISABLED);
+    await expect(formMessage(page)).toHaveText(MISMATCH);
     await expect(page).toHaveURL("/login");
     // No session was left behind.
     await page.goto("/my-tasks");
     await expect(page).toHaveURL("/login");
   });
 
-  test("a user blocked in Supabase Auth is refused with the same message", async ({ page }) => {
+  test("a blocked account gets the general message, with a wrong and with the right password", async ({
+    page,
+  }) => {
+    await signIn(page, BANNED_TECHNICIAN, "een-verkeerd-wachtwoord");
+    await expect(formMessage(page)).toHaveText(MISMATCH);
+    await expect(page).toHaveURL("/login");
+
     await signIn(page, BANNED_TECHNICIAN);
-    await expect(formMessage(page)).toHaveText(DISABLED);
+    await expect(formMessage(page)).toHaveText(MISMATCH);
     await expect(page).toHaveURL("/login");
   });
 

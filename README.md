@@ -46,13 +46,14 @@ supabase stop                # lokale Supabase stoppen
 
 Zie `.env.example`; de waarden komen in `.env.local` (nooit committen). Lokaal toont `supabase status -o env` de sleutels.
 
-| Variabele                              | Waarvoor                                                                    | Waar zichtbaar |
-| -------------------------------------- | --------------------------------------------------------------------------- | -------------- |
-| `DATABASE_URL`                         | Verbinding voor Drizzle en `pnpm db:migrate`                                | Enkel server   |
-| `NEXT_PUBLIC_SUPABASE_URL`             | URL van het Supabase-project                                                | Ook browser    |
-| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Publieke sleutel, enkel voor aanmelden en sessies                           | Ook browser    |
-| `SUPABASE_SECRET_KEY`                  | Geheime sleutel (omzeilt alle beveiliging per rij): enkel server en scripts | Enkel server   |
-| `SEED_BACKOFFICE_PASSWORD`             | Optioneel: wachtwoord voor de eerste backoffice-gebruiker (min. 12 tekens)  | Enkel script   |
+| Variabele                              | Waarvoor                                                                                  | Waar zichtbaar |
+| -------------------------------------- | ----------------------------------------------------------------------------------------- | -------------- |
+| `DATABASE_URL`                         | Verbinding voor Drizzle en `pnpm db:migrate`                                              | Enkel server   |
+| `NEXT_PUBLIC_SUPABASE_URL`             | URL van het Supabase-project                                                              | Ook browser    |
+| `NEXT_PUBLIC_COMPANY_NAME`             | Naam van het bedrijf van de klant, boven de titel op het aanmeldscherm (leeg = geen naam) | Ook browser    |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Publieke sleutel, enkel voor aanmelden en sessies                                         | Ook browser    |
+| `SUPABASE_SECRET_KEY`                  | Geheime sleutel (omzeilt alle beveiliging per rij): enkel server en scripts               | Enkel server   |
+| `SEED_BACKOFFICE_PASSWORD`             | Optioneel: wachtwoord voor de eerste backoffice-gebruiker (min. 12 tekens)                | Enkel script   |
 
 ### Gebruikers en rollen
 
@@ -116,7 +117,7 @@ gebruikers aan.
 
 In CI doet de job `End-to-end tests` hetzelfde op de runner: Supabase CLI via de officiële action, `supabase start`,
 `pnpm db:migrate`, de lokale URL en sleutels uit `supabase status -o env` als omgeving voor build en tests, en
-daarna `pnpm test:e2e`. Die sleutels bestaan enkel op de runner.
+daarna `pnpm test:e2e`. Die sleutels bestaan enkel op de runner. `supabase/config.toml` verhoogt de rate limit voor aanmeldingen van de lokale Auth-server naar 300 per 5 minuten (de tests melden vaak aan vanaf één IP-adres); dat geldt enkel lokaal en in CI, niet voor echte Supabase-projecten. CI zet `NEXT_PUBLIC_COMPANY_NAME` op een testwaarde die een test op het aanmeldscherm controleert.
 
 `pnpm test` draait zonder database; databasetests (`*.db.test.ts`) lopen enkel via `pnpm test:db`.
 

@@ -9,7 +9,9 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    // Everything except Next.js internals and static files (images, fonts, the favicon).
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
+    // Everything except the Next.js build output and the favicon. The `public/` folder is
+    // empty; when files are put there, list them here explicitly (a pattern such as "every
+    // path ending in .png" would also skip a page route that happens to end like that).
+    "/((?!_next/static/|_next/image|favicon\\.ico$).*)",
   ],
 };

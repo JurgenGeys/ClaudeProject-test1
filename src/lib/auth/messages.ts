@@ -4,6 +4,11 @@ export const LOGIN_MESSAGES = {
   passwordRequired: "Vul je wachtwoord in.",
   // Never says which of the two is wrong, so the screen does not reveal which addresses exist.
   invalidCredentials: "Dit e-mailadres en wachtwoord passen niet bij elkaar. Probeer opnieuw.",
+  // Only for someone who was already signed in when the account was disabled (`/auth/inactive`).
+  // Signing in itself never says this: that would reveal the account exists.
   accountDisabled: "Je account is uitgeschakeld. Neem contact op met kantoor.",
+  tooManyAttempts: "Te veel pogingen, probeer het over enkele minuten opnieuw.",
+  emailTooLong: "Dit e-mailadres is te lang.",
+  passwordTooLong: "Dit wachtwoord is te lang.",
   technicalProblem: "Dat is niet gelukt. Controleer je internetverbinding en probeer opnieuw.",
 } as const;

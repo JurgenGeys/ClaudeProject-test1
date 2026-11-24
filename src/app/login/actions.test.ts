@@ -57,6 +57,18 @@ describe("login: validation", () => {
     });
   });
 
+  it("refuses absurdly long input without calling Supabase", async () => {
+    const state = await login(
+      null,
+      form({ email: `${"a".repeat(321)}@x.be`, password: "p".repeat(1025) }),
+    );
+    expect(state?.fieldErrors).toEqual({
+      email: "Dit e-mailadres is te lang.",
+      password: "Dit wachtwoord is te lang.",
+    });
+    expect(signInWithPassword).not.toHaveBeenCalled();
+  });
+
   it("treats missing form fields like empty ones", async () => {
     const state = await login(null, new FormData());
     expect(state?.fieldErrors).toEqual({
@@ -79,23 +91,23 @@ describe("login: refused", () => {
     expect(findProfile).not.toHaveBeenCalled();
   });
 
-  it("shows the disabled message when Supabase reports a blocked user", async () => {
+  it("gives the general message when Supabase reports a blocked user", async () => {
     signInWithPassword.mockResolvedValue({
       data: { user: null, session: null },
       error: new AuthApiError("User is banned", 400, "user_banned"),
     });
     const state = await login(null, form(credentials));
-    expect(state?.formError).toBe("Je account is uitgeschakeld. Neem contact op met kantoor.");
+    expect(state?.formError).toBe(mismatch);
   });
 
-  it("refuses a deactivated profile and removes the session again", async () => {
+  it("refuses a deactivated profile with the general message and removes the session again", async () => {
     signInWithPassword.mockResolvedValue({
       data: { user: { id: "u1" }, session: {} },
       error: null,
     });
     findProfile.mockResolvedValue({ id: "u1", role: "technician", isActive: false });
     const state = await login(null, form(credentials));
-    expect(state?.formError).toBe("Je account is uitgeschakeld. Neem contact op met kantoor.");
+    expect(state?.formError).toBe(mismatch);
     expect(signOut).toHaveBeenCalledWith({ scope: "local" });
   });
 
@@ -106,7 +118,7 @@ describe("login: refused", () => {
     });
     findProfile.mockResolvedValue(undefined);
     const state = await login(null, form(credentials));
-    expect(state?.formError).toBe("Je account is uitgeschakeld. Neem contact op met kantoor.");
+    expect(state?.formError).toBe(mismatch);
     expect(signOut).toHaveBeenCalledWith({ scope: "local" });
   });
 
@@ -121,6 +133,15 @@ describe("login: refused", () => {
     );
   });
 
+  it("asks to wait when Auth rate-limits (never 'does not match')", async () => {
+    signInWithPassword.mockResolvedValue({
+      data: { user: null, session: null },
+      error: new AuthApiError("Too many requests", 429, "over_request_rate_limit"),
+    });
+    const state = await login(null, form(credentials));
+    expect(state?.formError).toBe("Te veel pogingen, probeer het over enkele minuten opnieuw.");
+  });
+
   it("shows the technical message when Auth answers with a server error", async () => {
     signInWithPassword.mockResolvedValue({
       data: { user: null, session: null },
@@ -131,13 +152,17 @@ describe("login: refused", () => {
   });
 
   it("shows the technical message when something throws, and keeps the address", async () => {
-    signInWithPassword.mockRejectedValue(new Error("boom"));
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    signInWithPassword.mockRejectedValue(new Error(`boom for ${credentials.email}`));
     const state = await login(null, form(credentials));
     expect(state).toEqual({
       email: credentials.email,
       fieldErrors: {},
       formError: "Dat is niet gelukt. Controleer je internetverbinding en probeer opnieuw.",
     });
+    // Only the error type is logged, never its message (it could contain the address).
+    expect(log).toHaveBeenCalledWith("Login failed unexpectedly:", "Error");
+    log.mockRestore();
   });
 });
 

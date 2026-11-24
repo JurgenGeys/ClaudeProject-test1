@@ -7,6 +7,9 @@ if (existsSync(".env.local")) {
   process.loadEnvFile(".env.local");
 }
 
+// The build shows this name on the login screen and a test checks it; CI sets the same value.
+process.env.NEXT_PUBLIC_COMPANY_NAME ||= "FrisAir Koeltechniek";
+
 const port = 3000;
 const baseURL = `http://localhost:${port}`;
 

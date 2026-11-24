@@ -19,6 +19,10 @@ export async function createSupabaseServerClient() {
       getAll() {
         return cookieStore.getAll();
       },
+      // The second argument (no-cache headers for responses that set session cookies) is not
+      // used on purpose: Next.js cannot set response headers from here, and it already marks
+      // every dynamic response that sets cookies as not cacheable. The proxy, which does
+      // control its response, does set those headers (`src/lib/supabase/proxy.ts`).
       setAll(cookiesToSet) {
         try {
           for (const { name, value, options } of cookiesToSet) {

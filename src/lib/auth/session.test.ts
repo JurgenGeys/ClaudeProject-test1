@@ -13,6 +13,8 @@ vi.mock("@/db/client", () => ({
   getDb: () => ({ query: { profiles: { findFirst } } }),
 }));
 
+import { AuthApiError, AuthRetryableFetchError } from "@supabase/supabase-js";
+
 import type { Profile } from "@/db/schema";
 
 import { AuthError, getAuthState, getCurrentUser, requireRole } from "./session";
@@ -100,6 +102,34 @@ describe("auth helpers", () => {
 
       signedInAs(undefined);
       expect(await getAuthState()).toEqual({ status: "inactive" });
+    });
+  });
+
+  describe("getAuthState when Auth is unavailable", () => {
+    it.each([
+      ["a network failure", new AuthRetryableFetchError("fetch failed", 0)],
+      ["a server error", new AuthApiError("Internal error", 500, "unexpected_failure")],
+      ["rate limiting", new AuthApiError("Too many", 429, "over_request_rate_limit")],
+    ])("does not mistake %s for a missing session", async (_name, error) => {
+      getUser.mockResolvedValue({ data: { user: null }, error });
+      expect(await getAuthState()).toEqual({ status: "unavailable" });
+      expect(findFirst).not.toHaveBeenCalled();
+    });
+
+    it("still treats a rejected session (client error) as not signed in", async () => {
+      getUser.mockResolvedValue({
+        data: { user: null },
+        error: new AuthApiError("JWT expired", 401, "bad_jwt"),
+      });
+      expect(await getAuthState()).toEqual({ status: "unauthenticated" });
+    });
+
+    it("makes requireRole throw `unavailable`", async () => {
+      getUser.mockResolvedValue({
+        data: { user: null },
+        error: new AuthRetryableFetchError("fetch failed", 0),
+      });
+      expect(await codeOf(requireRole("technician"))).toBe("unavailable");
     });
   });
 

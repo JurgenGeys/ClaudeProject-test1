@@ -4,20 +4,28 @@ import { redirect } from "next/navigation";
 
 import type { UserRole } from "@/db/schema";
 
-import { INACTIVE_PATH, LOGIN_PATH } from "./routes";
+import { pathForSignedOutVisitor } from "./login-redirect";
+import { INACTIVE_PATH } from "./routes";
 import { AuthError, getCurrentUser, requireRole, type CurrentUser } from "./session";
 
 export type RoleAccess =
   | { kind: "allowed"; user: CurrentUser }
   /** Signed in and active, but with another role than the page is meant for. */
-  | { kind: "wrong-role"; user: CurrentUser };
+  | { kind: "wrong-role"; user: CurrentUser }
+  /** Supabase Auth could not be reached: show a technical message, never redirect. */
+  | { kind: "unavailable" };
 
 /**
- * Page-level check for Server Components (layouts and pages of a route group). Turns the
+ * Check for Server Components. Every page calls it itself (ADR-0002, rule 3): the layout of a
+ * route group also calls it, but only to decide what to show around the page; a layout does
+ * not protect the page's own data. Turns the
  * `AuthError` of `requireRole` into what the design asks for:
  * - not signed in: redirect to `/login`;
  * - deactivated: redirect to the route handler that signs the user out;
- * - wrong role: returned, so the caller can show "Deze pagina is niet voor jou bedoeld".
+ * - wrong role: returned, so the caller can show "Deze pagina is niet voor jou bedoeld";
+ * - Auth unreachable: returned as `unavailable` (the caller renders nothing or a message).
+ *
+ * The result is cached per request (`getAuthState`), so layout and page share one lookup.
  *
  * Server Actions do not use this: they turn the `AuthError` into a form error instead.
  */
@@ -33,8 +41,11 @@ export async function checkRoleAccess(role: UserRole): Promise<RoleAccess> {
   }
 
   // `redirect()` throws, so it is called outside the try/catch above.
+  if (failure.code === "unavailable") {
+    return { kind: "unavailable" };
+  }
   if (failure.code === "unauthenticated") {
-    redirect(LOGIN_PATH);
+    redirect(await pathForSignedOutVisitor());
   }
   if (failure.code === "inactive") {
     redirect(INACTIVE_PATH);
@@ -42,7 +53,7 @@ export async function checkRoleAccess(role: UserRole): Promise<RoleAccess> {
   const user = await getCurrentUser();
   if (!user) {
     // The session ended between the two lookups.
-    redirect(LOGIN_PATH);
+    redirect(await pathForSignedOutVisitor());
   }
   return { kind: "wrong-role", user };
 }

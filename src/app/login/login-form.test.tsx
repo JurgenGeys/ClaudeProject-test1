@@ -25,6 +25,11 @@ describe("LoginForm", () => {
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
+  it("marks the form as hydrated, for the end-to-end tests", () => {
+    const { container } = render(<LoginForm />);
+    expect(container.querySelector("form")).toHaveAttribute("data-hydrated", "true");
+  });
+
   it("shows a notice that was decided before the form was shown", () => {
     render(<LoginForm notice="Je account is uitgeschakeld. Neem contact op met kantoor." />);
     expect(screen.getByRole("alert")).toHaveTextContent(

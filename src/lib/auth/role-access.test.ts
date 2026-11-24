@@ -16,6 +16,8 @@ vi.mock("./session", async (importOriginal) => ({
 // The real session module is loaded for AuthError; keep its dependencies out of the test.
 vi.mock("@/lib/supabase/server", () => ({ createSupabaseServerClient: vi.fn() }));
 vi.mock("@/db/client", () => ({ getDb: vi.fn() }));
+const { pathForSignedOutVisitor } = vi.hoisted(() => ({ pathForSignedOutVisitor: vi.fn() }));
+vi.mock("./login-redirect", () => ({ pathForSignedOutVisitor }));
 vi.mock("next/navigation", () => ({
   redirect: (path: string) => {
     throw new Error(`NEXT_REDIRECT:${path}`);
@@ -29,6 +31,7 @@ const technician = { id: "u1", email: "k@x.be", fullName: "Kevin", role: "techni
 
 beforeEach(() => {
   vi.resetAllMocks();
+  pathForSignedOutVisitor.mockResolvedValue("/login");
 });
 
 describe("checkRoleAccess", () => {
@@ -44,6 +47,19 @@ describe("checkRoleAccess", () => {
   it("redirects a visitor without a session to the login page", async () => {
     requireRole.mockRejectedValue(new AuthError("unauthenticated"));
     await expect(checkRoleAccess("technician")).rejects.toThrow("NEXT_REDIRECT:/login");
+  });
+
+  it("clears leftover session cookies first when there are any", async () => {
+    pathForSignedOutVisitor.mockResolvedValue("/auth/clear-session");
+    requireRole.mockRejectedValue(new AuthError("unauthenticated"));
+    await expect(checkRoleAccess("technician")).rejects.toThrow(
+      "NEXT_REDIRECT:/auth/clear-session",
+    );
+  });
+
+  it("reports an unreachable Auth server instead of redirecting (no redirect loop)", async () => {
+    requireRole.mockRejectedValue(new AuthError("unavailable"));
+    await expect(checkRoleAccess("technician")).resolves.toEqual({ kind: "unavailable" });
   });
 
   it("redirects a deactivated user to the route that signs them out", async () => {

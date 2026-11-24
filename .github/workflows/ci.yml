@@ -42,6 +42,8 @@ jobs:
     env:
       # Test credentials of the local Supabase that only exists on this runner (K4).
       DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+      # Test value: the build shows it on the login screen and an end-to-end test checks it.
+      NEXT_PUBLIC_COMPANY_NAME: FrisAir Koeltechniek
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1

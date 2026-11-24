@@ -20,11 +20,17 @@ function fieldSummary(count: number): string {
 export function LoginForm({ notice }: { notice?: string }) {
   const [state, formAction, pending] = useActionState(login, null);
   const alertRef = useRef<HTMLDivElement>(null);
+  const formRef = useRef<HTMLFormElement>(null);
 
   const fieldErrors = state?.fieldErrors ?? {};
   const errorCount = Object.keys(fieldErrors).length;
   const message =
     state?.formError ?? (errorCount > 0 ? fieldSummary(errorCount) : (notice ?? undefined));
+
+  // Tells the end-to-end tests that React is attached and the form is ready to be submitted.
+  useEffect(() => {
+    formRef.current?.setAttribute("data-hydrated", "true");
+  }, []);
 
   // After a failed attempt the focus goes to the message, so a screen reader reads it
   // and a keyboard user can tab on to the first field.
@@ -37,6 +43,7 @@ export function LoginForm({ notice }: { notice?: string }) {
   return (
     // `noValidate`: the browser would show its own (English) messages; the server validates.
     <form
+      ref={formRef}
       action={formAction}
       noValidate
       className="mt-6 space-y-4 rounded-lg border border-border bg-card p-6 shadow-sm"

@@ -10,12 +10,9 @@ describe("homePathForRole", () => {
 });
 
 describe("isPublicPath", () => {
-  it.each(["/login", "/forgot-password", "/auth/confirm", "/auth/confirm/extra"])(
-    "%s is public",
-    (path) => {
-      expect(isPublicPath(path)).toBe(true);
-    },
-  );
+  it.each(["/login", "/auth/clear-session"])("%s is public", (path) => {
+    expect(isPublicPath(path)).toBe(true);
+  });
 
   it.each([
     "/",
@@ -23,6 +20,8 @@ describe("isPublicPath", () => {
     "/my-tasks",
     "/set-password",
     "/auth/inactive",
+    "/auth/confirm",
+    "/forgot-password",
     "/login-evil",
     "/logins",
   ])("%s is not public", (path) => {
@@ -31,8 +30,7 @@ describe("isPublicPath", () => {
 });
 
 describe("accessRedirect", () => {
-  const visit = (pathname: string, signedIn: boolean, method = "GET") =>
-    accessRedirect({ pathname, method, signedIn });
+  const visit = (pathname: string, signedIn: boolean) => accessRedirect({ pathname, signedIn });
 
   it("sends visitors without a session from a protected page to the login page", () => {
     expect(visit("/", false)).toBe("/login");
@@ -43,22 +41,12 @@ describe("accessRedirect", () => {
 
   it("lets visitors without a session open the public pages", () => {
     expect(visit("/login", false)).toBeNull();
-    expect(visit("/login", false, "POST")).toBeNull();
-    expect(visit("/auth/confirm", false)).toBeNull();
+    expect(visit("/auth/clear-session", false)).toBeNull();
   });
 
-  it("sends a signed-in user away from the login page", () => {
-    expect(visit("/login", true)).toBe("/");
-    expect(visit("/login", true, "HEAD")).toBe("/");
-  });
-
-  it("lets a form post reach the login action even when signed in", () => {
-    expect(visit("/login", true, "POST")).toBeNull();
-  });
-
-  it("lets a signed-in user open every other page", () => {
-    expect(visit("/", true)).toBeNull();
-    expect(visit("/tasks", true)).toBeNull();
-    expect(visit("/my-tasks", true)).toBeNull();
+  it("never redirects a signed-in user, also not on /login (the login page decides that)", () => {
+    for (const path of ["/", "/login", "/tasks", "/my-tasks", "/auth/clear-session"]) {
+      expect(visit(path, true)).toBeNull();
+    }
   });
 });

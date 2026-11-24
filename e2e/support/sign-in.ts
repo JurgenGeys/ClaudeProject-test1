@@ -3,11 +3,13 @@ import type { Page } from "@playwright/test";
 import { TEST_PASSWORD, type TestUser } from "./test-users";
 
 /**
- * Opens the login page and waits until React has hydrated the form. A submit before that
- * is a plain form post that React then replays, which makes the result unpredictable.
+ * Opens the login page and waits until React has hydrated the form (the form sets
+ * `data-hydrated`). A submit before that is a plain form post that React then replays, which
+ * makes the result unpredictable.
  */
 export async function openLoginPage(page: Page): Promise<void> {
-  await page.goto("/login", { waitUntil: "networkidle" });
+  await page.goto("/login");
+  await page.locator('form[data-hydrated="true"]').waitFor();
 }
 
 /** Fills in and submits the login form. Does not wait for the result. */
