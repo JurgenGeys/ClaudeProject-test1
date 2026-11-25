@@ -5,7 +5,9 @@ import { LOGIN_MESSAGES } from "@/lib/auth/messages";
 import {
   INACTIVE_PATH,
   LOGIN_PATH,
+  INVITE_EXPIRED_PATH,
   LOGIN_REASON_DISABLED,
+  SET_PASSWORD_INVITE_PATH,
   homePathForRole,
 } from "@/lib/auth/routes";
 import { getAuthState } from "@/lib/auth/session";
@@ -29,6 +31,12 @@ export async function LoginContent({
   }
   if (state.status === "inactive") {
     redirect(INACTIVE_PATH);
+  }
+  if (state.status === "invite-expired") {
+    redirect(INVITE_EXPIRED_PATH);
+  }
+  if (state.status === "password-pending") {
+    redirect(SET_PASSWORD_INVITE_PATH);
   }
   if (state.status === "unauthenticated") {
     // Leftover cookies of a session that no longer exists are removed first. After that

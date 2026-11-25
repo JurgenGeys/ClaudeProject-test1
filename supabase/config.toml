@@ -29,15 +29,45 @@ port = 54324
 
 [auth]
 enabled = true
+# Nobody registers by themselves: users come from an invitation (or the seed script). The admin
+# API (invite, create user) is not affected. Decision Jurgen, 25/11/2026.
+enable_signup = false
 site_url = "http://127.0.0.1:3000"
-additional_redirect_urls = ["http://127.0.0.1:3000", "http://localhost:3000"]
+# The invitation mail links to `<SITE_URL>/auth/confirm` (`redirectTo` of the invite; see
+# supabase/templates/invite.html). Supabase only accepts redirect addresses in this list.
+additional_redirect_urls = [
+  "http://127.0.0.1:3000",
+  "http://localhost:3000",
+  "http://127.0.0.1:3000/auth/confirm",
+  "http://localhost:3000/auth/confirm",
+]
+
+# Invitation mail (design B7/G2): the link goes to our own `/auth/confirm` route with the token,
+# not to Supabase's own confirmation address. Real Supabase projects have the same template
+# in the dashboard (see the README); this file only applies to the local Supabase.
+[auth.email.template.invite]
+subject = "Je uitnodiging voor de planning"
+content_path = "./supabase/templates/invite.html"
+
+# "Uitnodiging opnieuw versturen" for someone who already opened the first link: Supabase only
+# sends an invitation to an address it has not confirmed yet, so that technician gets this mail.
+[auth.email.template.recovery]
+subject = "Kies een wachtwoord voor de planning"
+content_path = "./supabase/templates/recovery.html"
 
 # Rate limits of the LOCAL Auth server only (local development and the CI runner), approved by
 # Jurgen on 24/11/2026. The end-to-end tests sign in many times from one IP address (the runner),
 # which the default of 30 per 5 minutes does not allow. This file does not apply to real
 # Supabase projects: their limits are set in their own dashboard and stay at the defaults.
+#
+# The same goes for the number of mails per hour: the end-to-end tests send a few invitations per
+# run, and the default of the local Auth server is only 2 per hour. Raised for the same reason,
+# only locally (BT-06).
 [auth.rate_limit]
 sign_in_sign_ups = 300
+email_sent = 100
+# The end-to-end tests check several links from one IP address (default 30 per 5 minutes).
+token_verifications = 100
 
 # Not used; switched off to keep `supabase start` fast.
 [studio]

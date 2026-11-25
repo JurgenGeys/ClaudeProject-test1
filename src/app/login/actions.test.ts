@@ -123,6 +123,23 @@ describe("login: refused", () => {
     expect(setSession).not.toHaveBeenCalled();
   });
 
+  it("refuses an invited user who has not chosen a password yet, in the same way", async () => {
+    signInWithPassword.mockResolvedValue({
+      data: { user: { id: "u1" }, session: session },
+      error: null,
+    });
+    findProfile.mockResolvedValue({
+      id: "u1",
+      role: "technician",
+      isActive: true,
+      invitePending: true,
+    });
+    const state = await login(null, form(credentials));
+    expect(state?.formError).toBe(mismatch);
+    expect(verifierSignOut).toHaveBeenCalledWith({ scope: "local" });
+    expect(setSession).not.toHaveBeenCalled();
+  });
+
   it("refuses a user without a profile in the same way", async () => {
     signInWithPassword.mockResolvedValue({
       data: { user: { id: "u1" }, session: session },

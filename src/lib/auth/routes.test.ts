@@ -10,20 +10,24 @@ describe("homePathForRole", () => {
 });
 
 describe("isPublicPath", () => {
-  it.each(["/login", "/auth/clear-session"])("%s is public", (path) => {
-    expect(isPublicPath(path)).toBe(true);
-  });
+  it.each(["/login", "/auth/clear-session", "/auth/confirm", "/set-password"])(
+    "%s is public",
+    (path) => {
+      expect(isPublicPath(path)).toBe(true);
+    },
+  );
 
   it.each([
     "/",
     "/tasks",
+    "/technicians",
     "/my-tasks",
-    "/set-password",
     "/auth/inactive",
-    "/auth/confirm",
     "/forgot-password",
     "/login-evil",
     "/logins",
+    "/set-password-evil",
+    "/auth/confirmed",
   ])("%s is not public", (path) => {
     expect(isPublicPath(path)).toBe(false);
   });
@@ -42,6 +46,8 @@ describe("accessRedirect", () => {
   it("lets visitors without a session open the public pages", () => {
     expect(visit("/login", false)).toBeNull();
     expect(visit("/auth/clear-session", false)).toBeNull();
+    expect(visit("/auth/confirm", false)).toBeNull();
+    expect(visit("/set-password", false)).toBeNull();
   });
 
   it("never redirects a signed-in user, also not on /login (the login page decides that)", () => {

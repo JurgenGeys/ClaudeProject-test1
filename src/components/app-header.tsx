@@ -7,8 +7,8 @@ import { homePathForRole } from "@/lib/auth/routes";
 import { cn } from "@/lib/utils";
 
 /**
- * Main menu of the backoffice (design chapter 2). The customer and technician pages are
- * built in later tasks (BT-18 and BT-06); until then these links lead to the standard 404 page.
+ * Main menu of the backoffice (design chapter 2). The customer pages are built in a later
+ * task (BT-18); until then that link leads to the standard 404 page.
  */
 export const BACKOFFICE_NAV: readonly NavItem[] = [
   { href: "/tasks", label: "Taken" },

@@ -53,6 +53,19 @@ describe("RoleRedirect", () => {
     await expect(RoleRedirect()).rejects.toThrow("NEXT_REDIRECT:/tasks");
   });
 
+  it("sends an invited user without a password to the set password page", async () => {
+    getAuthState.mockResolvedValue({
+      status: "password-pending",
+      user: { id: "u1", email: "x@y.be", fullName: "X" },
+    });
+    await expect(RoleRedirect()).rejects.toThrow("NEXT_REDIRECT:/set-password?mode=invite");
+  });
+
+  it("sends an expired temporary invitation session to the route that ends it", async () => {
+    getAuthState.mockResolvedValue({ status: "invite-expired" });
+    await expect(RoleRedirect()).rejects.toThrow("NEXT_REDIRECT:/auth/invite-expired");
+  });
+
   it("sends a deactivated user to the route that signs them out", async () => {
     getAuthState.mockResolvedValue({ status: "inactive" });
     await expect(RoleRedirect()).rejects.toThrow("NEXT_REDIRECT:/auth/inactive");

@@ -10,6 +10,10 @@ if (existsSync(".env.local")) {
 // The build shows this name on the login screen and a test checks it; CI sets the same value.
 process.env.NEXT_PUBLIC_COMPANY_NAME ||= "FrisAir Koeltechniek";
 
+// The invitation mail links to this address (`/auth/confirm`). It must be the address the tests
+// open (`baseURL` below) and be allowed in `supabase/config.toml`; CI sets the same value.
+process.env.SITE_URL ||= "http://localhost:3000";
+
 const port = 3000;
 const baseURL = `http://localhost:${port}`;
 
@@ -20,10 +24,15 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
-  reporter: process.env.CI ? "github" : "list",
+  // In CI also an HTML report, which the workflow uploads when a test fails (screenshots, no traces).
+  reporter: process.env.CI ? [["github"], ["html", { open: "never" }]] : "list",
   use: {
     baseURL,
-    trace: "on-first-retry",
+    // Traces contain the test tokens and this repository is public, so in CI they are not
+    // recorded (the HTML report embeds them). Locally they are kept for failed tests only.
+    trace: process.env.CI ? "off" : "retain-on-failure",
+    // Screenshots of failed tests are safe to share and end up in the HTML report.
+    screenshot: "only-on-failure",
   },
   projects: [
     { name: "desktop", use: { ...devices["Desktop Chrome"] } },

@@ -1,0 +1,13 @@
+<h2>Kies een wachtwoord</h2>
+<p>Via deze link kies je een wachtwoord om de planning te gebruiken:</p>
+<p>
+  <a href="{{ .RedirectTo }}?token_hash={{ .TokenHash }}&type=recovery">Wachtwoord kiezen</a>
+</p>
+<p>
+  Werkt de knop niet? Kopieer dan dit adres in je browser:<br />
+  {{ .RedirectTo }}?token_hash={{ .TokenHash }}&type=recovery
+</p>
+<p>
+  De link werkt maar één keer en niet voor altijd. Is hij verlopen of niet meer geldig, vraag dan
+  kantoor om een nieuwe uitnodiging.
+</p>

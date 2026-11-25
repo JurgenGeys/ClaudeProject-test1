@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import type { UserRole } from "@/db/schema";
 
 import { pathForSignedOutVisitor } from "./login-redirect";
-import { INACTIVE_PATH } from "./routes";
+import { INACTIVE_PATH, INVITE_EXPIRED_PATH, SET_PASSWORD_INVITE_PATH } from "./routes";
 import { AuthError, getCurrentUser, requireRole, type CurrentUser } from "./session";
 
 export type RoleAccess =
@@ -22,6 +22,8 @@ export type RoleAccess =
  * `AuthError` of `requireRole` into what the design asks for:
  * - not signed in: redirect to `/login`;
  * - deactivated: redirect to the route handler that signs the user out;
+ * - invited, but the temporary session is older than 24 hours: redirect to the route that ends it;
+ * - invited but no password chosen yet: redirect to "set password" (G2);
  * - wrong role: returned, so the caller can show "Deze pagina is niet voor jou bedoeld";
  * - Auth unreachable: returned as `unavailable` (the caller renders nothing or a message).
  *
@@ -49,6 +51,12 @@ export async function checkRoleAccess(role: UserRole): Promise<RoleAccess> {
   }
   if (failure.code === "inactive") {
     redirect(INACTIVE_PATH);
+  }
+  if (failure.code === "invite-expired") {
+    redirect(INVITE_EXPIRED_PATH);
+  }
+  if (failure.code === "password-pending") {
+    redirect(SET_PASSWORD_INVITE_PATH);
   }
   const user = await getCurrentUser();
   if (!user) {

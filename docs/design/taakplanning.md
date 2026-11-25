@@ -138,9 +138,11 @@ De link in de mail bepaalt welke tekst getoond wordt.
 - **Inhoud bij een uitnodiging**: "Welkom, Kevin. Kies een wachtwoord om de planning te gebruiken."
 - **Inhoud na wachtwoord vergeten**: "Nieuw wachtwoord kiezen. Kies een nieuw wachtwoord voor kevin@frisair.be."
 - Velden **Nieuw wachtwoord** en **Herhaal wachtwoord**, met de regel "Minstens 8 tekens". Knop **Wachtwoord bewaren**.
-- **Acties**: bewaren; daarna meteen aangemeld en naar het startscherm van de rol.
-- **Foutmeldingen**: "Je wachtwoord moet minstens 8 tekens hebben." / "De twee wachtwoorden zijn niet gelijk."
+- **Acties**: bewaren; daarna meteen aangemeld en naar het startscherm van de rol. Knop **Annuleren**: verlaat het scherm zonder wachtwoord te kiezen en meldt de tijdelijke sessie af (naar G1). _Beslist door Jurgen, 25/11/2026._
+- **Tussenpagina** (`/auth/confirm`, beslist door Jurgen, 25/11/2026): de link in de mail opent eerst een pagina met "Welkom bij de planning" en de knop **Wachtwoord instellen**. Pas die klik controleert het token en maakt de tijdelijke sessie. Zo verbruiken mailscanners en linkvoorbeelden die de link openen het token niet.
+- **Foutmeldingen**: "Je wachtwoord moet minstens 8 tekens hebben." / "De twee wachtwoorden zijn niet gelijk." / "Gebruik een korter wachtwoord." (meer dan 72 bytes, een grens van Supabase)
   - Verlopen link (uitnodiging): "Deze link is niet meer geldig. Vraag kantoor om een nieuwe uitnodiging."
+  - Tijdelijke sessie ouder dan 24 uur sinds de klik op de knop (de technieker liet het scherm open staan): afgemeld, met "De link is verlopen. Vraag kantoor om een nieuwe uitnodiging." _Beslist door Jurgen, 25/11/2026._
   - Verlopen link (wachtwoord vergeten): "Deze link is niet meer geldig. Vraag een nieuwe link aan." met een knop naar G3.
 - **Rechten**: enkel bereikbaar via een geldige link uit de uitnodigingsmail of de mail "wachtwoord vergeten".
 
@@ -276,7 +278,7 @@ Eén formulier in drie blokken. Verplichte velden met een sterretje en de legend
 ### B7 Techniekers (backoffice)
 
 - **Inhoud**: knop **Technieker toevoegen**; tabel: Naam, E-mailadres, Status (Actief / Uitgenodigd / Uitgeschakeld), Open taken (Toegewezen + Opgepikt; geannuleerde tellen niet mee). Per actieve technieker een knop **Uitschakelen**, per uitgeschakelde technieker een knop **Opnieuw activeren** (P3).
-- **Dialoog Technieker toevoegen**: Naam *, E-mailadres *. Knop **Uitnodiging versturen**. Resultaat: "Uitnodiging verstuurd naar kevin.wouters@…". De technieker staat als "Uitgenodigd" tot hij een wachtwoord instelde. Bij een uitgenodigde technieker de knop **Uitnodiging opnieuw versturen**.
+- **Dialoog Technieker toevoegen**: Naam *, E-mailadres *. Knop **Uitnodiging versturen**. Resultaat: "Uitnodiging verstuurd naar kevin.wouters@…". De technieker staat als "Uitgenodigd" tot hij een wachtwoord instelde. Bij een uitgenodigde technieker de knop **Uitnodiging opnieuw versturen**. Die werkt ook als de technieker de link al opende maar nog geen wachtwoord koos: dan komt er een nieuwe link (zie hoofdstuk 6). _Beslist door Jurgen, 25/11/2026._
 - **Dialoog Uitschakelen**: "Bram Claes uitschakelen? Hij kan zich dan niet meer aanmelden. Zijn afgewerkte taken en uren blijven bewaard." Knop **Uitschakelen**.
 - **Dialoog Opnieuw activeren** (P3): "Tom Hendrickx opnieuw activeren? Hij kan zich dan weer aanmelden met zijn vorige wachtwoord. Weet hij dat niet meer, dan gebruikt hij 'Wachtwoord vergeten' op het aanmeldscherm." Knop **Opnieuw activeren**. Resultaat: status Actief, melding "Tom Hendrickx is opnieuw actief. Je kan hem weer taken toewijzen."
 - **Foutmeldingen**: "Vul de naam in." / "Vul een geldig e-mailadres in." / "Er bestaat al een gebruiker met dit e-mailadres." / Uitschakelen met open taken: "Uitschakelen kan nog niet. Kevin Wouters heeft nog taken die niet afgewerkt zijn (6). Wijs die eerst aan een andere technieker toe." met knop "Toon zijn taken" naar B1 gefilterd op deze technieker.
@@ -366,6 +368,8 @@ erDiagram
         text email "verplicht, uniek, kopie voor weergave"
         user_role role "verplicht: backoffice of technician"
         boolean is_active "verplicht, standaard true"
+        boolean invite_pending "verplicht, standaard false: true vanaf de uitnodiging tot het wachtwoord gekozen is"
+        timestamptz invite_verified_at "optioneel: moment (databaseklok) waarop de uitnodigingslink gecontroleerd werd, gewist na het kiezen van het wachtwoord"
         timestamptz created_at "verplicht"
         timestamptz deactivated_at "optioneel, gewist bij opnieuw activeren"
     }
@@ -442,6 +446,7 @@ erDiagram
 
 ### Keuzes in het model
 
+- **Uitnodiging in het profiel** (BT-06, beslist door Jurgen, 25/11/2026): `invite_pending` en `invite_verified_at` (beide additief, geen gegevens verwijderd of hernoemd). Een uitgenodigde technieker heeft meteen een profiel en een Auth-account, maar zolang `invite_pending` waar is geldt zijn sessie nergens behalve op G2 (zie hoofdstuk 6). De status "Uitgenodigd" in B7 volgt uit `invite_pending`; er is geen aparte statuskolom. Een Auth-account dat de applicatie zelf aanmaakte krijgt `invited_by_app: true` in `app_metadata` (enkel via de admin-API te zetten).
 - **Uren als minuten (integer)**: geen afrondingsfouten. Weergave `1u30`, export `1,5`.
 - **Geldende uren** = `coalesce(corrected_minutes, worked_minutes)`; de oorspronkelijke uren blijven altijd bewaard (A19).
 - **Locatie op de taak** is een kopie van het klantadres op het moment van aanmaken, aanpasbaar per taak (US-07). Latere wijzigingen aan de klant veranderen oude taken niet; dat is ook juist voor de facturatie.
@@ -477,7 +482,9 @@ src/
     login/page.tsx                 # G1
     forgot-password/page.tsx       # G3 (P1)
     forgot-password/actions.ts     # requestPasswordReset
-    auth/confirm/route.ts          # verwerkt de link uit uitnodigings- en resetmail (type invite of recovery)
+    auth/confirm/page.tsx          # tussenpagina met de knop "Wachtwoord instellen" (verbruikt het token niet)
+    auth/confirm/actions.ts        # confirmInvite: controleert het token (verifyOtp) bij de klik
+    auth/invite-expired/route.ts   # beëindigt een tijdelijke sessie van meer dan 24 uur
     set-password/page.tsx          # G2 (?mode=invite|reset)
     page.tsx                       # stuurt door naar /my-tasks of /tasks volgens rol
     (technician)/
@@ -529,7 +536,11 @@ Wil Jurgen Nederlandse URL's (`/mijn-taken`), dan is dat enkel een hernoeming.
 - **Proxy**: `proxy.ts` ververst enkel de sessie en stuurt bezoekers zonder (geldige) sessie van een beschermde pagina naar `/login`. Hij beslist niet over rollen of over aangemelde gebruikers op `/login`: dat doet de loginpagina met de server-geverifieerde `getAuthState` (anders kunnen `/` en `/login` elkaar blijven doorsturen).
 - **Auth niet bereikbaar**: een netwerkfout, serverfout of rate limit van Supabase Auth is geen "niet aangemeld". `getAuthState` geeft dan `unavailable`, de pagina toont "Dat is niet gelukt. Controleer je internetverbinding en probeer opnieuw." en er is geen redirect. Verlopen of ingetrokken sessiecookies worden via de route handler `/auth/clear-session` gewist voor de bezoeker naar `/login` gaat.
 - **Rol en actief/uitgeschakeld** staan in `profiles`. `requireRole()` haalt bij elk verzoek de gebruiker op (`supabase.auth.getUser()`, niet enkel de cookie vertrouwen) en daarna het profiel via Drizzle. Geen profiel of `is_active = false` → uitloggen en melding op G1 (bij een lopende sessie: "Je account is uitgeschakeld"; bij het aanmelden zelf: de algemene melding, zie G1).
-- **Uitnodigen**: `inviteTechnician` gebruikt server-side `auth.admin.inviteUserByEmail` (service role key) en maakt in dezelfde stap het profiel aan. De link in de mail gaat naar `/auth/confirm` → `/set-password?mode=invite`.
+- **Uitnodigen** (BT-06): `inviteTechnician` gebruikt server-side `auth.admin.inviteUserByEmail` (service role key) en maakt daarna het profiel aan met `invite_pending = true`; faalt dat, dan wordt de Auth-gebruiker weer verwijderd. Het adres van de link komt uit de omgevingsvariabele `SITE_URL`, nooit uit de `Host`-header. Een Auth-account zonder profiel wordt enkel hergebruikt als de applicatie het zelf aanmaakte (kenmerk `invited_by_app` in `app_metadata`); een ander account geeft "Er bestaat al een gebruiker met dit e-mailadres." Een adres met een bestaand profiel (ook backoffice) wordt geweigerd.
+- **Zelfregistratie uit** (beslist door Jurgen, 25/11/2026): in elk Supabase-project staat "Allow new users to sign up" uit (`enable_signup = false` lokaal en in CI). Gebruikers komen enkel via een uitnodiging of het seed-script; de admin-API blijft werken.
+- **Uitnodigingslink in twee stappen** (beslist door Jurgen, 25/11/2026): de mail linkt naar `/auth/confirm?token_hash=…&type=invite`. Die pagina toont enkel uitleg en een knop; het openen van de link (GET of HEAD) verbruikt het token niet. Pas de klik (Server Action `confirmInvite`) doet `verifyOtp`, bewaart `invite_verified_at` (databaseklok) en stuurt naar `/set-password?mode=invite`. Token en Auth-foutteksten staan nooit in logs of redirects; de redirects zijn relatief en de pagina is `no-store` zonder referrer.
+- **Toestand password-pending** (beslist door Jurgen, 25/11/2026): `getAuthState` kent naast `authenticated`, `unauthenticated`, `inactive` en `unavailable` ook `password-pending` (profiel met `invite_pending`) en `invite-expired` (`password-pending`, maar `invite_verified_at` is meer dan 24 uur geleden of ontbreekt). Een pending sessie wordt overal behandeld als "nog niet binnen": pagina's en `requireRole` sturen naar `/set-password?mode=invite`, aanmelden met een wachtwoord is niet mogelijk, enkel `setPassword` en `signOut` accepteren hem. Een verlopen pending sessie wordt via `/auth/invite-expired` afgemeld, met de melding "De link is verlopen…". De 24 uur lopen op de databaseklok vanaf de klik; er is geen cookie of veld dat de client kan wijzigen.
+- **Opnieuw versturen na openen** (beslist door Jurgen, 25/11/2026): Supabase stuurt geen uitnodiging meer naar een bevestigd adres. `resendInvite` probeert eerst een nieuwe uitnodiging en stuurt anders Supabase's eigen mail van het type `recovery` (`resetPasswordForEmail`, eigen mailsjabloon `supabase/templates/recovery.html`) met dezelfde `/auth/confirm`-tussenpagina. In BT-06 accepteert `confirmInvite` dat type enkel voor een technieker met `invite_pending`; BT-06b opent het voor "Wachtwoord vergeten".
 - **Wachtwoord vergeten (P1)**: `requestPasswordReset` valideert het e-mailadres met Zod en roept `auth.resetPasswordForEmail` aan met als terugkeeradres `/auth/confirm`. De Server Action geeft altijd hetzelfde resultaat terug, of het adres nu bestaat of niet. `/auth/confirm` herkent het type `recovery` en stuurt door naar `/set-password?mode=reset`. Supabase beperkt zelf het aantal mails per uur; zolang K6 (eigen mailserver) open is, geldt de lage limiet van de ingebouwde testmailserver.
 - **Uitschakelen**: `is_active = false` en `deactivated_at` gevuld (werkt onmiddellijk door de controle in `requireRole`) en daarnaast de gebruiker in Supabase Auth blokkeren (`ban_duration`), zodat hij ook geen nieuwe sessie krijgt, ook niet via een wachtwoordlink.
 - **Opnieuw activeren (P3)**: `reactivateTechnician` zet `is_active = true`, wist `deactivated_at` en heft de blokkering in Supabase Auth op (`ban_duration: 'none'`). Het oude wachtwoord blijft geldig; er wordt geen nieuwe uitnodiging verstuurd. Enkel voor gebruikers met rol `technician` en status uitgeschakeld.

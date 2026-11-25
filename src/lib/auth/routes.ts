@@ -20,11 +20,43 @@ export const LOGIN_REASON_DISABLED = "disabled";
 export const CLEAR_SESSION_PATH = "/auth/clear-session";
 
 /**
- * Pages that work without a session. `/auth/clear-session` must be reachable without one:
- * it is where stale session cookies are removed. The password pages (`/forgot-password`,
- * `/auth/confirm`) are added in BT-06 and BT-06b, together with the pages themselves.
+ * Route handler that the link in the invitation mail points to. It checks the token and
+ * sends the visitor on to "set password" (design chapter 6).
  */
-const PUBLIC_PATHS = [LOGIN_PATH, CLEAR_SESSION_PATH];
+export const CONFIRM_PATH = "/auth/confirm";
+
+/** G2: choose a password. The only page an invited user may use before the password is set. */
+export const SET_PASSWORD_PATH = "/set-password";
+
+/** Query value of `?mode=` on G2 for the invitation (BT-06b adds `reset`). */
+export const SET_PASSWORD_MODE_INVITE = "invite";
+
+/** Query value of `?error=` on G2: the link is invalid, expired or already used. */
+export const SET_PASSWORD_ERROR_LINK = "link";
+
+/** Query value of `?error=` on G2: the link could not be checked because Auth was unreachable. */
+export const SET_PASSWORD_ERROR_UNAVAILABLE = "unavailable";
+
+/** Query value of `?error=` on G2: the temporary session of the invitation ran out (24 hours). */
+export const SET_PASSWORD_ERROR_EXPIRED = "expired";
+
+/**
+ * Route handler that ends the temporary session of an invitation that is older than 24 hours
+ * and shows G2 with the message that the link has expired (like `/auth/inactive`).
+ */
+export const INVITE_EXPIRED_PATH = "/auth/invite-expired";
+
+/** Where an invited user without a password goes (and where the confirm route sends them). */
+export const SET_PASSWORD_INVITE_PATH = `${SET_PASSWORD_PATH}?mode=${SET_PASSWORD_MODE_INVITE}`;
+
+/**
+ * Pages that work without a session. `/auth/clear-session` must be reachable without one:
+ * it is where stale session cookies are removed. `/auth/confirm` is where the link in the
+ * invitation mail arrives (the visitor has no session yet) and `/set-password` shows the
+ * "link is no longer valid" message to visitors without one; the page decides for itself
+ * what a visitor may see. `/forgot-password` is added in BT-06b.
+ */
+const PUBLIC_PATHS = [LOGIN_PATH, CLEAR_SESSION_PATH, CONFIRM_PATH, SET_PASSWORD_PATH];
 
 export function homePathForRole(role: UserRole): string {
   return HOME_PATHS[role];

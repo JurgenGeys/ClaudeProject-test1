@@ -99,3 +99,45 @@ export async function setProfileActive(email: string, isActive: boolean): Promis
       .where(eq(profiles.email, email));
   });
 }
+
+/**
+ * Removes a user again: the profile (Drizzle) and the Auth account (admin API). For the users
+ * that a test creates itself, such as an invited technician, so they do not show up in the
+ * technician list of later tests.
+ */
+export async function removeUser(email: string): Promise<void> {
+  assertLocalSupabase(process.env);
+  const admin = createClient(
+    requireEnv("NEXT_PUBLIC_SUPABASE_URL"),
+    requireEnv("SUPABASE_SECRET_KEY"),
+    { auth: { autoRefreshToken: false, persistSession: false } },
+  );
+  const id = await withDb(async (db) => {
+    const found = await db
+      .select({ id: authUsers.id })
+      .from(authUsers)
+      .where(sql`lower(${authUsers.email}) = ${email.toLowerCase()}`)
+      .limit(1);
+    if (found[0]) {
+      await db.delete(profiles).where(eq(profiles.id, found[0].id));
+    }
+    return found[0]?.id;
+  });
+  if (id) {
+    const { error } = await admin.auth.admin.deleteUser(id);
+    if (error) {
+      throw new Error(`Removing test user ${email} failed: ${error.message}`);
+    }
+  }
+}
+
+/** Moves the moment the invitation link was verified, to test the 24 hour limit. */
+export async function setInviteVerifiedAt(email: string, verifiedAt: Date): Promise<void> {
+  assertLocalSupabase(process.env);
+  await withDb(async (db) => {
+    await db
+      .update(profiles)
+      .set({ inviteVerifiedAt: verifiedAt })
+      .where(eq(profiles.email, email.toLowerCase()));
+  });
+}
