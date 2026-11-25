@@ -23,13 +23,36 @@ import { TASK_ACTION_MESSAGES } from "@/lib/tasks/messages";
 import { MAX_ESTIMATED_MINUTES } from "@/lib/tasks/limits";
 import { WORK_TYPE_LABELS } from "@/lib/tasks/labels";
 import { workTypes } from "@/lib/tasks/types";
+import type { WorkType } from "@/lib/tasks/types";
 import { brusselsDayKey, formatHours, QUARTER_MINUTES } from "@/lib/time/format";
 import { fieldSummary } from "@/lib/validation/field-summary";
 
-import { createTask, type CreateTaskState } from "../actions";
+import { createTask, updateTask, type TaskFormState } from "./actions";
 import { CustomerPicker } from "./customer-picker";
 
 export type TechnicianOption = { id: string; fullName: string };
+
+/**
+ * What the form starts from when an existing task is edited (design B2, edit mode): the task as
+ * saved, and its `version` (see `updateTaskInTransaction`). Without it the form makes a new task.
+ */
+export type TaskFormEdit = {
+  number: number;
+  version: string;
+  /** Opgepikt: the technician cannot be changed here (use Terugzetten). */
+  status: "open" | "assigned" | "picked_up";
+  customer: CustomerSearchResult;
+  locationStreet: string;
+  locationPostalCode: string;
+  locationCity: string;
+  workType: WorkType;
+  instructions: string;
+  /** `2026-11-24` and `14:00`. */
+  scheduledDate: string;
+  startTime: string;
+  estimatedMinutes: number | null;
+  assignee: TechnicianOption | null;
+};
 
 const ESTIMATED_DURATIONS = Array.from(
   { length: MAX_ESTIMATED_MINUTES / QUARTER_MINUTES },
@@ -55,25 +78,44 @@ const RADIO_LABEL =
   "flex h-11 cursor-pointer items-center gap-3 rounded-md border border-input bg-background px-3 text-sm font-medium has-[:checked]:border-primary has-[:checked]:ring-1 has-[:checked]:ring-primary has-[:focus-visible]:ring-[3px] has-[:focus-visible]:ring-ring/50";
 
 /**
- * The form of "Nieuwe taak" (design B2). The server validates everything; the form only shows
+ * The form of "Nieuwe taak" and "Taak bewerken" (design B2). The server validates everything; the form only shows
  * what came back: a summary with the focus, and a message under every wrong field.
  *
  * The form is sent by hand (`onSubmit`) instead of with `action={...}`: React clears a form
  * after an action, and a refused form must keep what was typed. The button is disabled until
  * React has taken over the page, so a click or the Enter key never sends a plain form post.
  */
-export function NewTaskForm({ technicians }: { technicians: readonly TechnicianOption[] }) {
-  const [state, dispatch, pending] = useActionState<CreateTaskState, FormData>(createTask, null);
+export function TaskForm({
+  technicians,
+  edit,
+}: {
+  technicians: readonly TechnicianOption[];
+  edit?: TaskFormEdit;
+}) {
+  const [state, dispatch, pending] = useActionState<TaskFormState, FormData>(
+    edit ? updateTask : createTask,
+    null,
+  );
   const hydrated = useSyncExternalStore(
     () => () => {},
     () => true,
     () => false,
   );
-  const [pastDate, setPastDate] = useState(false);
+  const [pastDate, setPastDate] = useState(
+    edit ? edit.scheduledDate < brusselsDayKey(new Date()) : false,
+  );
   const alertRef = useRef<HTMLDivElement>(null);
   const streetRef = useRef<HTMLInputElement>(null);
   const postalCodeRef = useRef<HTMLInputElement>(null);
   const cityRef = useRef<HTMLInputElement>(null);
+
+  const assigneeLocked = edit?.status === "picked_up";
+  // The current technician stays selectable even if he is no longer offered (he was switched
+  // off): saving then says so, instead of silently moving the task to nobody.
+  const assigneeOptions =
+    edit?.assignee && !technicians.some((technician) => technician.id === edit.assignee?.id)
+      ? [...technicians, edit.assignee]
+      : technicians;
 
   const failed = state && !state.ok ? state : null;
   const errors = failed?.fieldErrors ?? {};
@@ -106,6 +148,7 @@ export function NewTaskForm({ technicians }: { technicians: readonly TechnicianO
     <form
       onSubmit={submit}
       noValidate
+      autoComplete="off"
       data-hydrated={hydrated ? "true" : undefined}
       className="mt-6 space-y-6"
     >
@@ -116,15 +159,34 @@ export function NewTaskForm({ technicians }: { technicians: readonly TechnicianO
           tabIndex={-1}
           className="border-red-200 bg-red-50 text-red-900 outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 *:data-[slot=alert-description]:text-red-900"
         >
-          <AlertDescription>{summary}</AlertDescription>
+          <AlertDescription>
+            {summary}
+            {failed?.reload ? (
+              <Button
+                type="button"
+                variant="outline"
+                className="mt-2 block h-10 px-4"
+                onClick={() => window.location.reload()}
+              >
+                {TASK_ACTION_MESSAGES.reload}
+              </Button>
+            ) : null}
+          </AlertDescription>
         </Alert>
+      ) : null}
+
+      {edit ? (
+        <>
+          <input type="hidden" name="taskNumber" value={edit.number} />
+          <input type="hidden" name="version" value={edit.version} />
+        </>
       ) : null}
 
       <section className={SECTION} aria-labelledby="heading-customer">
         <h2 id="heading-customer" className="text-lg font-semibold">
           1. Klant <Required />
         </h2>
-        <CustomerPicker errors={errors} onChoose={fillLocation} />
+        <CustomerPicker errors={errors} onChoose={fillLocation} initialCustomer={edit?.customer} />
       </section>
 
       <section className={SECTION} aria-labelledby="heading-location">
@@ -142,6 +204,7 @@ export function NewTaskForm({ technicians }: { technicians: readonly TechnicianO
             </Label>
             <Input
               ref={streetRef}
+              defaultValue={edit?.locationStreet}
               id="location-street"
               name="locationStreet"
               aria-required="true"
@@ -158,6 +221,7 @@ export function NewTaskForm({ technicians }: { technicians: readonly TechnicianO
             </Label>
             <Input
               ref={postalCodeRef}
+              defaultValue={edit?.locationPostalCode}
               id="location-postal-code"
               name="locationPostalCode"
               aria-required="true"
@@ -178,6 +242,7 @@ export function NewTaskForm({ technicians }: { technicians: readonly TechnicianO
             </Label>
             <Input
               ref={cityRef}
+              defaultValue={edit?.locationCity}
               id="location-city"
               name="locationCity"
               aria-required="true"
@@ -213,6 +278,7 @@ export function NewTaskForm({ technicians }: { technicians: readonly TechnicianO
                     type="radio"
                     name="workType"
                     value={workType}
+                    defaultChecked={edit?.workType === workType}
                     className="size-4 accent-primary"
                   />
                   {WORK_TYPE_LABELS[workType]}
@@ -229,6 +295,7 @@ export function NewTaskForm({ technicians }: { technicians: readonly TechnicianO
             <Textarea
               id="instructions"
               name="instructions"
+              defaultValue={edit?.instructions}
               aria-required="true"
               rows={4}
               placeholder="Bv. Jaarlijks onderhoud 2 split-units (winkel en atelier)"
@@ -252,6 +319,7 @@ export function NewTaskForm({ technicians }: { technicians: readonly TechnicianO
             <Input
               id="scheduled-date"
               name="scheduledDate"
+              defaultValue={edit?.scheduledDate}
               aria-required="true"
               type="date"
               onChange={(event) => {
@@ -283,6 +351,7 @@ export function NewTaskForm({ technicians }: { technicians: readonly TechnicianO
             <Input
               id="start-time"
               name="startTime"
+              defaultValue={edit?.startTime}
               aria-required="true"
               type="time"
               step={QUARTER_MINUTES * 60}
@@ -300,7 +369,7 @@ export function NewTaskForm({ technicians }: { technicians: readonly TechnicianO
             <NativeSelect
               id="estimated-minutes"
               name="estimatedMinutes"
-              defaultValue=""
+              defaultValue={edit?.estimatedMinutes ?? ""}
               aria-invalid={errors.estimatedMinutes ? true : undefined}
               aria-describedby={describedBy(errors.estimatedMinutes && "estimated-minutes-error")}
               className="mt-1 h-10"
@@ -319,25 +388,49 @@ export function NewTaskForm({ technicians }: { technicians: readonly TechnicianO
             <Label htmlFor="assignee" className="block">
               Technieker
             </Label>
-            <NativeSelect
-              id="assignee"
-              name="assigneeId"
-              defaultValue=""
-              aria-invalid={errors.assigneeId ? true : undefined}
-              aria-describedby={describedBy("assignee-hint", errors.assigneeId && "assignee-error")}
-              className="mt-1 h-10 sm:w-80"
-            >
-              <option value="">Nog niet toewijzen</option>
-              {technicians.map((technician) => (
-                <option key={technician.id} value={technician.id}>
-                  {technician.fullName}
-                </option>
-              ))}
-            </NativeSelect>
-            <p id="assignee-hint" className="mt-1 text-xs text-muted-foreground">
-              Kies je een technieker, dan krijgt de taak de status Toegewezen en ziet hij ze meteen
-              in zijn lijst.
-            </p>
+            {assigneeLocked ? (
+              <>
+                {/* Disabled: nothing is sent, so the technician cannot be changed by this form. */}
+                <NativeSelect
+                  id="assignee"
+                  disabled
+                  aria-describedby="assignee-hint"
+                  className="mt-1 h-10 sm:w-80"
+                >
+                  <option>{edit?.assignee?.fullName}</option>
+                </NativeSelect>
+                <p id="assignee-hint" className="mt-1 text-sm text-foreground">
+                  Deze taak is opgepikt. Gebruik &quot;Terugzetten&quot; op de taak om een andere
+                  technieker te kiezen.
+                </p>
+              </>
+            ) : (
+              <>
+                <NativeSelect
+                  id="assignee"
+                  name="assigneeId"
+                  defaultValue={edit?.assignee?.id ?? ""}
+                  aria-invalid={errors.assigneeId ? true : undefined}
+                  aria-describedby={describedBy(
+                    "assignee-hint",
+                    errors.assigneeId && "assignee-error",
+                  )}
+                  className="mt-1 h-10 sm:w-80"
+                >
+                  <option value="">Nog niet toewijzen</option>
+                  {assigneeOptions.map((technician) => (
+                    <option key={technician.id} value={technician.id}>
+                      {technician.fullName}
+                    </option>
+                  ))}
+                </NativeSelect>
+                <p id="assignee-hint" className="mt-1 text-xs text-muted-foreground">
+                  {edit?.assignee
+                    ? `Kies je een andere technieker, dan verdwijnt de taak uit de lijst van ${edit.assignee.fullName} en verschijnt ze bij de nieuwe technieker. Kies je "Nog niet toewijzen", dan staat de taak terug op Open en ziet geen enkele technieker ze.`
+                    : "Kies je een technieker, dan krijgt de taak de status Toegewezen en ziet hij ze meteen in zijn lijst."}
+                </p>
+              </>
+            )}
             <FieldError id="assignee-error" message={errors.assigneeId} />
           </div>
         </div>
@@ -345,10 +438,10 @@ export function NewTaskForm({ technicians }: { technicians: readonly TechnicianO
 
       <div className="flex flex-wrap gap-2">
         <Button type="submit" disabled={pending || !hydrated} className="h-10 px-5">
-          {pending ? "Bezig met bewaren…" : "Taak bewaren"}
+          {pending ? "Bezig met bewaren…" : edit ? "Wijzigingen bewaren" : "Taak bewaren"}
         </Button>
         <Button asChild variant="outline" className="h-10 px-5">
-          <Link href="/tasks">Annuleren</Link>
+          <Link href={edit ? `/tasks/${edit.number}` : "/tasks"}>Annuleren</Link>
         </Button>
       </div>
     </form>

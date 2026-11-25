@@ -1,0 +1,237 @@
+import { render, screen, within } from "@testing-library/react";
+import { describe, expect, it } from "vitest";
+
+import type { TaskDetail } from "@/lib/tasks/detail";
+
+import { TaskDetailView } from "./task-detail";
+
+const task: TaskDetail = {
+  id: "t1",
+  number: 1043,
+  status: "assigned",
+  version: "2026-11-25 18:44:00.123456+00",
+  workType: "inspection",
+  instructions: "Nazicht airco slaapkamer.\nToestel is 4 jaar oud.",
+  scheduledDate: "2026-11-23",
+  startTime: "13:30:00",
+  estimatedMinutes: 60,
+  locationStreet: "Lierseweg 87",
+  locationPostalCode: "2200",
+  locationCity: "Herentals",
+  customer: {
+    id: "c1",
+    name: "Fam. Van Dyck",
+    street: "Lierseweg 87",
+    postalCode: "2200",
+    city: "Herentals",
+    phone: "0476 21 43 65",
+    notes: "Hond in de tuin",
+  },
+  assignee: { id: "u1", fullName: "Kevin Wouters" },
+  createdAt: new Date("2026-11-13T08:12:00Z"),
+  createdByName: "Sofie Peeters",
+  pickedUpAt: null,
+  invoicedAt: null,
+  invoicedByName: null,
+  cancelledAt: null,
+  cancelledByName: null,
+  cancellationReason: null,
+  completion: null,
+};
+
+const completion = {
+  workedMinutes: 120,
+  notes: "4 units gereinigd.\nFilter vervangen.",
+  completedAt: new Date("2026-11-20T16:31:00Z"),
+  completedByName: "Jens Maes",
+  correctedMinutes: null,
+  correctionReason: null,
+  correctedAt: null,
+  correctedByName: null,
+};
+
+describe("TaskDetailView (B3)", () => {
+  it("shows the number, status, customer as title, kind of work, planning and technician", () => {
+    render(<TaskDetailView task={task} />);
+    expect(screen.getByRole("heading", { level: 1, name: "Fam. Van Dyck" })).toBeInTheDocument();
+    expect(screen.getByText("Taak #1043")).toBeInTheDocument();
+    expect(screen.getByText("Toegewezen", { selector: "[data-status]" })).toBeInTheDocument();
+    const summary = screen.getByRole("heading", { level: 1 }).nextElementSibling;
+    expect(summary).toHaveTextContent(
+      "Nazicht · ma 23/11/2026 om 13:30 · geschatte duur 1u00 · Kevin Wouters",
+    );
+    expect(screen.getByRole("link", { name: "← Taken" })).toHaveAttribute("href", "/tasks");
+  });
+
+  it("shows instructions with their line breaks, the location, and the customer with a phone link and remark", () => {
+    render(<TaskDetailView task={task} />);
+    const instructions = screen.getByRole("region", { name: "Instructies" });
+    expect(instructions).toHaveTextContent("Nazicht airco slaapkamer.");
+    expect(within(instructions).getByText(/Nazicht airco/)).toHaveClass("whitespace-pre-line");
+    expect(screen.getByRole("region", { name: "Locatie" })).toHaveTextContent(
+      "Lierseweg 872200 Herentals",
+    );
+    const customer = screen.getByRole("region", { name: "Klant" });
+    expect(within(customer).getByRole("link", { name: "0476 21 43 65" })).toHaveAttribute(
+      "href",
+      "tel:0476214365",
+    );
+    expect(customer).toHaveTextContent("Opmerking: Hond in de tuin");
+  });
+
+  it("shows the timeline", () => {
+    render(<TaskDetailView task={task} />);
+    const timeline = screen.getByRole("region", { name: "Tijdlijn" });
+    const items = within(timeline).getAllByRole("listitem");
+    expect(items.map((item) => item.textContent)).toEqual([
+      "Aangemaaktvr 13/11/2026 om 09:12 door Sofie Peeters",
+      "Toegewezen aan Kevin Wouters",
+      "Nog niet opgepikt",
+    ]);
+  });
+
+  it("has no confirmation by default, and 'Taak #1043 bewaard.' after a save", () => {
+    const { rerender } = render(<TaskDetailView task={task} />);
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    rerender(<TaskDetailView task={task} saved />);
+    expect(screen.getByRole("status")).toHaveTextContent("Taak #1043 bewaard.");
+  });
+
+  it.each([
+    ["open", true],
+    ["assigned", true],
+    ["picked_up", true],
+    ["completed", false],
+    ["invoiced", false],
+    ["cancelled", false],
+  ] as const)("status %s: the Bewerken link is %s", (status, shown) => {
+    render(
+      <TaskDetailView
+        task={{
+          ...task,
+          status,
+          pickedUpAt: new Date("2026-11-23T06:48:00Z"),
+          completion: status === "completed" || status === "invoiced" ? completion : null,
+          cancelledAt: status === "cancelled" ? new Date("2026-11-23T10:20:00Z") : null,
+        }}
+      />,
+    );
+    const link = screen.queryByRole("link", { name: "Bewerken" });
+    if (shown) {
+      expect(link).toHaveAttribute("href", "/tasks/1043/edit");
+    } else {
+      expect(link).not.toBeInTheDocument();
+    }
+  });
+
+  it("builds none of the actions of the later build tasks", () => {
+    render(<TaskDetailView task={task} />);
+    for (const name of [/annuleren/i, /terugzetten/i, /corrigeren/i, /gefactureerd/i]) {
+      expect(screen.queryByRole("button", { name })).not.toBeInTheDocument();
+    }
+  });
+
+  it("Open: 'Nog niet toegewezen' with a link to choose a technician", () => {
+    render(<TaskDetailView task={{ ...task, status: "open", assignee: null }} />);
+    const block = screen.getByRole("region", { name: "Technieker" });
+    expect(block).toHaveTextContent("Nog niet toegewezen");
+    expect(within(block).getByRole("link", { name: "Technieker kiezen" })).toHaveAttribute(
+      "href",
+      "/tasks/1043/edit",
+    );
+  });
+
+  it("Afgewerkt: the completion with the hours, the notes and who completed it", () => {
+    render(
+      <TaskDetailView
+        task={{
+          ...task,
+          status: "completed",
+          pickedUpAt: new Date("2026-11-20T14:12:00Z"),
+          completion,
+        }}
+      />,
+    );
+    const block = screen.getByRole("region", { name: "Afmelding" });
+    expect(block).toHaveTextContent("2u00");
+    expect(block).toHaveTextContent("gewerkte uren, zonder verplaatsing");
+    expect(block).toHaveTextContent("4 units gereinigd.");
+    expect(block).toHaveTextContent("Afgemeld door Jens Maes op vr 20/11/2026 om 17:31.");
+    expect(block).not.toHaveTextContent("Gecorrigeerd");
+  });
+
+  it("a correction: the current hours big, and the original, who, when and why", () => {
+    render(
+      <TaskDetailView
+        task={{
+          ...task,
+          status: "invoiced",
+          pickedUpAt: new Date("2026-11-20T14:12:00Z"),
+          invoicedAt: new Date("2026-11-23T09:20:00Z"),
+          invoicedByName: "Sofie Peeters",
+          completion: {
+            ...completion,
+            correctedMinutes: 90,
+            correctionReason: "Wachttijd niet aanrekenen",
+            correctedAt: new Date("2026-11-23T09:05:00Z"),
+            correctedByName: "Sofie Peeters",
+          },
+        }}
+      />,
+    );
+    const block = screen.getByRole("region", { name: "Afmelding" });
+    expect(block).toHaveTextContent("1u30");
+    expect(block).toHaveTextContent("Gecorrigeerd door Sofie Peeters op ma 23/11/2026 om 10:05.");
+    expect(block).toHaveTextContent("Oorspronkelijk door Jens Maes ingevuld: 2u00.");
+    expect(block).toHaveTextContent("Reden: Wachttijd niet aanrekenen");
+  });
+
+  it("a task without notes says so", () => {
+    render(
+      <TaskDetailView
+        task={{
+          ...task,
+          status: "completed",
+          pickedUpAt: new Date("2026-11-20T14:12:00Z"),
+          completion: { ...completion, notes: null },
+        }}
+      />,
+    );
+    expect(screen.getByText("Geen notities.")).toBeInTheDocument();
+  });
+
+  it("Geannuleerd: the grey bar with who, when and why, a link to a new task, and no actions", () => {
+    render(
+      <TaskDetailView
+        task={{
+          ...task,
+          status: "cancelled",
+          cancelledAt: new Date("2026-11-23T10:20:00Z"),
+          cancelledByName: "Sofie Peeters",
+          cancellationReason: "Klant heeft zelf afgezegd",
+        }}
+      />,
+    );
+    expect(
+      screen.getByText("Deze taak is geannuleerd op ma 23/11/2026 om 11:20 door Sofie Peeters."),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Reden: Klant heeft zelf afgezegd")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Maak een nieuwe taak aan" })).toHaveAttribute(
+      "href",
+      "/tasks/new",
+    );
+    expect(screen.getByText("Geannuleerd", { selector: "[data-status]" })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Bewerken" })).not.toBeInTheDocument();
+    // The rest stays readable.
+    expect(screen.getByRole("region", { name: "Instructies" })).toBeInTheDocument();
+  });
+
+  it("a cancelled task without a reason shows no 'Reden'", () => {
+    render(
+      <TaskDetailView
+        task={{ ...task, status: "cancelled", cancelledAt: new Date("2026-11-23T10:20:00Z") }}
+      />,
+    );
+    expect(screen.queryByText(/^Reden:/)).not.toBeInTheDocument();
+  });
+});

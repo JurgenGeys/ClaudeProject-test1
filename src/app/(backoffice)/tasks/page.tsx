@@ -2,10 +2,8 @@ import { Plus } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { checkRoleAccess } from "@/lib/auth/role-access";
-import { TASK_ACTION_MESSAGES } from "@/lib/tasks/messages";
 import { getTaskOverview } from "@/lib/tasks/overview";
 import { hasExtraFilters, taskOverviewHref } from "@/lib/validation/task-overview";
 
@@ -15,14 +13,6 @@ import { TaskList } from "./task-list";
 import { TaskPagination } from "./task-pagination";
 
 export const metadata: Metadata = { title: "Taken" };
-
-/** The task number in `?saved=1051` (set by `createTask`): digits only, so nothing else is shown. */
-function savedTaskNumber(value: string | string[] | undefined): number | null {
-  if (typeof value !== "string" || !/^[1-9]\d{0,8}$/.test(value)) {
-    return null;
-  }
-  return Number(value);
-}
 
 /**
  * The task overview (B1): status tabs with counts, filters on technician and period (all in the
@@ -37,7 +27,6 @@ export default async function TasksPage({ searchParams }: PageProps<"/tasks">) {
     return null; // The layout shows the "not for you" or "unavailable" message.
   }
   const params = await searchParams;
-  const saved = savedTaskNumber(params.saved);
   const { filters, technicians, counts, rows, hasAnyTask, pageCount, periodReversed } =
     await getTaskOverview(params);
   // Cancelled has its own message when nothing else narrows the list down.
@@ -54,14 +43,6 @@ export default async function TasksPage({ searchParams }: PageProps<"/tasks">) {
 
   return (
     <>
-      {saved ? (
-        <Alert
-          role="status"
-          className="mb-4 border-green-200 bg-green-50 text-green-900 *:data-[slot=alert-description]:text-green-900"
-        >
-          <AlertDescription>{TASK_ACTION_MESSAGES.saved(saved)}</AlertDescription>
-        </Alert>
-      ) : null}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-semibold tracking-tight">Taken</h1>
         {/* With no tasks at all the button is in the empty state, so there is one link, not two. */}

@@ -7,10 +7,10 @@ const { createTask, searchCustomers } = vi.hoisted(() => ({
   createTask: vi.fn(),
   searchCustomers: vi.fn(),
 }));
-vi.mock("../actions", () => ({ createTask }));
-vi.mock("../../customers/actions", () => ({ searchCustomers }));
+vi.mock("./actions", () => ({ createTask }));
+vi.mock("../customers/actions", () => ({ searchCustomers }));
 
-import { NewTaskForm } from "./new-task-form";
+import { TaskForm } from "./task-form";
 
 const technicians = [
   { id: "t1", fullName: "Kevin Wouters" },
@@ -65,9 +65,9 @@ async function chooseBakker() {
   fireEvent.click(await screen.findByRole("button", { name: /Bakkerij De Gouden Korst/ }));
 }
 
-describe("NewTaskForm: layout", () => {
+describe("TaskForm: layout", () => {
   it("has the three blocks of design B2 with a visible label for every field", () => {
-    render(<NewTaskForm technicians={technicians} />);
+    render(<TaskForm technicians={technicians} />);
     for (const heading of ["1. Klant", "2. Locatie", "3. Taak"]) {
       expect(screen.getByRole("heading", { level: 2, name: heading })).toBeInTheDocument();
     }
@@ -89,7 +89,7 @@ describe("NewTaskForm: layout", () => {
   });
 
   it("offers the three kinds of work as radio buttons without a default", () => {
-    render(<NewTaskForm technicians={technicians} />);
+    render(<TaskForm technicians={technicians} />);
     const group = screen.getByRole("radiogroup", { name: "Soort werk" });
     const radios = within(group).getAllByRole("radio");
     expect(radios.map((radio) => (radio as HTMLInputElement).value)).toEqual([
@@ -103,7 +103,7 @@ describe("NewTaskForm: layout", () => {
   });
 
   it("starts with 'Nog niet toewijzen' and lists only the technicians it was given", () => {
-    render(<NewTaskForm technicians={technicians} />);
+    render(<TaskForm technicians={technicians} />);
     const select = field("Technieker") as HTMLSelectElement;
     expect(select.value).toBe("");
     expect(
@@ -114,7 +114,7 @@ describe("NewTaskForm: layout", () => {
   });
 
   it("offers durations per quarter of an hour up to 8u00, and 'Niet ingevuld'", () => {
-    render(<NewTaskForm technicians={technicians} />);
+    render(<TaskForm technicians={technicians} />);
     const options = within(field("Geschatte duur")).getAllByRole("option");
     expect(options).toHaveLength(1 + 32);
     expect(options[0]).toHaveTextContent("Niet ingevuld");
@@ -125,14 +125,14 @@ describe("NewTaskForm: layout", () => {
   });
 
   it("asks for a start time per quarter of an hour", () => {
-    render(<NewTaskForm technicians={technicians} />);
+    render(<TaskForm technicians={technicians} />);
     expect(field("Startuur")).toHaveAttribute("step", "900");
   });
 });
 
-describe("NewTaskForm: required fields", () => {
+describe("TaskForm: required fields", () => {
   it("tells a screen reader which fields are required, and only those", () => {
-    render(<NewTaskForm technicians={technicians} />);
+    render(<TaskForm technicians={technicians} />);
     for (const label of [
       "Zoek een klant",
       "Straat en nummer",
@@ -154,7 +154,7 @@ describe("NewTaskForm: required fields", () => {
   });
 
   it("marks the name of a new customer as required, and the optional fields not", () => {
-    render(<NewTaskForm technicians={technicians} />);
+    render(<TaskForm technicians={technicians} />);
     fireEvent.click(screen.getByRole("button", { name: "+ Nieuwe klant" }));
     expect(field("Naam")).toHaveAttribute("aria-required", "true");
     for (const label of ["Telefoon", "E-mail", "Opmerkingen"]) {
@@ -163,9 +163,9 @@ describe("NewTaskForm: required fields", () => {
   });
 });
 
-describe("NewTaskForm: sending", () => {
+describe("TaskForm: sending", () => {
   it("sends what was typed, as text, with the existing-customer mode", async () => {
-    render(<NewTaskForm technicians={technicians} />);
+    render(<TaskForm technicians={technicians} />);
     await chooseBakker();
     type("Instructies", "Jaarlijks onderhoud");
     fireEvent.click(field("Onderhoud"));
@@ -193,7 +193,7 @@ describe("NewTaskForm: sending", () => {
   });
 
   it("sends 'Nog niet toewijzen' and no duration as empty values", async () => {
-    render(<NewTaskForm technicians={technicians} />);
+    render(<TaskForm technicians={technicians} />);
     await submit();
     expect(Object.fromEntries(submittedData())).toMatchObject({
       assigneeId: "",
@@ -205,7 +205,7 @@ describe("NewTaskForm: sending", () => {
   it("shows that it is busy and does not send twice while it waits", async () => {
     let finish!: (value: null) => void;
     createTask.mockReturnValue(new Promise((resolve) => (finish = resolve)));
-    render(<NewTaskForm technicians={technicians} />);
+    render(<TaskForm technicians={technicians} />);
     await submit();
     const button = await screen.findByRole("button", { name: "Bezig met bewaren…" });
     expect(button).toBeDisabled();
@@ -214,7 +214,7 @@ describe("NewTaskForm: sending", () => {
   });
 });
 
-describe("NewTaskForm: refused", () => {
+describe("TaskForm: refused", () => {
   const fieldErrors = {
     customerId: "Kies een klant of maak een nieuwe klant aan.",
     locationStreet: "Vul de straat en het huisnummer in.",
@@ -225,7 +225,7 @@ describe("NewTaskForm: refused", () => {
 
   it("shows a summary with the focus, a message under every field and marks the fields invalid", async () => {
     createTask.mockResolvedValue({ ok: false, fieldErrors });
-    render(<NewTaskForm technicians={technicians} />);
+    render(<TaskForm technicians={technicians} />);
     await submit();
 
     const summary = await screen.findByRole("alert");
@@ -253,7 +253,7 @@ describe("NewTaskForm: refused", () => {
 
   it("says 'Vul het gemarkeerde veld in.' for one field", async () => {
     createTask.mockResolvedValue({ ok: false, fieldErrors: { startTime: "Kies een startuur." } });
-    render(<NewTaskForm technicians={technicians} />);
+    render(<TaskForm technicians={technicians} />);
     await submit();
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "De taak is niet bewaard. Vul het gemarkeerde veld in.",
@@ -265,7 +265,7 @@ describe("NewTaskForm: refused", () => {
       ok: false,
       fieldErrors: { startTime: "Kies een startuur." },
     });
-    render(<NewTaskForm technicians={technicians} />);
+    render(<TaskForm technicians={technicians} />);
     await chooseBakker();
     type("Instructies", "Jaarlijks onderhoud");
     type("Straat en nummer", "Kerkstraat 1");
@@ -293,7 +293,7 @@ describe("NewTaskForm: refused", () => {
       fieldErrors: {},
       formError: "Dat is niet gelukt. Controleer je internetverbinding en probeer opnieuw.",
     });
-    render(<NewTaskForm technicians={technicians} />);
+    render(<TaskForm technicians={technicians} />);
     await submit();
     const summary = await screen.findByRole("alert");
     expect(summary).toHaveTextContent(
@@ -310,7 +310,7 @@ describe("NewTaskForm: refused", () => {
         assigneeId: "Kevin Wouters is niet meer actief. Kies een andere technieker.",
       },
     });
-    render(<NewTaskForm technicians={technicians} />);
+    render(<TaskForm technicians={technicians} />);
     await submit();
     const select = await findField("Technieker");
     expect(select).toHaveAttribute("aria-invalid", "true");
@@ -320,9 +320,9 @@ describe("NewTaskForm: refused", () => {
   });
 });
 
-describe("NewTaskForm: date", () => {
+describe("TaskForm: date", () => {
   it("warns about a date in the past, but does not block it", async () => {
-    render(<NewTaskForm technicians={technicians} />);
+    render(<TaskForm technicians={technicians} />);
     type("Datum", "2020-01-01");
     expect(screen.getByText("Deze datum ligt in het verleden.")).toBeInTheDocument();
     expect(field("Datum")).toHaveAccessibleDescription("Deze datum ligt in het verleden.");
@@ -335,9 +335,9 @@ describe("NewTaskForm: date", () => {
   });
 });
 
-describe("NewTaskForm: customer", () => {
+describe("TaskForm: customer", () => {
   it("looks up a customer, fills in the location and shows the customer", async () => {
-    render(<NewTaskForm technicians={technicians} />);
+    render(<TaskForm technicians={technicians} />);
     type("Zoek een klant", "bak");
     const result = await screen.findByRole("button", { name: /Bakkerij De Gouden Korst/ });
     expect(searchCustomers).toHaveBeenCalledWith("bak");
@@ -353,7 +353,7 @@ describe("NewTaskForm: customer", () => {
   });
 
   it("lets the user change the address for this task only, and choose another customer", async () => {
-    render(<NewTaskForm technicians={technicians} />);
+    render(<TaskForm technicians={technicians} />);
     await chooseBakker();
     type("Straat en nummer", "Andere straat 5");
     await submit();
@@ -373,7 +373,7 @@ describe("NewTaskForm: customer", () => {
   });
 
   it("does not search for one character, and says when nothing is found", async () => {
-    render(<NewTaskForm technicians={technicians} />);
+    render(<TaskForm technicians={technicians} />);
     type("Zoek een klant", "b");
     expect(searchCustomers).not.toHaveBeenCalled();
 
@@ -388,7 +388,7 @@ describe("NewTaskForm: customer", () => {
       ok: false,
       message: "Je hebt geen toegang om dit te doen.",
     });
-    render(<NewTaskForm technicians={technicians} />);
+    render(<TaskForm technicians={technicians} />);
     type("Zoek een klant", "bak");
     expect(await screen.findByText("Je hebt geen toegang om dit te doen.")).toBeInTheDocument();
   });
@@ -396,7 +396,7 @@ describe("NewTaskForm: customer", () => {
   it("only shows the answer to the latest search", async () => {
     let answerFirst!: (value: unknown) => void;
     searchCustomers.mockReturnValueOnce(new Promise((resolve) => (answerFirst = resolve)));
-    render(<NewTaskForm technicians={technicians} />);
+    render(<TaskForm technicians={technicians} />);
     type("Zoek een klant", "ba");
     await waitFor(() => expect(searchCustomers).toHaveBeenCalledWith("ba"));
     searchCustomers.mockResolvedValueOnce({
@@ -410,7 +410,7 @@ describe("NewTaskForm: customer", () => {
   });
 
   it("moves the focus to the first result with the arrow key", async () => {
-    render(<NewTaskForm technicians={technicians} />);
+    render(<TaskForm technicians={technicians} />);
     type("Zoek een klant", "bak");
     const result = await screen.findByRole("button", { name: /Bakkerij De Gouden Korst/ });
     fireEvent.keyDown(field("Zoek een klant"), { key: "ArrowDown" });
@@ -418,7 +418,7 @@ describe("NewTaskForm: customer", () => {
   });
 
   it("opens the fields of a new customer, which are sent with the form", async () => {
-    render(<NewTaskForm technicians={technicians} />);
+    render(<TaskForm technicians={technicians} />);
     fireEvent.click(screen.getByRole("button", { name: "+ Nieuwe klant" }));
     await waitFor(() => expect(field("Naam")).toHaveFocus());
     expect(screen.getByText(/Het adres vul je hieronder in bij "Locatie"\./)).toBeInTheDocument();
@@ -438,7 +438,7 @@ describe("NewTaskForm: customer", () => {
   });
 
   it("goes back to searching and keeps what was typed for the new customer", async () => {
-    render(<NewTaskForm technicians={technicians} />);
+    render(<TaskForm technicians={technicians} />);
     fireEvent.click(screen.getByRole("button", { name: "+ Nieuwe klant" }));
     type("Naam", "Bakkerij Nieuw");
     fireEvent.click(screen.getByRole("button", { name: "Toch een bestaande klant zoeken" }));
@@ -458,7 +458,7 @@ describe("NewTaskForm: customer", () => {
         newCustomerEmail: "Dit e-mailadres is niet geldig. Controleer het of laat het leeg.",
       },
     });
-    render(<NewTaskForm technicians={technicians} />);
+    render(<TaskForm technicians={technicians} />);
     fireEvent.click(screen.getByRole("button", { name: "+ Nieuwe klant" }));
     await submit();
     await screen.findByRole("alert");
@@ -472,7 +472,7 @@ describe("NewTaskForm: customer", () => {
       ok: false,
       fieldErrors: { customerId: "Kies een klant of maak een nieuwe klant aan." },
     });
-    render(<NewTaskForm technicians={technicians} />);
+    render(<TaskForm technicians={technicians} />);
     await submit();
     const search = await findField("Zoek een klant");
     expect(search).toHaveAttribute("aria-invalid", "true");

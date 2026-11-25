@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -36,7 +37,7 @@ describe("shadcn/ui components", () => {
       <>
         <Button>Bewaren</Button>
         <Button asChild>
-          <a href="/tasks">Naar taken</a>
+          <Link href="/tasks">Naar taken</Link>
         </Button>
       </>,
     );
