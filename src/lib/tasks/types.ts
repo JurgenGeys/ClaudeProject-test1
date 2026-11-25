@@ -19,6 +19,16 @@ export const taskStatuses = [
 ] as const;
 export type TaskStatus = (typeof taskStatuses)[number];
 
+/**
+ * The "open" tasks of a technician (design B7): assigned to them and not finished yet. Cancelled
+ * tasks do not count. Used for the "Open taken" column and for the rule that a technician with
+ * open tasks cannot be switched off.
+ */
+export const openAssigneeStatuses = [
+  "assigned",
+  "picked_up",
+] as const satisfies readonly TaskStatus[];
+
 /** Database values of `work_type` (proposal P6). */
 export const workTypes = ["inspection", "maintenance", "repair"] as const;
 export type WorkType = (typeof workTypes)[number];

@@ -182,7 +182,9 @@ test.describe("inviting a technician", () => {
       await signInAsBackoffice(page);
       await page.goto("/technicians");
       await expect(rowOf(page, email).getByText("Actief", { exact: true })).toBeVisible();
-      await expect(rowOf(page, email).getByRole("button")).toHaveCount(0);
+      await expect(
+        rowOf(page, email).getByRole("button", { name: "Uitnodiging opnieuw versturen" }),
+      ).toHaveCount(0);
       await signOut(page);
     });
 

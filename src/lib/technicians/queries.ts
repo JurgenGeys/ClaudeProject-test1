@@ -5,6 +5,7 @@ import { and, eq, inArray, sql } from "drizzle-orm";
 import { getDb, type Database } from "@/db/client";
 import { profiles, tasks } from "@/db/schema";
 import { requireRole } from "@/lib/auth/session";
+import { openAssigneeStatuses } from "@/lib/tasks/types";
 
 import { sortTechnicians, technicianStatus, type TechnicianStatus } from "./status";
 
@@ -32,7 +33,7 @@ export async function queryTechnicians(db: Database): Promise<TechnicianRow[]> {
     .from(profiles)
     .leftJoin(
       tasks,
-      and(eq(tasks.assigneeId, profiles.id), inArray(tasks.status, ["assigned", "picked_up"])),
+      and(eq(tasks.assigneeId, profiles.id), inArray(tasks.status, [...openAssigneeStatuses])),
     )
     .where(eq(profiles.role, "technician"))
     .groupBy(profiles.id);

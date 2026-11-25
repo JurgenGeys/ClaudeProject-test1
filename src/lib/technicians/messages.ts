@@ -8,4 +8,18 @@ export const TECHNICIAN_ACTION_MESSAGES = {
   alreadyAccepted: (name: string) =>
     `${name} heeft al een wachtwoord gekozen. Laad de pagina opnieuw.`,
   disabled: (name: string) => `${name} is uitgeschakeld. Een uitnodiging versturen kan niet.`,
+  // Switching off (BT-07). `deactivated` and `hasOpenTasks` follow the texts of design B7.
+  deactivated: (name: string) =>
+    `${name} is uitgeschakeld. Zijn afgewerkte taken en uren blijven bewaard.`,
+  hasOpenTasks: (name: string, count: number) =>
+    `${name} heeft nog taken die niet afgewerkt zijn (${count}). Wijs die eerst aan een andere technieker toe.`,
+  cannotDeactivate: "Uitschakelen kan nog niet.",
+  alreadyDisabled: (name: string) => `${name} is al uitgeschakeld. Laad de pagina opnieuw.`,
+  notAccepted: (name: string) =>
+    `${name} heeft de uitnodiging nog niet aanvaard en kan daarom niet uitgeschakeld worden.`,
+  // Switching on again (BT-07b). `reactivated` follows the text of design B7.
+  reactivated: (name: string) => `${name} is opnieuw actief. Je kan hem weer taken toewijzen.`,
+  alreadyActive: (name: string) => `${name} is al actief. Laad de pagina opnieuw.`,
+  notDisabled: (name: string) =>
+    `${name} heeft de uitnodiging nog niet aanvaard en is niet uitgeschakeld.`,
 } as const;

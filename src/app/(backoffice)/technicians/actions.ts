@@ -11,8 +11,15 @@ import { AuthError, requireRole } from "@/lib/auth/session";
 import { SiteUrlError, getInviteRedirectUrl } from "@/lib/site-url";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseCredentialsClient } from "@/lib/supabase/credentials";
-import { INVITED_BY_APP_KEY, findAuthUserByEmail } from "@/lib/technicians/auth-users";
+import { AuthTimeoutError, BanFailedError, changeAuthBan } from "@/lib/technicians/ban";
+import {
+  AUTH_BAN_DURATION,
+  INVITED_BY_APP_KEY,
+  findAuthUserByEmail,
+} from "@/lib/technicians/auth-users";
+import { deactivateTechnicianProfile, type DeactivateOutcome } from "@/lib/technicians/deactivate";
 import { TECHNICIAN_ACTION_MESSAGES } from "@/lib/technicians/messages";
+import { reactivateTechnicianProfile, type ReactivateOutcome } from "@/lib/technicians/reactivate";
 import { TECHNICIAN_MESSAGES } from "@/lib/validation/messages";
 import { technicianIdSchema, technicianSchema } from "@/lib/validation/technician";
 
@@ -30,6 +37,8 @@ export type TechnicianActionState =
       fieldErrors: TechnicianFieldErrors;
       formError?: string;
       values?: { fullName: string; email: string };
+      /** Set when switching off was refused because of open tasks: how many there are. */
+      openTasks?: number;
     };
 
 const PATH = "/technicians";
@@ -284,5 +293,194 @@ export async function resendInvite(
   } catch (error) {
     console.error("Resending an invitation failed unexpectedly:", describeError(error));
     return refused(LOGIN_MESSAGES.technicalProblem);
+  }
+}
+
+/**
+ * Best-effort change of the block (compensation after a failed commit, and repair inside the transaction). A failure is
+ * only logged, with the technician id (a UUID, no e-mail address or name) so the account can be
+ * found; the user gets the message he would have got anyway.
+ */
+async function tryChangeBan(technicianId: string, banDuration: string, what: string) {
+  try {
+    await changeAuthBan(createSupabaseAdminClient(), technicianId, banDuration);
+  } catch (error) {
+    console.error(
+      `${what} for technician ${technicianId}:`,
+      describeError(error instanceof BanFailedError ? error.cause : error),
+    );
+  }
+}
+
+/**
+ * Switches a technician off (design B7, "Uitschakelen"; BT-07). The technician comes from a
+ * hidden field (id only); the name and the state are read from the database.
+ *
+ * One database transaction does everything that must not be separated:
+ * 1. `deactivateTechnicianProfile` locks the profile, refuses when there are open tasks
+ *    (Toegewezen or Opgepikt; the same count as B7 shows) and otherwise sets `is_active = false`
+ *    and `deactivated_at = now()`.
+ * 2. Still inside the transaction, the Auth account is blocked (`ban_duration`), so the technician
+ *    gets no new session, cannot refresh an existing one and gets the general message when
+ *    signing in. If that fails the transaction is rolled back: the technician is either fully
+ *    switched off or not at all. If the commit itself fails after the block was set, the block is
+ *    lifted again (best effort; a block without `is_active = false` only matters until the next
+ *    attempt, which sets both again).
+ * When the technician is already switched off (for example after an ambiguous commit), the block is
+ * set again in step 2's place, also inside the transaction while the lock is held; a failure is only
+ * logged.
+ * Existing sessions: `requireRole` reads `is_active` at every request, so a signed-in technician
+ * is refused at once and sent to `/auth/inactive`; the block stops the session from being
+ * refreshed afterwards. Tokens cannot be revoked by user id with the admin API, only by the
+ * token of the session itself, which the server does not have.
+ */
+export async function deactivateTechnician(
+  _previous: TechnicianActionState,
+  formData: FormData,
+): Promise<TechnicianActionState> {
+  try {
+    await requireRole("backoffice");
+  } catch (error) {
+    if (error instanceof AuthError) {
+      return refused(authFailureMessage(error));
+    }
+    throw error;
+  }
+
+  const id = technicianIdSchema.safeParse(formData.get("id"));
+  if (!id.success) {
+    return refused(TECHNICIAN_ACTION_MESSAGES.notFound);
+  }
+
+  let banned = false;
+  let outcome: DeactivateOutcome;
+  try {
+    const admin = createSupabaseAdminClient();
+    outcome = await getDb().transaction(async (tx) => {
+      const result = await deactivateTechnicianProfile(tx, id.data);
+      if (result.kind === "deactivated") {
+        await changeAuthBan(admin, id.data, AUTH_BAN_DURATION);
+        banned = true;
+      } else if (result.kind === "already-disabled") {
+        // Also repairs an ambiguous commit: the database says switched off, so make sure Auth
+        // agrees. Inside the transaction, so the row lock is still held and a concurrent switch-on
+        // cannot interleave. A failure is only logged and never fails the action.
+        await tryChangeBan(
+          id.data,
+          AUTH_BAN_DURATION,
+          "Repairing the block of a switched-off technician failed",
+        );
+      }
+      return result;
+    });
+  } catch (error) {
+    // After a time-out the block may have been applied anyway, so it is undone as well.
+    if (banned || error instanceof AuthTimeoutError) {
+      // The block was set but the commit failed: undo the block as well.
+      await tryChangeBan(id.data, "none", "Lifting the block after a failed switch-off failed");
+    }
+    console.error(
+      `Switching off technician ${id.data} failed:`,
+      describeError(error instanceof BanFailedError ? error.cause : error),
+    );
+    return refused(LOGIN_MESSAGES.technicalProblem);
+  }
+
+  switch (outcome.kind) {
+    case "not-found":
+      return refused(TECHNICIAN_ACTION_MESSAGES.notFound);
+    case "already-disabled":
+      return refused(TECHNICIAN_ACTION_MESSAGES.alreadyDisabled(outcome.fullName));
+    case "invited":
+      return refused(TECHNICIAN_ACTION_MESSAGES.notAccepted(outcome.fullName));
+    case "open-tasks":
+      return {
+        ok: false,
+        fieldErrors: {},
+        formError: `${TECHNICIAN_ACTION_MESSAGES.cannotDeactivate} ${TECHNICIAN_ACTION_MESSAGES.hasOpenTasks(outcome.fullName, outcome.openTasks)}`,
+        openTasks: outcome.openTasks,
+      };
+    case "deactivated":
+      revalidatePath(PATH);
+      return { ok: true, message: TECHNICIAN_ACTION_MESSAGES.deactivated(outcome.fullName) };
+  }
+}
+
+/**
+ * Switches a technician on again (design B7, "Opnieuw activeren"; P3, BT-07b). Mirror image of
+ * `deactivateTechnician`: the technician comes from a hidden field (id only), and one database
+ * transaction does everything that must not be separated:
+ * 1. `reactivateTechnicianProfile` locks the profile, refuses anything but a switched-off
+ *    technician and otherwise sets `is_active = true` and `deactivated_at = null`.
+ * 2. Still inside the transaction, the block of the Auth account is lifted (`ban_duration: "none"`).
+ *    If that fails the transaction is rolled back: the technician is either fully switched on or
+ *    not at all. If the commit itself fails after the block was lifted, the block is set again
+ *    (best effort; `requireRole` refuses a profile with `is_active = false` anyway).
+ * When the technician is already active (for example after an ambiguous commit), the block is lifted
+ * in step 2's place, also inside the transaction while the lock is held; a failure is only logged.
+ * The old password stays valid and no invitation is sent. Sessions that were ended stay ended: the
+ * technician signs in again. Tasks are not assigned back.
+ */
+export async function reactivateTechnician(
+  _previous: TechnicianActionState,
+  formData: FormData,
+): Promise<TechnicianActionState> {
+  try {
+    await requireRole("backoffice");
+  } catch (error) {
+    if (error instanceof AuthError) {
+      return refused(authFailureMessage(error));
+    }
+    throw error;
+  }
+
+  const id = technicianIdSchema.safeParse(formData.get("id"));
+  if (!id.success) {
+    return refused(TECHNICIAN_ACTION_MESSAGES.notFound);
+  }
+
+  let unbanned = false;
+  let outcome: ReactivateOutcome;
+  try {
+    const admin = createSupabaseAdminClient();
+    outcome = await getDb().transaction(async (tx) => {
+      const result = await reactivateTechnicianProfile(tx, id.data);
+      if (result.kind === "reactivated") {
+        await changeAuthBan(admin, id.data, "none");
+        unbanned = true;
+      } else if (result.kind === "already-active") {
+        // Also repairs an ambiguous commit: the database says active, so make sure Auth agrees.
+        // Inside the transaction (row lock still held); a failure is only logged.
+        await tryChangeBan(id.data, "none", "Repairing the block of an active technician failed");
+      }
+      return result;
+    });
+  } catch (error) {
+    // After a time-out the block may have been lifted anyway, so it is set again as well.
+    if (unbanned || error instanceof AuthTimeoutError) {
+      // The block was lifted but the commit failed: set the block again.
+      await tryChangeBan(
+        id.data,
+        AUTH_BAN_DURATION,
+        "Blocking the account again after a failed switch-on failed",
+      );
+    }
+    console.error(
+      `Switching on technician ${id.data} failed:`,
+      describeError(error instanceof BanFailedError ? error.cause : error),
+    );
+    return refused(LOGIN_MESSAGES.technicalProblem);
+  }
+
+  switch (outcome.kind) {
+    case "not-found":
+      return refused(TECHNICIAN_ACTION_MESSAGES.notFound);
+    case "already-active":
+      return refused(TECHNICIAN_ACTION_MESSAGES.alreadyActive(outcome.fullName));
+    case "invited":
+      return refused(TECHNICIAN_ACTION_MESSAGES.notDisabled(outcome.fullName));
+    case "reactivated":
+      revalidatePath(PATH);
+      return { ok: true, message: TECHNICIAN_ACTION_MESSAGES.reactivated(outcome.fullName) };
   }
 }
