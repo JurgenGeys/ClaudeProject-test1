@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 
+import { FieldError } from "@/components/field-error";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -20,14 +21,6 @@ function customerLine(customer: CustomerSearchResult): string {
   return [[customer.street, place].filter(Boolean).join(", "), customer.phone]
     .filter(Boolean)
     .join(" · ");
-}
-
-function FieldError({ id, message }: { id: string; message?: string }) {
-  return message ? (
-    <p id={id} className="mt-1 text-sm font-medium text-red-700">
-      {message}
-    </p>
-  ) : null;
 }
 
 /**
@@ -51,7 +44,7 @@ export function CustomerPicker({
   const [term, setTerm] = useState("");
   const [results, setResults] = useState<CustomerSearchResult[] | null>(null);
   const [searching, setSearching] = useState(false);
-  const [searchFailed, setSearchFailed] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
 
   const searchRef = useRef<HTMLInputElement>(null);
   const nameRef = useRef<HTMLInputElement>(null);
@@ -67,7 +60,7 @@ export function CustomerPicker({
     clearTimeout(timer.current);
     latest.current += 1;
     const text = value.trim();
-    setSearchFailed(false);
+    setSearchError(null);
     if (text.length < CUSTOMER_SEARCH_MIN_LENGTH) {
       setResults(null);
       setSearching(false);
@@ -86,7 +79,7 @@ export function CustomerPicker({
         return;
       }
       setSearching(false);
-      setSearchFailed(!answer.ok);
+      setSearchError(answer.ok ? null : answer.message);
       setResults(answer.ok ? answer.customers : null);
     }, SEARCH_DELAY_MS);
   }
@@ -120,8 +113,8 @@ export function CustomerPicker({
   const text = term.trim();
   const status = searching
     ? "Zoeken…"
-    : searchFailed
-      ? TASK_ACTION_MESSAGES.searchFailed
+    : searchError
+      ? searchError
       : results === null
         ? ""
         : results.length === 0
@@ -156,6 +149,7 @@ export function CustomerPicker({
               }
             }
           }}
+          aria-required="true"
           aria-invalid={errors.customerId && searchVisible ? true : undefined}
           aria-describedby={
             [errors.customerId ? "customer-error" : "", "customer-search-status"]
@@ -228,6 +222,7 @@ export function CustomerPicker({
             id="new-customer-name"
             name="newCustomerName"
             autoComplete="off"
+            aria-required="true"
             aria-invalid={errors.newCustomerName ? true : undefined}
             aria-describedby={errors.newCustomerName ? "new-customer-name-error" : undefined}
             className="mt-1 h-10"

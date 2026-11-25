@@ -213,3 +213,25 @@ describe("parseCreateTask: new customer", () => {
     });
   });
 });
+
+describe("parseCreateTask: line endings", () => {
+  it("turns the CRLF of a textarea into \\n in the instructions and the customer remarks", () => {
+    const result = parseCreateTask({
+      ...newCustomer,
+      instructions: "Jaarlijks onderhoud\r\n\r\nFilter vervangen\rDaarna testen",
+      newCustomerNotes: "Sleutel bij de buren\r\nBel eerst",
+    });
+    expect(result).toMatchObject({
+      ok: true,
+      data: {
+        instructions: "Jaarlijks onderhoud\n\nFilter vervangen\nDaarna testen",
+        customer: { data: { notes: "Sleutel bij de buren\nBel eerst" } },
+      },
+    });
+  });
+
+  it("counts a line break as one character for the maximum length", () => {
+    const text = "x\r\n".repeat(2500);
+    expect(parseCreateTask({ ...base, instructions: text })).toMatchObject({ ok: true });
+  });
+});

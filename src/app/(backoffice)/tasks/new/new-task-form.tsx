@@ -11,6 +11,7 @@ import {
   type FormEvent,
 } from "react";
 
+import { FieldError } from "@/components/field-error";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -39,14 +40,6 @@ const ESTIMATED_DURATIONS = Array.from(
 function describedBy(...ids: (string | false | undefined)[]): string | undefined {
   const used = ids.filter(Boolean).join(" ");
   return used || undefined;
-}
-
-function FieldError({ id, message }: { id: string; message?: string }) {
-  return message ? (
-    <p id={id} className="mt-1 text-sm font-medium text-red-700">
-      {message}
-    </p>
-  ) : null;
 }
 
 function Required() {
@@ -151,6 +144,7 @@ export function NewTaskForm({ technicians }: { technicians: readonly TechnicianO
               ref={streetRef}
               id="location-street"
               name="locationStreet"
+              aria-required="true"
               autoComplete="off"
               aria-invalid={errors.locationStreet ? true : undefined}
               aria-describedby={describedBy(errors.locationStreet && "location-street-error")}
@@ -166,6 +160,7 @@ export function NewTaskForm({ technicians }: { technicians: readonly TechnicianO
               ref={postalCodeRef}
               id="location-postal-code"
               name="locationPostalCode"
+              aria-required="true"
               inputMode="numeric"
               autoComplete="off"
               maxLength={4}
@@ -185,6 +180,7 @@ export function NewTaskForm({ technicians }: { technicians: readonly TechnicianO
               ref={cityRef}
               id="location-city"
               name="locationCity"
+              aria-required="true"
               autoComplete="off"
               aria-invalid={errors.locationCity ? true : undefined}
               aria-describedby={describedBy(errors.locationCity && "location-city-error")}
@@ -202,6 +198,7 @@ export function NewTaskForm({ technicians }: { technicians: readonly TechnicianO
         <div className="mt-3 grid gap-4 sm:grid-cols-3">
           <fieldset
             role="radiogroup"
+            aria-required="true"
             className="sm:col-span-3"
             aria-invalid={errors.workType ? true : undefined}
             aria-describedby={describedBy(errors.workType && "work-type-error")}
@@ -232,6 +229,7 @@ export function NewTaskForm({ technicians }: { technicians: readonly TechnicianO
             <Textarea
               id="instructions"
               name="instructions"
+              aria-required="true"
               rows={4}
               placeholder="Bv. Jaarlijks onderhoud 2 split-units (winkel en atelier)"
               aria-invalid={errors.instructions ? true : undefined}
@@ -254,6 +252,7 @@ export function NewTaskForm({ technicians }: { technicians: readonly TechnicianO
             <Input
               id="scheduled-date"
               name="scheduledDate"
+              aria-required="true"
               type="date"
               onChange={(event) => {
                 const value = event.target.value;
@@ -284,6 +283,7 @@ export function NewTaskForm({ technicians }: { technicians: readonly TechnicianO
             <Input
               id="start-time"
               name="startTime"
+              aria-required="true"
               type="time"
               step={QUARTER_MINUTES * 60}
               aria-invalid={errors.startTime ? true : undefined}

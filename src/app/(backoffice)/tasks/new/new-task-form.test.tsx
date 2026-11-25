@@ -130,6 +130,39 @@ describe("NewTaskForm: layout", () => {
   });
 });
 
+describe("NewTaskForm: required fields", () => {
+  it("tells a screen reader which fields are required, and only those", () => {
+    render(<NewTaskForm technicians={technicians} />);
+    for (const label of [
+      "Zoek een klant",
+      "Straat en nummer",
+      "Postcode",
+      "Gemeente",
+      "Instructies",
+      "Datum",
+      "Startuur",
+    ]) {
+      expect(field(label)).toHaveAttribute("aria-required", "true");
+    }
+    expect(screen.getByRole("radiogroup", { name: "Soort werk" })).toHaveAttribute(
+      "aria-required",
+      "true",
+    );
+    for (const label of ["Geschatte duur", "Technieker"]) {
+      expect(field(label)).not.toHaveAttribute("aria-required");
+    }
+  });
+
+  it("marks the name of a new customer as required, and the optional fields not", () => {
+    render(<NewTaskForm technicians={technicians} />);
+    fireEvent.click(screen.getByRole("button", { name: "+ Nieuwe klant" }));
+    expect(field("Naam")).toHaveAttribute("aria-required", "true");
+    for (const label of ["Telefoon", "E-mail", "Opmerkingen"]) {
+      expect(field(label)).not.toHaveAttribute("aria-required");
+    }
+  });
+});
+
 describe("NewTaskForm: sending", () => {
   it("sends what was typed, as text, with the existing-customer mode", async () => {
     render(<NewTaskForm technicians={technicians} />);
@@ -351,10 +384,13 @@ describe("NewTaskForm: customer", () => {
   });
 
   it("says so when the search fails", async () => {
-    searchCustomers.mockResolvedValue({ ok: false, message: "x" });
+    searchCustomers.mockResolvedValue({
+      ok: false,
+      message: "Je hebt geen toegang om dit te doen.",
+    });
     render(<NewTaskForm technicians={technicians} />);
     type("Zoek een klant", "bak");
-    expect(await screen.findByText("Zoeken is niet gelukt. Probeer opnieuw.")).toBeInTheDocument();
+    expect(await screen.findByText("Je hebt geen toegang om dit te doen.")).toBeInTheDocument();
   });
 
   it("only shows the answer to the latest search", async () => {
