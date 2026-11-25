@@ -12,7 +12,7 @@ export type TestUser = {
   role: "backoffice" | "technician";
   /** Profile state (`profiles.is_active`). Defaults to active. */
   isActive?: boolean;
-  /** Blocked in Supabase Auth, as the "uitschakelen" feature will do (BT-07). */
+  /** Blocked in Supabase Auth, as switching off a technician does (BT-07). */
   banned?: boolean;
 };
 

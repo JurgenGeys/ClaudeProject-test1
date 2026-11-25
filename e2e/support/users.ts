@@ -5,7 +5,9 @@ import { authUsers } from "drizzle-orm/supabase";
 import postgres from "postgres";
 
 import { assertLocalSupabase } from "../../src/lib/supabase/local-only";
+import { customers } from "../../src/db/schema/customers";
 import { profiles } from "../../src/db/schema/profiles";
+import { tasks } from "../../src/db/schema/tasks";
 
 import { TEST_PASSWORD, type TestUser } from "./test-users";
 
@@ -150,5 +152,92 @@ export async function setRecoveryVerifiedAt(email: string, verifiedAt: Date): Pr
       .update(profiles)
       .set({ recoveryVerifiedAt: verifiedAt })
       .where(eq(profiles.email, email.toLowerCase()));
+  });
+}
+
+/**
+ * Gives a technician `count` open tasks (status Toegewezen), through Drizzle, with a customer of
+ * its own. `createdByEmail` is the backoffice user the tasks are "created by". Returns nothing;
+ * `removeTasksOf` cleans up (profiles cannot be removed while tasks refer to them).
+ */
+export async function createAssignedTasks(
+  technicianEmail: string,
+  createdByEmail: string,
+  count: number,
+): Promise<void> {
+  assertLocalSupabase(process.env);
+  await withDb(async (db) => {
+    const [technician] = await db
+      .select({ id: profiles.id })
+      .from(profiles)
+      .where(eq(profiles.email, technicianEmail.toLowerCase()));
+    const [office] = await db
+      .select({ id: profiles.id })
+      .from(profiles)
+      .where(eq(profiles.email, createdByEmail.toLowerCase()));
+    if (!technician || !office) {
+      throw new Error("createAssignedTasks: technician or backoffice user not found");
+    }
+    const [customer] = await db
+      .insert(customers)
+      .values({ name: `E2E klant van ${technicianEmail}`, createdBy: office.id })
+      .returning({ id: customers.id });
+    for (let index = 0; index < count; index++) {
+      await db.insert(tasks).values({
+        customerId: customer.id,
+        locationStreet: "Teststraat 1",
+        locationPostalCode: "9000",
+        locationCity: "Gent",
+        workType: "inspection",
+        instructions: "E2E-taak",
+        scheduledDate: "2026-12-01",
+        startTime: "09:00",
+        assigneeId: technician.id,
+        status: "assigned",
+        createdBy: office.id,
+        updatedBy: office.id,
+      });
+    }
+  });
+}
+
+/** Removes the tasks of a technician and the customers that `createAssignedTasks` made for them. */
+export async function removeTasksOf(technicianEmail: string): Promise<void> {
+  assertLocalSupabase(process.env);
+  await withDb(async (db) => {
+    const [technician] = await db
+      .select({ id: profiles.id })
+      .from(profiles)
+      .where(eq(profiles.email, technicianEmail.toLowerCase()));
+    if (technician) {
+      await db.delete(tasks).where(eq(tasks.assigneeId, technician.id));
+    }
+    await db.delete(customers).where(eq(customers.name, `E2E klant van ${technicianEmail}`));
+  });
+}
+
+/** Whether the Auth account is blocked (`auth.users.banned_until` lies in the future). */
+export async function isAuthBlocked(email: string): Promise<boolean> {
+  assertLocalSupabase(process.env);
+  return withDb(async (db) => {
+    const rows = await db.execute<{ blocked: boolean }>(sql`
+      select coalesce(banned_until > now(), false) as blocked
+      from auth.users where lower(email) = ${email.toLowerCase()}
+    `);
+    return rows[0]?.blocked ?? false;
+  });
+}
+
+/** The profile fields that switching off sets. */
+export async function readProfileState(
+  email: string,
+): Promise<{ isActive: boolean; deactivatedAt: Date | null } | undefined> {
+  assertLocalSupabase(process.env);
+  return withDb(async (db) => {
+    const [row] = await db
+      .select({ isActive: profiles.isActive, deactivatedAt: profiles.deactivatedAt })
+      .from(profiles)
+      .where(eq(profiles.email, email.toLowerCase()));
+    return row;
   });
 }

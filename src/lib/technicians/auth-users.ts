@@ -32,3 +32,11 @@ export async function findAuthUserByEmail(
   const row = rows[0];
   return row ? { id: row.id, invitedByApp: row.invited_by_app === "true" } : null;
 }
+
+/**
+ * Length of the block that switching off puts on the Auth account (`ban_duration`, ten years).
+ * Supabase has no "banned forever"; reactivating (BT-07b) lifts it with `ban_duration: "none"`.
+ * A blocked account cannot sign in, cannot refresh its session and gets no session from a
+ * password link, and the login screen gives it the general message (design G1).
+ */
+export const AUTH_BAN_DURATION = "87600h";
