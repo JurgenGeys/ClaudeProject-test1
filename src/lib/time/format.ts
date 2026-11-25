@@ -183,14 +183,36 @@ function part(parts: Intl.DateTimeFormatPart[], type: Intl.DateTimeFormatPartTyp
   return found.value;
 }
 
+export interface FormatDateOptions {
+  /**
+   * Leave the year out when the date is in the current year (Belgian time): `di 24/11`. A date
+   * in another year keeps it (`ma 02/03/2031`), so it is never ambiguous. Used on the task page
+   * (B3; decided by Jurgen, 25/11/2026). The other screens keep the full date.
+   */
+  omitCurrentYear?: boolean;
+  /** The moment that counts as "now" for `omitCurrentYear`; defaults to the current time. */
+  now?: Date | string | number;
+}
+
 /**
  * `di 24/11/2026`, in Belgian time. Also accepts a Postgres `date` (`"2026-11-24"`), which
- * stays that calendar day.
+ * stays that calendar day. With `omitCurrentYear` a date in the current year is `di 24/11`.
  */
-export function formatDate(value: Date | string | number): string {
+export function formatDate(value: Date | string | number, options: FormatDateOptions = {}): string {
   const parts = dateParts.formatToParts(toDate(value, true));
   const weekday = part(parts, "weekday").replace(/\.$/, "");
-  return `${weekday} ${part(parts, "day")}/${part(parts, "month")}/${part(parts, "year")}`;
+  const year = part(parts, "year");
+  const day = `${weekday} ${part(parts, "day")}/${part(parts, "month")}`;
+  if (options.omitCurrentYear) {
+    const currentYear = part(
+      dateParts.formatToParts(toDate(options.now ?? new Date(), true)),
+      "year",
+    );
+    if (year === currentYear) {
+      return day;
+    }
+  }
+  return `${day}/${year}`;
 }
 
 /** `14:00`, in Belgian time (24 hour clock, midnight is `00:00`). Needs a moment, not a `time`. */
@@ -198,9 +220,9 @@ export function formatTime(value: Date | string | number): string {
   return timeFormat.format(toDate(value));
 }
 
-/** `di 24/11/2026 14:00`, in Belgian time. */
-export function formatDateTime(value: Date | string | number): string {
-  return `${formatDate(value)} ${formatTime(value)}`;
+/** `di 24/11/2026 14:00`, in Belgian time. Takes the same options as `formatDate`. */
+export function formatDateTime(value: Date | string | number, options?: FormatDateOptions): string {
+  return `${formatDate(value, options)} ${formatTime(value)}`;
 }
 
 const dayKeyFormat = new Intl.DateTimeFormat("en-CA", {

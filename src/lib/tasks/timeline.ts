@@ -12,9 +12,12 @@ export type TimelineItem = {
   emphasis?: "picked_up" | "completed" | "invoiced" | "cancelled";
 };
 
-/** `ma 23/11/2026 om 11:20`, in Belgian time. */
-export function formatMoment(value: Date): string {
-  return `${formatDate(value)} om ${formatTime(value)}`;
+/**
+ * `ma 23/11 om 11:20` in Belgian time; with the year (`ma 23/11/2026 om 11:20`) when the day is
+ * not in the current year (decided by Jurgen, 25/11/2026).
+ */
+export function formatMoment(value: Date, now: Date = new Date()): string {
+  return `${formatDate(value, { omitCurrentYear: true, now })} om ${formatTime(value)}`;
 }
 
 /**
@@ -23,12 +26,12 @@ export function formatMoment(value: Date): string {
  * A step that has not happened yet is shown muted ("Nog niet opgepikt"), as in the mockups,
  * except for a cancelled task: it will not happen any more.
  */
-export function buildTimeline(task: TaskDetail): TimelineItem[] {
+export function buildTimeline(task: TaskDetail, now: Date = new Date()): TimelineItem[] {
   const items: TimelineItem[] = [
     {
       key: "created",
       title: "Aangemaakt",
-      detail: `${formatMoment(task.createdAt)} door ${task.createdByName}`,
+      detail: `${formatMoment(task.createdAt, now)} door ${task.createdByName}`,
     },
   ];
   if (task.assignee) {
@@ -40,7 +43,7 @@ export function buildTimeline(task: TaskDetail): TimelineItem[] {
       items.push({
         key: "cancelled",
         title: "Geannuleerd",
-        detail: `${formatMoment(task.cancelledAt)}${task.cancelledByName ? ` door ${task.cancelledByName}` : ""}`,
+        detail: `${formatMoment(task.cancelledAt, now)}${task.cancelledByName ? ` door ${task.cancelledByName}` : ""}`,
         emphasis: "cancelled",
       });
     }
@@ -51,7 +54,7 @@ export function buildTimeline(task: TaskDetail): TimelineItem[] {
     items.push({
       key: "picked_up",
       title: "Opgepikt",
-      detail: formatMoment(task.pickedUpAt),
+      detail: formatMoment(task.pickedUpAt, now),
       emphasis: "picked_up",
     });
   } else {
@@ -63,21 +66,21 @@ export function buildTimeline(task: TaskDetail): TimelineItem[] {
     items.push({
       key: "completed",
       title: "Afgemeld",
-      detail: `${formatMoment(completion.completedAt)} · ${formatHours(completion.workedMinutes)}`,
+      detail: `${formatMoment(completion.completedAt, now)} · ${formatHours(completion.workedMinutes)}`,
       emphasis: "completed",
     });
     if (completion.correctedMinutes !== null && completion.correctedAt) {
       items.push({
         key: "corrected",
         title: `Uren gecorrigeerd naar ${formatHours(completion.correctedMinutes)}`,
-        detail: `${formatMoment(completion.correctedAt)}${completion.correctedByName ? ` door ${completion.correctedByName}` : ""}`,
+        detail: `${formatMoment(completion.correctedAt, now)}${completion.correctedByName ? ` door ${completion.correctedByName}` : ""}`,
       });
     }
     if (task.invoicedAt) {
       items.push({
         key: "invoiced",
         title: "Gefactureerd",
-        detail: `${formatMoment(task.invoicedAt)}${task.invoicedByName ? ` door ${task.invoicedByName}` : ""}`,
+        detail: `${formatMoment(task.invoicedAt, now)}${task.invoicedByName ? ` door ${task.invoicedByName}` : ""}`,
         emphasis: "invoiced",
       });
     } else {

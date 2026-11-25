@@ -13,7 +13,7 @@ const valid = {
   scheduledDate: "2026-12-01",
   startTime: "14:00",
   taskNumber: "1043",
-  version: "2026-11-25 18:44:00.123456+00",
+  version: "2026-11-25T18:44:00.123456Z",
 };
 
 function raw(overrides: Record<string, string> = {}) {
@@ -45,7 +45,7 @@ describe("parseUpdateTask", () => {
       ok: true,
       data: {
         number: 1043,
-        version: "2026-11-25 18:44:00.123456+00",
+        version: "2026-11-25T18:44:00.123456Z",
         customer: { kind: "existing", id: valid.customerId },
         assigneeId: null,
         workType: "maintenance",
@@ -54,12 +54,12 @@ describe("parseUpdateTask", () => {
   });
 
   it.each([
-    ["2026-11-25 18:44:00+00"],
-    ["2026-11-25T18:44:00.5Z"],
-    ["2026-11-25 19:44:00.123456+01:00"],
-    ["2026-11-25 19:44:00.123456+0100"],
-  ])("accepts the version %j", (version) => {
-    expect(parseUpdateTask(raw({ version })).ok).toBe(true);
+    ["2026-11-25 18:44:00.123456+00"],
+    ["2026-11-25T18:44:00Z"],
+    ["2026-11-25T18:44:00.123Z"],
+    ["2026-11-25T19:44:00.123456+01:00"],
+  ])("only accepts the exact format of the page, not %j", (version) => {
+    expect(parseUpdateTask(raw({ version }))).toEqual({ ok: false, reason: "stale" });
   });
 
   it.each([
@@ -69,11 +69,11 @@ describe("parseUpdateTask", () => {
     ["taskNumber", "1043; drop table tasks"],
     ["version", ""],
     ["version", "yesterday"],
-    ["version", "2026-13-25 18:44:00+00"],
-    ["version", "2026-02-30 18:44:00+00"],
-    ["version", "2026-11-25 25:44:00+00"],
-    ["version", "2026-11-25 18:44:00"],
-    ["version", "2026-11-25 18:44:00+00'; --"],
+    ["version", "2026-13-25T18:44:00.123456Z"],
+    ["version", "2026-02-30T18:44:00.123456Z"],
+    ["version", "2026-11-25T25:44:00.123456Z"],
+    ["version", "2026-11-25T18:44:00.123456"],
+    ["version", "2026-11-25T18:44:00.123456Z'; --"],
   ])("answers 'stale' for a wrong %s (%j)", (field, value) => {
     expect(parseUpdateTask(raw({ [field]: value }))).toEqual({ ok: false, reason: "stale" });
   });

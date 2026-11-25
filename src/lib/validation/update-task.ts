@@ -19,7 +19,7 @@ export type UpdateTaskRaw = Record<UpdateTaskField, string>;
 
 export type UpdateTaskData = CreateTaskData & {
   number: number;
-  /** `updated_at` as text with full precision and offset, as the page read it. */
+  /** `updated_at` as `2026-11-25T18:44:00.123456Z`, as the page read it. */
   version: string;
 };
 
@@ -30,11 +30,10 @@ export type UpdateTaskParse =
   | { ok: false; reason: "fields"; fieldErrors: CreateTaskFieldErrors };
 
 /**
- * `2026-11-25 18:44:00.123456+00` (Postgres `timestamptz::text`) or the same with a `T` or `Z`.
- * Checked so that the database cast never fails on it.
+ * `2026-11-25T18:44:00.123456Z`: the exact format the page writes (`queryTaskDetail`, UTC with
+ * microseconds). Checked so that the database cast never fails on it.
  */
-const VERSION =
-  /^(20\d{2}-\d{2}-\d{2})[ T]([01]\d|2[0-3]):[0-5]\d:[0-5]\d(\.\d{1,6})?(Z|[+-](0\d|1[0-4])(:?[0-5]\d)?)$/;
+const VERSION = /^(20\d{2}-\d{2}-\d{2})T([01]\d|2[0-3]):[0-5]\d:[0-5]\d\.\d{6}Z$/;
 
 const versionSchema = z
   .string()

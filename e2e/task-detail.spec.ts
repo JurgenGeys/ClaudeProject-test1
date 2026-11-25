@@ -108,7 +108,9 @@ test.describe("the task page (B3)", () => {
     await expect(page.getByRole("heading", { level: 1, name: `${token} Bakkerij` })).toBeVisible();
     await expect(page.getByText(`Taak #${number}`, { exact: true })).toBeVisible();
     await expect(page.getByText("Toegewezen", { exact: true }).first()).toBeVisible();
-    await expect(page.getByText("Herstelling")).toBeVisible();
+    await expect(
+      page.getByRole("heading", { level: 1 }).locator("xpath=following-sibling::p"),
+    ).toContainText("Herstelling");
     await expect(page.getByText("di 10/03/2031 om 09:00")).toBeVisible();
 
     const instructions = page.getByRole("region", { name: "Instructies" });
@@ -257,7 +259,7 @@ test.describe("editing a task (B2, edit mode)", () => {
     await page.getByLabel(/^Technieker$/).selectOption({ label: jens.fullName });
     await page.getByRole("button", { name: "Wijzigingen bewaren" }).click();
 
-    await expect(page).toHaveURL(`/tasks/${number}?saved=1`);
+    await expect(page).toHaveURL(`/tasks/${number}`);
     await expect(page.getByRole("status")).toHaveText(`Taak #${number} bewaard.`);
     await expect(page.getByRole("region", { name: "Technieker" })).toContainText(jens.fullName);
     await expect(page.getByRole("region", { name: "Instructies" })).toContainText(
@@ -289,7 +291,7 @@ test.describe("editing a task (B2, edit mode)", () => {
     await page.getByLabel(/^Technieker$/).selectOption({ label: "Nog niet toewijzen" });
     await page.getByRole("button", { name: "Wijzigingen bewaren" }).click();
 
-    await expect(page).toHaveURL(`/tasks/${number}?saved=1`);
+    await expect(page).toHaveURL(`/tasks/${number}`);
     await expect(page.getByRole("region", { name: "Technieker" })).toContainText(
       "Nog niet toegewezen",
     );
@@ -311,12 +313,12 @@ test.describe("editing a task (B2, edit mode)", () => {
     const select = page.getByLabel(/^Technieker$/);
     await expect(select).toBeDisabled();
     await expect(select).toHaveAccessibleDescription(
-      'Deze taak is opgepikt. Gebruik "Terugzetten" op de taak om een andere technieker te kiezen.',
+      "Deze taak is opgepikt. Gebruik 'Terugzetten' om een andere technieker te kiezen.",
     );
     await page.getByLabel("Instructies").fill("Aangepast tijdens het werk");
     await page.getByRole("button", { name: "Wijzigingen bewaren" }).click();
 
-    await expect(page).toHaveURL(`/tasks/${number}?saved=1`);
+    await expect(page).toHaveURL(`/tasks/${number}`);
     expect(await readTaskByNumber(number)).toMatchObject({
       status: "picked_up",
       assigneeEmail: kevin.email,
@@ -386,7 +388,7 @@ test.describe("editing a task (B2, edit mode)", () => {
     await test.step("and the reloaded form can be saved", async () => {
       await page.getByLabel("Instructies").fill("Mijn wijziging, opnieuw");
       await page.getByRole("button", { name: "Wijzigingen bewaren" }).click();
-      await expect(page).toHaveURL(`/tasks/${number}?saved=1`);
+      await expect(page).toHaveURL(`/tasks/${number}`);
       expect((await readTaskByNumber(number)).instructions).toBe("Mijn wijziging, opnieuw");
     });
   });
@@ -444,6 +446,8 @@ test.describe("editing a task (B2, edit mode)", () => {
       { status: "assigned", scheduledDate: "2031-03-10" },
     ]);
     await signIn(page, TECHNICIAN);
+    // `signIn` does not wait for the result: without this the goto can cancel the sign-in.
+    await expect(page).toHaveURL("/my-tasks");
     await page.goto(`/tasks/${number}/edit`);
     await expect(page.getByRole("heading", { level: 1, name: NOT_FOR_YOU })).toBeVisible();
     await expect(page.getByRole("button", { name: "Wijzigingen bewaren" })).toHaveCount(0);

@@ -197,7 +197,7 @@ describe("updateTaskInTransaction: saving", () => {
     await inRolledBackTransaction(async (tx) => {
       const { office, kevin, customerId } = await setUpBasic(tx);
       const task = await seedTask(tx, office, customerId, kevin);
-      expect(task.version).toMatch(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{1,6}[+-]\d{2}/);
+      expect(task.version).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z$/);
 
       const first = await updateTaskInTransaction(tx, {
         actor: sofie(office),
@@ -221,6 +221,21 @@ describe("updateTaskInTransaction: saving", () => {
         ),
       });
       expect(third.kind).toBe("updated");
+    });
+  });
+
+  it("reads the version the same under another TimeZone and DateStyle of the session, and it still matches", async () => {
+    await inRolledBackTransaction(async (tx) => {
+      const { office, customerId } = await setUpBasic(tx);
+      const task = await seedTask(tx, office, customerId, null);
+      await tx.execute(sql`set local timezone = 'Asia/Tokyo'`);
+      await tx.execute(sql`set local datestyle = 'German, DMY'`);
+      expect((await queryTaskDetail(tx, task.number))!.version).toBe(task.version);
+      const outcome = await updateTaskInTransaction(tx, {
+        actor: sofie(office),
+        data: edited(task, { customerId, assigneeId: null }),
+      });
+      expect(outcome.kind).toBe("updated");
     });
   });
 
@@ -561,6 +576,76 @@ describe("updateTaskInTransaction: refusing", () => {
   });
 });
 
+describe("the updated_at trigger (ADR-0003)", () => {
+  const readVersion = async (tx: Tx, number: number) =>
+    (await queryTaskDetail(tx, number))!.version;
+
+  it("changes the version on a raw SQL update that does not mention updated_at", async () => {
+    await inRolledBackTransaction(async (tx) => {
+      const { office, customerId } = await setUpBasic(tx);
+      const task = await seedTask(tx, office, customerId, null);
+      await tx.execute(sql`update public.tasks set instructions = 'Raw' where id = ${task.id}`);
+      expect(await readVersion(tx, task.number)).not.toBe(task.version);
+    });
+  });
+
+  it("overrides an updated_at that the writer gives, and never goes back", async () => {
+    await inRolledBackTransaction(async (tx) => {
+      const { office, customerId } = await setUpBasic(tx);
+      const task = await seedTask(tx, office, customerId, null);
+      await tx.execute(
+        sql`update public.tasks set updated_at = '2000-01-01T00:00:00Z' where id = ${task.id}`,
+      );
+      const first = await readVersion(tx, task.number);
+      expect(first > task.version).toBe(true);
+      // A new update right after: strictly greater, also within one transaction (one now()).
+      await tx.execute(sql`update public.tasks set instructions = 'Twee' where id = ${task.id}`);
+      expect((await readVersion(tx, task.number)) > first).toBe(true);
+    });
+  });
+
+  it("changes the version even for an update that changes nothing, and leaves other rows alone", async () => {
+    await inRolledBackTransaction(async (tx) => {
+      const { office, customerId } = await setUpBasic(tx);
+      const one = await seedTask(tx, office, customerId, null);
+      const two = await seedTask(tx, office, customerId, null);
+      await tx.execute(sql`update public.tasks set status = status where id = ${one.id}`);
+      expect(await readVersion(tx, one.number)).not.toBe(one.version);
+      expect(await readVersion(tx, two.number)).toBe(two.version);
+    });
+  });
+
+  it("makes an open form 'changed' after a raw SQL update by another writer", async () => {
+    await inRolledBackTransaction(async (tx) => {
+      const { office, customerId } = await setUpBasic(tx);
+      const task = await seedTask(tx, office, customerId, null);
+      await tx.execute(
+        sql`update public.tasks set instructions = 'Van een script' where id = ${task.id}`,
+      );
+      const outcome = await updateTaskInTransaction(tx, {
+        actor: sofie(office),
+        data: edited(task, { customerId, assigneeId: null }),
+      });
+      expect(outcome).toEqual({ kind: "changed" });
+      expect((await readTask(tx, task.id)).instructions).toBe("Van een script");
+    });
+  });
+
+  it("does not change created_at, and the trigger is on the table", async () => {
+    await inRolledBackTransaction(async (tx) => {
+      const { office, customerId } = await setUpBasic(tx);
+      const task = await seedTask(tx, office, customerId, null);
+      const before = await readTask(tx, task.id);
+      await tx.execute(sql`update public.tasks set instructions = 'x' where id = ${task.id}`);
+      expect((await readTask(tx, task.id)).createdAt).toEqual(before.createdAt);
+      const triggers = await tx.execute<{ tgname: string }>(
+        sql`select tgname from pg_trigger where tgrelid = 'public.tasks'::regclass and not tgisinternal`,
+      );
+      expect(triggers.map((row) => row.tgname)).toContain("tasks_set_updated_at");
+    });
+  });
+});
+
 describe("queryTaskDetail", () => {
   it("reads the task with customer, technician, creator and the numbers of the timeline", async () => {
     await inRolledBackTransaction(async (tx) => {
@@ -738,7 +823,7 @@ describe("updateTaskInTransaction: two people at the same moment", () => {
   it("an edit that was opened before the technician picked the task up is refused, and the pick-up stays", async () => {
     const { office, kevin, customerId, task } = await setUpRace();
     try {
-      // The technician picks up (a plain update that, like every writer, sets updated_at).
+      // The technician picks up (the trigger of ADR-0003 moves updated_at, whoever writes).
       await db
         .update(schema.tasks)
         .set({ status: "picked_up", pickedUpAt: new Date() })

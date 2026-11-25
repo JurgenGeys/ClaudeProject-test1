@@ -44,14 +44,15 @@ export type UpdateTaskTransaction = Pick<Database, "select" | "insert" | "update
  *    opened with. When the task has another `updated_at` now, someone else changed it in the
  *    meantime and nothing is saved ("Deze taak is intussen gewijzigd"). The comparison is
  *    done by the database on the full microsecond value, not on a rounded JavaScript date.
- *    Every writer of a task must therefore set `updated_at` (Drizzle does it on each update);
+ *    The trigger of ADR-0003 sets `updated_at` on every update, whoever writes, so no
+ *    writer can forget it;
  * 4. a chosen existing customer must exist; the technician (Open and Toegewezen only) is read
  *    with `FOR SHARE` and checked like in `createTaskInTransaction`. On a picked up task the
  *    technician and `picked_up_at` never change: another technician is refused;
  * 5. `checkTransition` (`updateTask`), then the new customer if there is one, then a
  *    conditional update (`WHERE id AND status AND updated_at = version`). With a technician the
  *    task becomes Toegewezen, without one Open (P2); an Opgepikt task stays Opgepikt.
- *    `updated_by` is the actor, `updated_at` the database clock.
+ *    `updated_by` is the actor, `updated_at` comes from the trigger.
  */
 export async function updateTaskInTransaction(
   tx: UpdateTaskTransaction,
@@ -153,8 +154,7 @@ export async function updateTaskInTransaction(
       assigneeId,
       status,
       updatedBy: actor.id,
-      // The database clock at this moment: never equal to the version that was read.
-      updatedAt: sql`clock_timestamp()`,
+      // `updated_at` (the version) is set by the database trigger (ADR-0003), not here.
     })
     .where(
       and(

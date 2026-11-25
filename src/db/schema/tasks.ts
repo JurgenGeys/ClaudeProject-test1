@@ -63,7 +63,11 @@ export const tasks = pgTable(
     createdBy: uuid("created_by")
       .notNull()
       .references(() => profiles.id, { onDelete: "restrict" }),
-    // `updated_at` is set by Drizzle on every update (`$onUpdate`); `updated_by` by the Server Action.
+    // `updated_at` is also the version of the task: the edit form (BT-10) carries it and
+    // `updateTask` refuses to save when it changed. A database trigger (`tasks_set_updated_at`,
+    // migration 0005, ADR-0003) sets it on every update, whoever writes (Drizzle, raw SQL), so no
+    // writer can forget it. `$onUpdate` stays as the Drizzle default; the trigger has the last
+    // word. `updated_by` is set by the Server Action.
     updatedAt: timestamp("updated_at", { withTimezone: true })
       .notNull()
       .defaultNow()

@@ -1,5 +1,5 @@
 import { render, screen, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { TaskDetail } from "@/lib/tasks/detail";
 
@@ -9,7 +9,7 @@ const task: TaskDetail = {
   id: "t1",
   number: 1043,
   status: "assigned",
-  version: "2026-11-25 18:44:00.123456+00",
+  version: "2026-11-25T18:44:00.123456Z",
   workType: "inspection",
   instructions: "Nazicht airco slaapkamer.\nToestel is 4 jaar oud.",
   scheduledDate: "2026-11-23",
@@ -50,6 +50,13 @@ const completion = {
   correctedByName: null,
 };
 
+// "Now" is fixed: a date in this year has no year, a date in another year keeps it.
+beforeEach(() => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date("2026-11-25T12:00:00Z"));
+});
+afterEach(() => vi.useRealTimers());
+
 describe("TaskDetailView (B3)", () => {
   it("shows the number, status, customer as title, kind of work, planning and technician", () => {
     render(<TaskDetailView task={task} />);
@@ -58,7 +65,7 @@ describe("TaskDetailView (B3)", () => {
     expect(screen.getByText("Toegewezen", { selector: "[data-status]" })).toBeInTheDocument();
     const summary = screen.getByRole("heading", { level: 1 }).nextElementSibling;
     expect(summary).toHaveTextContent(
-      "Nazicht · ma 23/11/2026 om 13:30 · geschatte duur 1u00 · Kevin Wouters",
+      "Nazicht · ma 23/11 om 13:30 · geschatte duur 1u00 · Kevin Wouters",
     );
     expect(screen.getByRole("link", { name: "← Taken" })).toHaveAttribute("href", "/tasks");
   });
@@ -84,7 +91,7 @@ describe("TaskDetailView (B3)", () => {
     const timeline = screen.getByRole("region", { name: "Tijdlijn" });
     const items = within(timeline).getAllByRole("listitem");
     expect(items.map((item) => item.textContent)).toEqual([
-      "Aangemaaktvr 13/11/2026 om 09:12 door Sofie Peeters",
+      "Aangemaaktvr 13/11 om 09:12 door Sofie Peeters",
       "Toegewezen aan Kevin Wouters",
       "Nog niet opgepikt",
     ]);
@@ -156,7 +163,7 @@ describe("TaskDetailView (B3)", () => {
     expect(block).toHaveTextContent("2u00");
     expect(block).toHaveTextContent("gewerkte uren, zonder verplaatsing");
     expect(block).toHaveTextContent("4 units gereinigd.");
-    expect(block).toHaveTextContent("Afgemeld door Jens Maes op vr 20/11/2026 om 17:31.");
+    expect(block).toHaveTextContent("Afgemeld door Jens Maes op vr 20/11 om 17:31.");
     expect(block).not.toHaveTextContent("Gecorrigeerd");
   });
 
@@ -181,7 +188,7 @@ describe("TaskDetailView (B3)", () => {
     );
     const block = screen.getByRole("region", { name: "Afmelding" });
     expect(block).toHaveTextContent("1u30");
-    expect(block).toHaveTextContent("Gecorrigeerd door Sofie Peeters op ma 23/11/2026 om 10:05.");
+    expect(block).toHaveTextContent("Gecorrigeerd door Sofie Peeters op ma 23/11 om 10:05.");
     expect(block).toHaveTextContent("Oorspronkelijk door Jens Maes ingevuld: 2u00.");
     expect(block).toHaveTextContent("Reden: Wachttijd niet aanrekenen");
   });
@@ -213,7 +220,7 @@ describe("TaskDetailView (B3)", () => {
       />,
     );
     expect(
-      screen.getByText("Deze taak is geannuleerd op ma 23/11/2026 om 11:20 door Sofie Peeters."),
+      screen.getByText("Deze taak is geannuleerd op ma 23/11 om 11:20 door Sofie Peeters."),
     ).toBeInTheDocument();
     expect(screen.getByText("Reden: Klant heeft zelf afgezegd")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Maak een nieuwe taak aan" })).toHaveAttribute(
@@ -233,5 +240,29 @@ describe("TaskDetailView (B3)", () => {
       />,
     );
     expect(screen.queryByText(/^Reden:/)).not.toBeInTheDocument();
+  });
+
+  it("keeps the year on dates in another year: the planning, the timeline and the cancellation bar", () => {
+    render(
+      <TaskDetailView
+        task={{
+          ...task,
+          status: "cancelled",
+          scheduledDate: "2027-03-10",
+          createdAt: new Date("2025-11-13T08:12:00Z"),
+          cancelledAt: new Date("2026-12-31T23:30:00Z"),
+          cancelledByName: "Sofie Peeters",
+        }}
+      />,
+    );
+    expect(screen.getByRole("heading", { level: 1 }).nextElementSibling).toHaveTextContent(
+      "Nazicht · wo 10/03/2027 om 13:30",
+    );
+    expect(screen.getByText(/Aangemaakt/).parentElement).toHaveTextContent(
+      "do 13/11/2025 om 09:12 door Sofie Peeters",
+    );
+    expect(screen.getByText(/^Deze taak is geannuleerd op/)).toHaveTextContent(
+      "vr 01/01/2027 om 00:30",
+    );
   });
 });

@@ -148,7 +148,8 @@ export function TaskForm({
     <form
       onSubmit={submit}
       noValidate
-      autoComplete="off"
+      // A reload must not bring back what the browser remembers of an earlier version of the task.
+      autoComplete={edit ? "off" : undefined}
       data-hydrated={hydrated ? "true" : undefined}
       className="mt-6 space-y-6"
     >
@@ -400,8 +401,7 @@ export function TaskForm({
                   <option>{edit?.assignee?.fullName}</option>
                 </NativeSelect>
                 <p id="assignee-hint" className="mt-1 text-sm text-foreground">
-                  Deze taak is opgepikt. Gebruik &quot;Terugzetten&quot; op de taak om een andere
-                  technieker te kiezen.
+                  {TASK_ACTION_MESSAGES.assigneeLocked}
                 </p>
               </>
             ) : (

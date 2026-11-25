@@ -315,3 +315,56 @@ describe("brusselsDayKey", () => {
     expect(brusselsDayKey("2026-10-25T23:00:00Z")).toBe("2026-10-26");
   });
 });
+
+describe("formatDate with omitCurrentYear (task page, decided by Jurgen 25/11/2026)", () => {
+  const now = new Date("2026-11-25T12:00:00Z");
+  const options = { omitCurrentYear: true, now };
+
+  it("leaves the year out for a day in the current year", () => {
+    expect(formatDate("2026-11-24T10:00:00Z", options)).toBe("di 24/11");
+    expect(formatDate("2026-03-02", options)).toBe("ma 02/03");
+    expect(formatDate(new Date("2026-01-01T12:00:00Z"), options)).toBe("do 01/01");
+  });
+
+  it("keeps the year for another year, earlier or later", () => {
+    expect(formatDate("2025-12-31", options)).toBe("wo 31/12/2025");
+    expect(formatDate("2027-01-01", options)).toBe("vr 01/01/2027");
+    expect(formatDate("2031-03-10", options)).toBe("ma 10/03/2031");
+  });
+
+  it("decides the year of the date and of 'now' in Belgian time", () => {
+    // 23:30 UTC on 31/12/2025 is 00:30 on 01/01/2026 in Belgium.
+    const nowAfterMidnight = new Date("2026-06-01T10:00:00Z");
+    expect(
+      formatDate(new Date("2025-12-31T23:30:00Z"), {
+        omitCurrentYear: true,
+        now: nowAfterMidnight,
+      }),
+    ).toBe("do 01/01");
+    // 22:30 UTC on 31/12/2025 is 23:30 on 31/12/2025: last year.
+    expect(
+      formatDate(new Date("2025-12-31T22:30:00Z"), {
+        omitCurrentYear: true,
+        now: nowAfterMidnight,
+      }),
+    ).toBe("wo 31/12/2025");
+    // "Now" just before and just after midnight in Belgium on New Year.
+    const day = "2026-12-31";
+    expect(formatDate(day, { omitCurrentYear: true, now: new Date("2026-12-31T22:59:00Z") })).toBe(
+      "do 31/12",
+    );
+    expect(formatDate(day, { omitCurrentYear: true, now: new Date("2026-12-31T23:01:00Z") })).toBe(
+      "do 31/12/2026",
+    );
+  });
+
+  it("is off by default and with false: the full date", () => {
+    expect(formatDate("2026-11-24")).toBe("di 24/11/2026");
+    expect(formatDate("2026-11-24", { omitCurrentYear: false, now })).toBe("di 24/11/2026");
+  });
+
+  it("formatDateTime passes the options on", () => {
+    expect(formatDateTime("2026-11-24T13:00:00Z", options)).toBe("di 24/11 14:00");
+    expect(formatDateTime("2025-11-24T13:00:00Z", options)).toBe("ma 24/11/2025 14:00");
+  });
+});

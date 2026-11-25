@@ -30,7 +30,7 @@ const task: TaskDetail = {
   id: "t1",
   number: 1043,
   status: "assigned",
-  version: "2026-11-25 18:44:00.123456+00",
+  version: "2026-11-25T18:44:00.123456Z",
   workType: "repair",
   instructions: "Lek aan de binnenunit",
   scheduledDate: "2026-11-23",

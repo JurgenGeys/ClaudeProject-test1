@@ -2,7 +2,6 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 
 import { StatusBadge } from "@/components/status-badge";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import type { TaskDetail } from "@/lib/tasks/detail";
 import { formatTaskNumber, workTypeLabel } from "@/lib/tasks/labels";
@@ -10,6 +9,8 @@ import { buildTimeline, formatMoment, type TimelineItem } from "@/lib/tasks/time
 import { canEditTask } from "@/lib/tasks/transitions";
 import { formatDate, formatHours, formatTimeOfDay } from "@/lib/time/format";
 import { cn } from "@/lib/utils";
+
+import { SavedNotice } from "./saved-notice";
 
 const CARD = "rounded-lg border border-border bg-card p-5";
 
@@ -66,7 +67,7 @@ function Timeline({ items }: { items: TimelineItem[] }) {
   );
 }
 
-function Completion({ task }: { task: TaskDetail }) {
+function Completion({ task, now }: { task: TaskDetail; now: Date }) {
   const completion = task.completion;
   if (!completion) {
     return null;
@@ -85,7 +86,7 @@ function Completion({ task }: { task: TaskDetail }) {
           <p>
             <span className="font-medium">Gecorrigeerd</span>
             {completion.correctedByName ? ` door ${completion.correctedByName}` : ""} op{" "}
-            {formatMoment(completion.correctedAt)}.
+            {formatMoment(completion.correctedAt, now)}.
           </p>
           <p>
             Oorspronkelijk door {completion.completedByName} ingevuld:{" "}
@@ -105,7 +106,7 @@ function Completion({ task }: { task: TaskDetail }) {
         <p className="mt-1 text-muted-foreground italic">Geen notities.</p>
       )}
       <p className="mt-3 text-sm text-muted-foreground">
-        Afgemeld door {completion.completedByName} op {formatMoment(completion.completedAt)}.
+        Afgemeld door {completion.completedByName} op {formatMoment(completion.completedAt, now)}.
       </p>
     </Block>
   );
@@ -119,6 +120,7 @@ function Completion({ task }: { task: TaskDetail }) {
  * (Terugzetten, annuleren, uren corrigeren, factureren) come with their own build tasks.
  */
 export function TaskDetailView({ task, saved = false }: { task: TaskDetail; saved?: boolean }) {
+  const now = new Date();
   const number = formatTaskNumber(task.number);
   const editable = canEditTask(task.status);
   const estimate =
@@ -126,14 +128,7 @@ export function TaskDetailView({ task, saved = false }: { task: TaskDetail; save
 
   return (
     <>
-      {saved ? (
-        <Alert
-          role="status"
-          className="mb-4 border-green-200 bg-green-50 text-green-900 *:data-[slot=alert-description]:text-green-900"
-        >
-          <AlertDescription>Taak {number} bewaard.</AlertDescription>
-        </Alert>
-      ) : null}
+      {saved ? <SavedNotice>{`Taak ${number} bewaard.`}</SavedNotice> : null}
       <Link href="/tasks" className="text-sm underline-offset-4 hover:underline">
         ← Taken
       </Link>
@@ -147,7 +142,8 @@ export function TaskDetailView({ task, saved = false }: { task: TaskDetail; save
           <h1 className="mt-2 text-2xl font-semibold tracking-tight">{task.customer.name}</h1>
           <p className="mt-1">
             <span className="font-medium">{workTypeLabel(task.workType)}</span> ·{" "}
-            {formatDate(task.scheduledDate)} om {formatTimeOfDay(task.startTime)}
+            {formatDate(task.scheduledDate, { omitCurrentYear: true, now })} om{" "}
+            {formatTimeOfDay(task.startTime)}
             {estimate}
             {task.assignee ? ` · ${task.assignee.fullName}` : ""}
           </p>
@@ -162,7 +158,7 @@ export function TaskDetailView({ task, saved = false }: { task: TaskDetail; save
       {task.status === "cancelled" && task.cancelledAt ? (
         <div className="mt-5 rounded-lg border border-slate-300 bg-slate-100 px-5 py-4 text-sm text-slate-800">
           <p className="font-medium">
-            Deze taak is geannuleerd op {formatMoment(task.cancelledAt)}
+            Deze taak is geannuleerd op {formatMoment(task.cancelledAt, now)}
             {task.cancelledByName ? ` door ${task.cancelledByName}` : ""}.
           </p>
           {task.cancellationReason ? (
@@ -180,7 +176,7 @@ export function TaskDetailView({ task, saved = false }: { task: TaskDetail; save
 
       <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_20rem]">
         <div className="space-y-4">
-          <Completion task={task} />
+          <Completion task={task} now={now} />
           <Block id="heading-instructions" title="Instructies">
             <Multiline text={task.instructions} className="leading-relaxed" />
           </Block>
@@ -232,7 +228,7 @@ export function TaskDetailView({ task, saved = false }: { task: TaskDetail; save
             )}
           </Block>
           <Block id="heading-timeline" title="Tijdlijn">
-            <Timeline items={buildTimeline(task)} />
+            <Timeline items={buildTimeline(task, now)} />
           </Block>
         </aside>
       </div>

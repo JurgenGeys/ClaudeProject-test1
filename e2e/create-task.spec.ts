@@ -79,7 +79,8 @@ async function fillTask(page: Page, workType: "Nazicht" | "Onderhoud" | "Herstel
 /** Saves, waits for the task page (B3) and returns the task number from the confirmation. */
 async function save(page: Page): Promise<number> {
   await page.getByRole("button", { name: "Taak bewaren" }).click();
-  await expect(page).toHaveURL(/\/tasks\/\d+\?saved=1$/);
+  // The address loses `?saved=1` once the confirmation is shown, so only the path is checked.
+  await expect(page).toHaveURL(/\/tasks\/\d+(\?saved=1)?$/);
   const number = Number(new URL(page.url()).pathname.split("/").at(-1));
   await expect(page.getByRole("status")).toHaveText(`Taak #${number} bewaard.`);
   await expect(page.getByText(`Taak #${number}`, { exact: true })).toBeVisible();

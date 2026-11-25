@@ -27,7 +27,7 @@ export type TaskDetail = {
   number: number;
   status: TaskStatus;
   /**
-   * `updated_at` as text with full precision (microseconds) and offset. The edit form sends it
+   * `updated_at` as `2026-11-25T18:44:00.123456Z` (UTC, microseconds). The edit form sends it
    * back; the database compares it to detect that someone else changed the task meanwhile.
    */
   version: string;
@@ -78,7 +78,9 @@ export async function queryTaskDetail(
       id: tasks.id,
       number: tasks.number,
       status: tasks.status,
-      version: sql<string>`${tasks.updatedAt}::text`,
+      // An explicit UTC format with microseconds: `updated_at::text` would follow the DateStyle and
+      // TimeZone of the session. `to_char` does not, and `...Z` is read back exactly.
+      version: sql<string>`to_char(${tasks.updatedAt} at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`,
       workType: tasks.workType,
       instructions: tasks.instructions,
       scheduledDate: tasks.scheduledDate,

@@ -52,7 +52,7 @@ const sofie = {
 };
 const customerId = "11111111-1111-4111-8111-111111111111";
 const kevinId = "22222222-2222-4222-8222-222222222222";
-const version = "2026-11-25 18:44:00.123456+00";
+const version = "2026-11-25T18:44:00.123456Z";
 
 const fields = {
   customerMode: "existing",

@@ -20,7 +20,7 @@ const technicians = [
 
 const edit: TaskFormEdit = {
   number: 1043,
-  version: "2026-11-25 18:44:00.123456+00",
+  version: "2026-11-25T18:44:00.123456Z",
   status: "assigned",
   customer: {
     id: "c1",
@@ -78,7 +78,7 @@ describe("TaskForm in edit mode", () => {
     expect(createTask).not.toHaveBeenCalled();
     expect(sent()).toMatchObject({
       taskNumber: "1043",
-      version: "2026-11-25 18:44:00.123456+00",
+      version: "2026-11-25T18:44:00.123456Z",
       customerMode: "existing",
       customerId: "c1",
       locationStreet: "Lierseweg 87",
@@ -130,7 +130,7 @@ describe("TaskForm in edit mode", () => {
         .map((o) => o.textContent),
     ).toEqual(["Kevin Wouters"]);
     expect(select).toHaveAccessibleDescription(
-      'Deze taak is opgepikt. Gebruik "Terugzetten" op de taak om een andere technieker te kiezen.',
+      "Deze taak is opgepikt. Gebruik 'Terugzetten' om een andere technieker te kiezen.",
     );
     await submit();
     expect("assigneeId" in sent()).toBe(false);
