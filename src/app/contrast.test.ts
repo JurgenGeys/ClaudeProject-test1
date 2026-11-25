@@ -8,6 +8,10 @@ import { taskStatuses } from "@/lib/tasks/types";
 
 // WCAG contrast of the design tokens, computed from the real CSS and Tailwind theme files so
 // a change to a color cannot silently break accessibility.
+//
+// This checks the TOKENS (and the badge color pairs), not how components use them. A component
+// that draws the ring at another opacity (`ring-ring/30`) or puts text on another background
+// is not covered: check such a combination by hand or add it here.
 
 type Rgb = [number, number, number]; // gamma-encoded sRGB, 0 to 1
 
@@ -104,9 +108,13 @@ describe("contrast of the design tokens (WCAG 2.2 AA)", () => {
   });
 
   it.each(taskStatuses)("the %s badge text is at least 4.5 : 1 on its background", (status) => {
-    const [, background] = /bg-(\w+-\d+)/.exec(STATUS_CLASSES[status]) ?? [];
-    const [, text] = /text-(\w+-\d+)/.exec(STATUS_CLASSES[status]) ?? [];
-    expect(background && text).toBeTruthy();
+    // Only classes without a variant prefix (`hover:`, `dark:`) are the normal state.
+    const plain = STATUS_CLASSES[status].split(/\s+/).filter((c) => !c.includes(":"));
+    const background = plain.find((c) => c.startsWith("bg-"))?.slice(3);
+    const text = plain.find((c) => c.startsWith("text-"))?.slice(5);
+    if (!background || !text) {
+      throw new Error(`No plain bg-* and text-* class for ${status}`);
+    }
     expect(contrast(tailwindColor(text), tailwindColor(background))).toBeGreaterThanOrEqual(4.5);
   });
 });

@@ -11,7 +11,6 @@ import {
   formatHoursSpoken,
   formatTimeOfDay,
   isValidWorkedMinutes,
-  MAX_WORKED_MINUTES,
   minutesToHours,
 } from "./format";
 
@@ -81,7 +80,7 @@ describe("minutes and hours", () => {
     expect(hoursToMinutes(10)).toBe(600);
   });
 
-  it("is the same both ways for every quarter up to 24 hours", () => {
+  it("is the same both ways for every quarter up to 24 hours (any quarter is fine)", () => {
     for (let minutes = 0; minutes <= 24 * 60; minutes += 15) {
       expect(hoursToMinutes(minutesToHours(minutes))).toBe(minutes);
     }
@@ -99,10 +98,10 @@ describe("minutes and hours", () => {
     expect(Object.is(minutesToHours(-0), 0)).toBe(true);
   });
 
-  it("accepts 24 hours but not more", () => {
-    expect(hoursToMinutes(24)).toBe(1440);
-    expect(() => hoursToMinutes(24.25)).toThrow(RangeError);
-    expect(() => hoursToMinutes(100)).toThrow(RangeError);
+  it("has no upper limit: the maximum per screen is set in the Zod schemas", () => {
+    expect(hoursToMinutes(16)).toBe(960);
+    expect(hoursToMinutes(24.25)).toBe(1455);
+    expect(hoursToMinutes(100)).toBe(6000);
   });
 
   it("refuses minutes it cannot convert", () => {
@@ -133,27 +132,19 @@ describe("formatHoursSpoken", () => {
 });
 
 describe("isValidWorkedMinutes", () => {
-  it.each([15, 30, 45, 60, 90, 600, MAX_WORKED_MINUTES])("accepts %i", (value) => {
+  it.each([15, 30, 45, 60, 90, 600, 960, 1440, 6000])("accepts %i", (value) => {
     expect(isValidWorkedMinutes(value)).toBe(true);
   });
 
-  it.each([
-    0,
-    -0,
-    -15,
-    10,
-    20,
-    1.5,
-    7.5,
-    MAX_WORKED_MINUTES + 15,
-    Number.NaN,
-    Number.POSITIVE_INFINITY,
-  ])("refuses %s", (value) => {
-    expect(isValidWorkedMinutes(value)).toBe(false);
-  });
+  it.each([0, -0, -15, 10, 20, 1.5, 7.5, Number.NaN, Number.POSITIVE_INFINITY])(
+    "refuses %s",
+    (value) => {
+      expect(isValidWorkedMinutes(value)).toBe(false);
+    },
+  );
 
-  it("allows at most 24 hours", () => {
-    expect(MAX_WORKED_MINUTES).toBe(1440);
+  it("has no upper limit of its own", () => {
+    expect(isValidWorkedMinutes(100_000 * 15)).toBe(true);
   });
 });
 
@@ -273,6 +264,13 @@ describe("strings without a time zone", () => {
     expect(formatTime("2026-11-24 13:00:00.123+00")).toBe("14:00");
     expect(formatTime("2026-07-24T14:00:00-02:00")).toBe("18:00");
     expect(formatTime("2026-11-24T13:00Z")).toBe("14:00");
+  });
+
+  it("refuses an hour, minute or second that does not exist", () => {
+    expect(() => formatTime("2026-11-24T24:00:00Z")).toThrow(RangeError);
+    expect(() => formatTime("2026-11-24T25:00:00Z")).toThrow(RangeError);
+    expect(() => formatTime("2026-11-24T10:60:00Z")).toThrow(RangeError);
+    expect(() => formatTime("2026-11-24T10:00:61Z")).toThrow(RangeError);
   });
 
   it("refuses a day that does not exist, also with a time zone", () => {

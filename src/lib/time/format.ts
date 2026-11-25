@@ -10,9 +10,6 @@ export const TIME_ZONE = "Europe/Brussels";
 /** Worked and estimated time is entered and stored per quarter of an hour. */
 export const QUARTER_MINUTES = 15;
 
-/** Upper limit of worked time on one task: 24 hours. */
-export const MAX_WORKED_MINUTES = 24 * 60;
-
 function assertMinutes(minutes: number): void {
   if (!Number.isSafeInteger(minutes) || minutes < 0) {
     throw new RangeError(`Invalid number of minutes: ${minutes}`);
@@ -28,17 +25,15 @@ function assertQuarterMinutes(minutes: number): void {
 }
 
 /**
- * The rule for worked time (design chapter 4 and 5): more than 0, a multiple of 15 minutes
- * and at most 24 hours. Use it to validate the hours of "Afmelden" and "Uren corrigeren".
+ * The rule for worked time (design chapter 5): more than 0 and a multiple of 15 minutes.
  * `0`, `-0`, negative numbers, fractions, `NaN` and `Infinity` are not valid.
+ *
+ * There is no upper limit here. The maximum per screen belongs in the Zod schema of the build
+ * task that needs it: BT-13 (T3 Afmelden) uses 16u00 as the design says; the maximum for
+ * "Uren corrigeren" (B3) and for the estimated duration (B2) still has to be decided.
  */
 export function isValidWorkedMinutes(minutes: number): boolean {
-  return (
-    Number.isSafeInteger(minutes) &&
-    minutes > 0 &&
-    minutes <= MAX_WORKED_MINUTES &&
-    minutes % QUARTER_MINUTES === 0
-  );
+  return Number.isSafeInteger(minutes) && minutes > 0 && minutes % QUARTER_MINUTES === 0;
 }
 
 /** 90 becomes `"1u30"`, 45 becomes `"0u45"`, 600 becomes `"10u00"`. */
@@ -91,8 +86,9 @@ export function minutesToHours(minutes: number): number {
 
 /**
  * Hours as minutes: 1.5 becomes 90. Throws when the value is not a whole number of quarters
- * (1.1 is refused instead of silently rounded) or is more than 24 hours, so a wrong value
- * never reaches the database. 0 is allowed (the start value of a stepper) and never `-0`.
+ * (1.1 is refused instead of silently rounded) or is negative, so a wrong value never reaches
+ * the database. 0 is allowed (the start value of a stepper) and the result is never `-0`.
+ * It has no upper limit: see `isValidWorkedMinutes`.
  */
 export function hoursToMinutes(hours: number): number {
   const minutes = Math.round(hours * 60);
@@ -101,9 +97,6 @@ export function hoursToMinutes(hours: number): number {
   }
   if (minutes % QUARTER_MINUTES !== 0) {
     throw new RangeError(`Hours must be a multiple of a quarter: ${hours}`);
-  }
-  if (minutes > MAX_WORKED_MINUTES) {
-    throw new RangeError(`More than 24 hours: ${hours}`);
   }
   return minutes === 0 ? 0 : minutes;
 }
@@ -139,7 +132,13 @@ function toDate(value: Date | string | number, allowDateOnly = false): Date {
       return new Date(Date.UTC(year, month - 1, day, 12));
     }
     const dateTime = DATE_TIME_WITH_ZONE.exec(value);
-    if (!dateTime || !isRealDay(Number(dateTime[1]), Number(dateTime[2]), Number(dateTime[3]))) {
+    if (
+      !dateTime ||
+      !isRealDay(Number(dateTime[1]), Number(dateTime[2]), Number(dateTime[3])) ||
+      Number(dateTime[4]) > 23 ||
+      Number(dateTime[5]) > 59 ||
+      Number(dateTime[6] ?? 0) > 59
+    ) {
       throw new RangeError(`Invalid date, or no time zone given: ${value}`);
     }
     let zone = dateTime[7];
