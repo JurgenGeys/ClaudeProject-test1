@@ -101,7 +101,16 @@ niet aanmelden; is hij al aangemeld, dan wordt hij bij het volgende verzoek afge
 Een backoffice-gebruiker voegt een technieker toe op `/technicians` (menu Techniekers, knop **Technieker toevoegen**).
 De applicatie laat Supabase Auth een uitnodigingsmail sturen (`inviteUserByEmail` met de geheime sleutel, server-side)
 en maakt een profiel met rol `technician` aan. Tot de technieker een wachtwoord koos staat hij als **Uitgenodigd** in
-de lijst, met de knop **Uitnodiging opnieuw versturen**.
+de lijst, met de knoppen **Uitnodiging opnieuw versturen** en **Uitnodiging intrekken**.
+
+### Uitnodigingen intrekken
+
+Bij een **uitgenodigde** technieker staat de knop **Uitnodiging intrekken** (met bevestigingsdialoog), voor een
+verkeerd e-mailadres of iemand die afhaakt voor hij aanvaardt. In één transactie wordt zijn profiel verwijderd en
+zijn Auth-account geblokkeerd; daarna wordt het account verwijderd. De link in de mail werkt dan niet meer en hij
+verdwijnt uit de lijst. Heeft hij intussen een wachtwoord gekozen, of hangen er gegevens aan, dan wordt het geweigerd.
+Mislukt enkel het verwijderen, dan blijft een geblokkeerd account zonder profiel achter (nutteloos, gelogd met het
+id); opnieuw uitnodigen van hetzelfde adres hergebruikt het. Details: ontwerp, hoofdstuk 6.
 
 ### Techniekers uitschakelen
 
@@ -111,7 +120,7 @@ link naar zijn taken. Uitschakelen zet in één transactie `is_active = false` e
 Auth-account (`ban_duration` van tien jaar, in dezelfde transactie, zodat het één geheel is). Zijn afgewerkte taken
 en uren blijven bewaard. Een aangemelde technieker wordt bij zijn volgende verzoek afgemeld ("Je account is
 uitgeschakeld"); aanmelden geeft hem de algemene melding. Een uitgenodigde technieker die nog geen wachtwoord koos kan
-niet uitgeschakeld worden. Details: ontwerp, hoofdstuk 6.
+niet uitgeschakeld worden (wel ingetrokken, zie hierboven). Details: ontwerp, hoofdstuk 6.
 
 ### Techniekers opnieuw activeren
 
