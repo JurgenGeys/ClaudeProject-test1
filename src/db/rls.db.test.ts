@@ -46,7 +46,9 @@ describe("Row Level Security", () => {
       select table_name from information_schema.tables
       where table_schema = 'public' and table_type = 'BASE TABLE'
     `;
-    expect(tables.map((table) => table.table_name)).toContain("profiles");
+    expect(tables.map((table) => table.table_name)).toEqual(
+      expect.arrayContaining(["profiles", "customers", "tasks", "task_completions"]),
+    );
   });
 
   it("detects a table without RLS (rolled back afterwards)", async () => {
