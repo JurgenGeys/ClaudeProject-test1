@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+vi.mock("server-only", () => ({}));
+
 import { AUTH_BAN_TIMEOUT_MS, AuthTimeoutError, BanFailedError, changeAuthBan } from "./ban";
 
 const updateUserById = vi.fn();

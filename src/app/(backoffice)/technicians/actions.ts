@@ -297,7 +297,7 @@ export async function resendInvite(
 }
 
 /**
- * Best-effort change of the block, outside any transaction (compensation and repair). A failure is
+ * Best-effort change of the block (compensation after a failed commit, and repair inside the transaction). A failure is
  * only logged, with the technician id (a UUID, no e-mail address or name) so the account can be
  * found; the user gets the message he would have got anyway.
  */
@@ -326,6 +326,9 @@ async function tryChangeBan(technicianId: string, banDuration: string, what: str
  *    switched off or not at all. If the commit itself fails after the block was set, the block is
  *    lifted again (best effort; a block without `is_active = false` only matters until the next
  *    attempt, which sets both again).
+ * When the technician is already switched off (for example after an ambiguous commit), the block is
+ * set again in step 2's place, also inside the transaction while the lock is held; a failure is only
+ * logged.
  * Existing sessions: `requireRole` reads `is_active` at every request, so a signed-in technician
  * is refused at once and sent to `/auth/inactive`; the block stops the session from being
  * refreshed afterwards. Tokens cannot be revoked by user id with the admin API, only by the
@@ -358,6 +361,15 @@ export async function deactivateTechnician(
       if (result.kind === "deactivated") {
         await changeAuthBan(admin, id.data, AUTH_BAN_DURATION);
         banned = true;
+      } else if (result.kind === "already-disabled") {
+        // Also repairs an ambiguous commit: the database says switched off, so make sure Auth
+        // agrees. Inside the transaction, so the row lock is still held and a concurrent switch-on
+        // cannot interleave. A failure is only logged and never fails the action.
+        await tryChangeBan(
+          id.data,
+          AUTH_BAN_DURATION,
+          "Repairing the block of a switched-off technician failed",
+        );
       }
       return result;
     });
@@ -372,15 +384,6 @@ export async function deactivateTechnician(
       describeError(error instanceof BanFailedError ? error.cause : error),
     );
     return refused(LOGIN_MESSAGES.technicalProblem);
-  }
-
-  if (outcome.kind === "already-disabled") {
-    // Also repairs an ambiguous commit: the database says switched off, so make sure Auth agrees.
-    await tryChangeBan(
-      id.data,
-      AUTH_BAN_DURATION,
-      "Repairing the block of a switched-off technician failed",
-    );
   }
 
   switch (outcome.kind) {
@@ -413,6 +416,8 @@ export async function deactivateTechnician(
  *    If that fails the transaction is rolled back: the technician is either fully switched on or
  *    not at all. If the commit itself fails after the block was lifted, the block is set again
  *    (best effort; `requireRole` refuses a profile with `is_active = false` anyway).
+ * When the technician is already active (for example after an ambiguous commit), the block is lifted
+ * in step 2's place, also inside the transaction while the lock is held; a failure is only logged.
  * The old password stays valid and no invitation is sent. Sessions that were ended stay ended: the
  * technician signs in again. Tasks are not assigned back.
  */
@@ -443,6 +448,10 @@ export async function reactivateTechnician(
       if (result.kind === "reactivated") {
         await changeAuthBan(admin, id.data, "none");
         unbanned = true;
+      } else if (result.kind === "already-active") {
+        // Also repairs an ambiguous commit: the database says active, so make sure Auth agrees.
+        // Inside the transaction (row lock still held); a failure is only logged.
+        await tryChangeBan(id.data, "none", "Repairing the block of an active technician failed");
       }
       return result;
     });
@@ -461,11 +470,6 @@ export async function reactivateTechnician(
       describeError(error instanceof BanFailedError ? error.cause : error),
     );
     return refused(LOGIN_MESSAGES.technicalProblem);
-  }
-
-  if (outcome.kind === "already-active") {
-    // Also repairs an ambiguous commit: the database says active, so make sure Auth agrees.
-    await tryChangeBan(id.data, "none", "Repairing the block of an active technician failed");
   }
 
   switch (outcome.kind) {
