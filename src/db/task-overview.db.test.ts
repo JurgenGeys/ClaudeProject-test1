@@ -114,7 +114,13 @@ async function createTask(
   return task.number;
 }
 
-const noFilters: TaskOverviewFilters = { tab: "active", technician: null, from: null, to: null };
+const noFilters: TaskOverviewFilters = {
+  tab: "active",
+  technician: null,
+  from: null,
+  to: null,
+  page: 1,
+};
 
 /** The overview, but only the tasks that this test made. */
 async function overviewOf(tx: Tx, numbers: number[], filters: Partial<TaskOverviewFilters> = {}) {
@@ -308,6 +314,7 @@ describe("queryTaskOverview", () => {
         technician: kevin,
         from: "2026-11-24",
         to: "2026-11-24",
+        page: 1,
       });
       expect(result.rows.map((r) => r.number)).toEqual([t.assignedKevinEarlier, t.assignedKevin]);
     });
@@ -391,6 +398,111 @@ describe("queryTaskOverview", () => {
       });
       expect(result.filters.technician).toBe(tom);
       expect(result.rows.map((r) => r.number)).toEqual([number]);
+    });
+  });
+
+  describe("pages of 50", () => {
+    /** `count` assigned tasks for a technician of this test, from 2040-01-01 on, one per day. */
+    async function manyTasks(tx: Tx, count: number, instructions = "Onderhoud") {
+      const office = await createProfile(tx, "Sofie Peeters", { role: "backoffice" });
+      const kevin = await createProfile(tx, "Kevin Wouters");
+      const [customer] = await tx.execute<{ id: string }>(
+        sql`insert into public.customers (name, created_by) values (${CUSTOMER}, ${office}) returning id`,
+      );
+      const numbers: number[] = [];
+      for (let i = 0; i < count; i++) {
+        const day = String(1 + (i % 28)).padStart(2, "0");
+        const month = String(1 + Math.floor(i / 28)).padStart(2, "0");
+        numbers.push(
+          await createTask(tx, office, customer.id, {
+            status: "assigned",
+            date: `2040-${month}-${day}`,
+            assignee: kevin,
+            instructions,
+          }),
+        );
+      }
+      return { kevin, numbers };
+    }
+
+    const page = (tx: Tx, kevin: string, n: number) =>
+      queryTaskOverview(tx as unknown as Database, {
+        ...noFilters,
+        technician: kevin,
+        page: n,
+      });
+
+    it("shows 50 per page, the count of the tab stays the total", async () => {
+      await inRolledBackTransaction(async (tx) => {
+        const { kevin, numbers } = await manyTasks(tx, 120);
+        const first = await page(tx, kevin, 1);
+        expect(first.rows.map((r) => r.number)).toEqual(numbers.slice(0, 50));
+        expect(first).toMatchObject({ page: 1, pageCount: 3 });
+        expect(first.counts.active).toBe(120);
+        expect(first.counts.assigned).toBe(120);
+
+        const second = await page(tx, kevin, 2);
+        expect(second.rows.map((r) => r.number)).toEqual(numbers.slice(50, 100));
+        const third = await page(tx, kevin, 3);
+        expect(third.rows.map((r) => r.number)).toEqual(numbers.slice(100));
+        expect(third.filters.page).toBe(3);
+      });
+    });
+
+    it("shows the last page for a page that is too high", async () => {
+      await inRolledBackTransaction(async (tx) => {
+        const { kevin, numbers } = await manyTasks(tx, 51);
+        const result = await page(tx, kevin, 99);
+        expect(result).toMatchObject({ page: 2, pageCount: 2 });
+        expect(result.filters.page).toBe(2);
+        expect(result.rows.map((r) => r.number)).toEqual(numbers.slice(50));
+      });
+    });
+
+    it("has one page for exactly 50 tasks, and for none", async () => {
+      await inRolledBackTransaction(async (tx) => {
+        const { kevin } = await manyTasks(tx, 50);
+        expect(await page(tx, kevin, 1)).toMatchObject({ pageCount: 1 });
+        expect((await page(tx, kevin, 2)).rows).toHaveLength(50);
+        const none = await queryTaskOverview(tx as unknown as Database, {
+          ...noFilters,
+          from: "2099-01-01",
+          page: 5,
+        });
+        expect(none).toMatchObject({ page: 1, pageCount: 1, rows: [] });
+      });
+    });
+  });
+
+  it("reads only the start of long instructions", async () => {
+    await inRolledBackTransaction(async (tx) => {
+      const office = await createProfile(tx, "Sofie Peeters", { role: "backoffice" });
+      const kevin = await createProfile(tx, "Kevin Wouters");
+      const [customer] = await tx.execute<{ id: string }>(
+        sql`insert into public.customers (name, created_by) values (${CUSTOMER}, ${office}) returning id`,
+      );
+      const number = await createTask(tx, office, customer.id, {
+        status: "assigned",
+        date: "2040-01-01",
+        assignee: kevin,
+        instructions: `Eerste regel\n${"x".repeat(4000)}`,
+      });
+      const { rows } = await overviewOf(tx, [number]);
+      expect(rows[0].instructions.length).toBe(300);
+      expect(rows[0].instructions.startsWith("Eerste regel\nxxx")).toBe(true);
+    });
+  });
+
+  it("does not apply a period that ends before it begins", async () => {
+    await inRolledBackTransaction(async (tx) => {
+      const { numbers } = await seed(tx);
+      const result = await overviewOf(tx, numbers, { from: "2026-11-30", to: "2026-11-01" });
+      expect(result.periodReversed).toBe(true);
+      // The list and the counts are those without a period.
+      expect(result.rows).toHaveLength(7);
+      expect(result.filters).toMatchObject({ from: "2026-11-30", to: "2026-11-01" });
+      const fine = await overviewOf(tx, numbers, { from: "2026-11-01", to: "2026-11-30" });
+      expect(fine.periodReversed).toBe(false);
     });
   });
 });

@@ -12,6 +12,8 @@ import {
   type TaskOverviewFilters,
 } from "@/lib/validation/task-overview";
 
+export const PERIOD_REVERSED_MESSAGE = "De einddatum ligt vóór de begindatum.";
+
 /**
  * The filters of B1: technician and period (on the planned day). A plain GET form, so it works
  * through the URL without any script: "Filteren" opens `/tasks?technician=...&from=...`. The
@@ -20,12 +22,19 @@ import {
 export function TaskFilters({
   filters,
   technicians,
+  periodReversed = false,
 }: {
   filters: TaskOverviewFilters;
   technicians: FilterTechnician[];
+  /** The end date is before the start date: the period is not applied, and this says so. */
+  periodReversed?: boolean;
 }) {
   return (
     <form
+      // The fields only take `defaultValue` when they are created. A new key makes React create
+      // the form again when the filters change (tab, "Filters wissen", Back button), so it
+      // never keeps old values.
+      key={taskOverviewHref({ ...filters, page: 1 })}
       method="get"
       action="/tasks"
       aria-label="Filters"
@@ -73,8 +82,15 @@ export function TaskFilters({
           name="to"
           type="date"
           defaultValue={filters.to ?? ""}
+          aria-invalid={periodReversed || undefined}
+          aria-describedby={periodReversed ? "filter-to-error" : undefined}
           className="h-11 w-auto md:h-10"
         />
+        {periodReversed ? (
+          <p id="filter-to-error" className="text-sm text-red-700">
+            {PERIOD_REVERSED_MESSAGE}
+          </p>
+        ) : null}
       </div>
       <Button type="submit" variant="outline" className="h-11 px-4 md:h-10">
         Filteren

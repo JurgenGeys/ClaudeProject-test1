@@ -12,6 +12,7 @@ import { hasExtraFilters, taskOverviewHref } from "@/lib/validation/task-overvie
 import { StatusTabs } from "./status-tabs";
 import { TaskFilters } from "./task-filters";
 import { TaskList } from "./task-list";
+import { TaskPagination } from "./task-pagination";
 
 export const metadata: Metadata = { title: "Taken" };
 
@@ -37,7 +38,10 @@ export default async function TasksPage({ searchParams }: PageProps<"/tasks">) {
   }
   const params = await searchParams;
   const saved = savedTaskNumber(params.saved);
-  const { filters, technicians, counts, rows, hasAnyTask } = await getTaskOverview(params);
+  const { filters, technicians, counts, rows, hasAnyTask, pageCount, periodReversed } =
+    await getTaskOverview(params);
+  // Cancelled has its own message when nothing else narrows the list down.
+  const noCancelledTasks = filters.tab === "cancelled" && !hasExtraFilters(filters);
 
   const newTaskButton = (
     <Button asChild className="h-11 px-4 md:h-10">
@@ -75,16 +79,20 @@ export default async function TasksPage({ searchParams }: PageProps<"/tasks">) {
       ) : (
         <>
           <StatusTabs filters={filters} counts={counts} />
-          <TaskFilters filters={filters} technicians={technicians} />
+          <TaskFilters
+            filters={filters}
+            technicians={technicians}
+            periodReversed={periodReversed}
+          />
           {rows.length === 0 ? (
             <div className="mt-6 rounded-lg border border-dashed border-border bg-card px-6 py-10 text-center">
               <p className="font-medium">
-                {filters.tab === "cancelled" && !hasExtraFilters(filters)
+                {noCancelledTasks
                   ? "Er zijn geen geannuleerde taken."
                   : "Geen taken gevonden voor deze filter."}
               </p>
               {/* Clears the technician and period; without those, it clears the tab too. */}
-              {filters.tab === "cancelled" && !hasExtraFilters(filters) ? null : (
+              {noCancelledTasks ? null : (
                 <Button asChild variant="outline" className="mt-3 h-11 px-4 md:h-10">
                   <Link
                     href={taskOverviewHref(hasExtraFilters(filters) ? { tab: filters.tab } : {})}
@@ -95,7 +103,10 @@ export default async function TasksPage({ searchParams }: PageProps<"/tasks">) {
               )}
             </div>
           ) : (
-            <TaskList rows={rows} />
+            <>
+              <TaskList rows={rows} />
+              <TaskPagination filters={filters} pageCount={pageCount} total={counts[filters.tab]} />
+            </>
           )}
         </>
       )}

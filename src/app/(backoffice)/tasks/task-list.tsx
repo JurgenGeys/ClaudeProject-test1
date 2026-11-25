@@ -112,7 +112,10 @@ export function TaskList({ rows }: { rows: TaskOverviewRow[] }) {
                 </TableCell>
                 <TableCell>{planned(row)}</TableCell>
                 <TableCell>
-                  <span className="font-medium">{row.customerName}</span>
+                  {/* A second, larger target for the task (the number alone is small). */}
+                  <Link href={taskHref(row)} className="font-medium hover:underline">
+                    {row.customerName}
+                  </Link>
                   <span className="block text-muted-foreground">{row.city}</span>
                 </TableCell>
                 <TableCell>{workTypeLabel(row.workType)}</TableCell>

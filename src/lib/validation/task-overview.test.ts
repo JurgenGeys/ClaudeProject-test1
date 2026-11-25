@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import {
   hasExtraFilters,
+  isPeriodReversed,
+  PAGE_SIZE,
   overviewTabs,
   parseTaskOverviewParams,
   taskOverviewHref,
@@ -16,6 +18,7 @@ describe("parseTaskOverviewParams", () => {
       technician: null,
       from: null,
       to: null,
+      page: 1,
     });
   });
 
@@ -27,7 +30,7 @@ describe("parseTaskOverviewParams", () => {
         from: "2026-11-01",
         to: "2026-11-30",
       }),
-    ).toEqual({ tab: "picked_up", technician: ID, from: "2026-11-01", to: "2026-11-30" });
+    ).toEqual({ tab: "picked_up", technician: ID, from: "2026-11-01", to: "2026-11-30", page: 1 });
   });
 
   it.each(overviewTabs)("accepts the tab '%s'", (tab) => {
@@ -86,7 +89,7 @@ describe("parseTaskOverviewParams", () => {
   it("keeps the valid parameters when another one is invalid", () => {
     expect(
       parseTaskOverviewParams({ status: "nonsense", technician: ID, from: "x", to: "2026-11-30" }),
-    ).toEqual({ tab: "active", technician: ID, from: null, to: "2026-11-30" });
+    ).toEqual({ tab: "active", technician: ID, from: null, to: "2026-11-30", page: 1 });
   });
 
   it("ignores parameters it does not know", () => {
@@ -95,12 +98,13 @@ describe("parseTaskOverviewParams", () => {
       technician: null,
       from: null,
       to: null,
+      page: 1,
     });
   });
 });
 
 describe("hasExtraFilters", () => {
-  const none = { tab: "open", technician: null, from: null, to: null } as const;
+  const none = { tab: "open", technician: null, from: null, to: null, page: 1 } as const;
 
   it("does not count the tab", () => {
     expect(hasExtraFilters(none)).toBe(false);
@@ -117,16 +121,22 @@ describe("hasExtraFilters", () => {
 describe("taskOverviewHref", () => {
   it("is plain /tasks for the default view", () => {
     expect(taskOverviewHref({})).toBe("/tasks");
-    expect(taskOverviewHref({ tab: "active", technician: null, from: null, to: null })).toBe(
-      "/tasks",
-    );
+    expect(
+      taskOverviewHref({ tab: "active", technician: null, from: null, to: null, page: 1 }),
+    ).toBe("/tasks");
   });
 
   it("leaves out what is default and keeps the rest", () => {
     expect(taskOverviewHref({ tab: "cancelled" })).toBe("/tasks?status=cancelled");
     expect(taskOverviewHref({ technician: ID })).toBe(`/tasks?technician=${ID}`);
     expect(
-      taskOverviewHref({ tab: "all", technician: ID, from: "2026-11-01", to: "2026-11-30" }),
+      taskOverviewHref({
+        tab: "all",
+        technician: ID,
+        from: "2026-11-01",
+        to: "2026-11-30",
+        page: 1,
+      }),
     ).toBe(`/tasks?status=all&technician=${ID}&from=2026-11-01&to=2026-11-30`);
   });
 
@@ -136,8 +146,52 @@ describe("taskOverviewHref", () => {
       technician: ID,
       from: "2026-01-01",
       to: "2026-12-31",
+      page: 1,
     } as const;
     const query = Object.fromEntries(new URL(taskOverviewHref(filters), "http://x").searchParams);
     expect(parseTaskOverviewParams(query)).toEqual(filters);
+  });
+});
+
+describe("the page parameter", () => {
+  it("is page 1 by default and reads a page number", () => {
+    expect(parseTaskOverviewParams({}).page).toBe(1);
+    expect(parseTaskOverviewParams({ page: "3" }).page).toBe(3);
+    expect(parseTaskOverviewParams({ page: "999999" }).page).toBe(999999);
+  });
+
+  it.each(["0", "-1", "1.5", "1e3", "+2", " 2", "abc", "", "1000000", "007", "2; drop"])(
+    "ignores %j",
+    (page) => {
+      expect(parseTaskOverviewParams({ page }).page).toBe(1);
+    },
+  );
+
+  it("ignores a page given twice", () => {
+    expect(parseTaskOverviewParams({ page: ["2", "3"] }).page).toBe(1);
+  });
+
+  it("is in the URL only from page 2", () => {
+    expect(taskOverviewHref({ page: 1 })).toBe("/tasks");
+    expect(taskOverviewHref({ tab: "all", technician: ID, page: 3 })).toBe(
+      `/tasks?status=all&technician=${ID}&page=3`,
+    );
+  });
+
+  it("has 50 tasks per page", () => {
+    expect(PAGE_SIZE).toBe(50);
+  });
+});
+
+describe("isPeriodReversed", () => {
+  it.each([
+    [{ from: "2026-11-30", to: "2026-11-01" }, true],
+    [{ from: "2026-11-01", to: "2026-11-30" }, false],
+    [{ from: "2026-11-01", to: "2026-11-01" }, false],
+    [{ from: "2026-11-01", to: null }, false],
+    [{ from: null, to: "2026-11-01" }, false],
+    [{ from: null, to: null }, false],
+  ])("%j is %s", (period, expected) => {
+    expect(isPeriodReversed(period)).toBe(expected);
   });
 });

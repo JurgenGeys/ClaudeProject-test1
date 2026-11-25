@@ -34,10 +34,13 @@ const aRow: TaskOverviewRow = {
 
 function overview(overrides: Partial<TaskOverview> = {}): TaskOverview {
   return {
-    filters: { tab: "active", technician: null, from: null, to: null },
+    filters: { tab: "active", technician: null, from: null, to: null, page: 1 },
     technicians: [{ id: ID, fullName: "Kevin Wouters", isActive: true }],
     counts: countsPerTab({ assigned: 1 }),
     rows: [aRow],
+    page: 1,
+    pageCount: 1,
+    periodReversed: false,
     hasAnyTask: true,
     ...overrides,
   };
@@ -81,7 +84,7 @@ describe("the tasks page (B1)", () => {
   it("uses the filters that the overview applied, not the ones in the URL", async () => {
     // A technician that does not exist is dropped by the query; the select must say so.
     getTaskOverview.mockResolvedValue(
-      overview({ filters: { tab: "active", technician: null, from: null, to: null } }),
+      overview({ filters: { tab: "active", technician: null, from: null, to: null, page: 1 } }),
     );
     await renderPage({ technician: "6f1c1c7e-4f55-4c3b-9d33-000000000000" });
     expect(screen.getByLabelText("Technieker")).toHaveValue("");
@@ -106,7 +109,7 @@ describe("the tasks page (B1)", () => {
       getTaskOverview.mockResolvedValue(
         overview({
           rows: [],
-          filters: { tab: "open", technician: ID, from: null, to: null },
+          filters: { tab: "open", technician: ID, from: null, to: null, page: 1 },
         }),
       );
       await renderPage();
@@ -122,7 +125,7 @@ describe("the tasks page (B1)", () => {
       getTaskOverview.mockResolvedValue(
         overview({
           rows: [],
-          filters: { tab: "invoiced", technician: null, from: null, to: null },
+          filters: { tab: "invoiced", technician: null, from: null, to: null, page: 1 },
         }),
       );
       await renderPage();
@@ -137,7 +140,7 @@ describe("the tasks page (B1)", () => {
       getTaskOverview.mockResolvedValue(
         overview({
           rows: [],
-          filters: { tab: "cancelled", technician: null, from: null, to: null },
+          filters: { tab: "cancelled", technician: null, from: null, to: null, page: 1 },
         }),
       );
       await renderPage();
@@ -149,12 +152,50 @@ describe("the tasks page (B1)", () => {
       getTaskOverview.mockResolvedValue(
         overview({
           rows: [],
-          filters: { tab: "cancelled", technician: ID, from: null, to: null },
+          filters: { tab: "cancelled", technician: ID, from: null, to: null, page: 1 },
         }),
       );
       await renderPage();
       expect(screen.getByText("Geen taken gevonden voor deze filter.")).toBeInTheDocument();
     });
+  });
+
+  it("shows the pagination when there is more than one page", async () => {
+    getTaskOverview.mockResolvedValue(
+      overview({
+        page: 2,
+        pageCount: 3,
+        counts: countsPerTab({ assigned: 120 }),
+        filters: { tab: "active", technician: null, from: null, to: null, page: 2 },
+      }),
+    );
+    await renderPage({ page: "2" });
+    const nav = screen.getByRole("navigation", { name: "Paginering" });
+    expect(nav).toHaveTextContent("pagina 2 van 3");
+    expect(within(nav).getByRole("link", { name: "Volgende" })).toHaveAttribute(
+      "href",
+      "/tasks?page=3",
+    );
+  });
+
+  it("shows no pagination for one page", async () => {
+    await renderPage();
+    expect(screen.queryByRole("navigation", { name: "Paginering" })).not.toBeInTheDocument();
+  });
+
+  it("shows the message at the end date when the period is reversed", async () => {
+    getTaskOverview.mockResolvedValue(
+      overview({
+        periodReversed: true,
+        filters: { tab: "active", technician: null, from: "2026-11-30", to: "2026-11-01", page: 1 },
+      }),
+    );
+    await renderPage();
+    expect(screen.getByLabelText("Tot en met")).toHaveAccessibleDescription(
+      "De einddatum ligt vóór de begindatum.",
+    );
+    // The list is still shown: the impossible period is not applied.
+    expect(screen.getByRole("table", { name: "Taken" })).toBeInTheDocument();
   });
 
   it("shows no confirmation by default", async () => {

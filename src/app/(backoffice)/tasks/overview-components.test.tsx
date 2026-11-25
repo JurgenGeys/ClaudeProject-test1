@@ -10,9 +10,16 @@ import type { TaskOverviewFilters } from "@/lib/validation/task-overview";
 import { StatusTabs } from "./status-tabs";
 import { TaskFilters } from "./task-filters";
 import { firstLine, TaskList } from "./task-list";
+import { TaskPagination } from "./task-pagination";
 
 const ID = "6f1c1c7e-4f55-4c3b-9d33-0a5b0f2a9c11";
-const none: TaskOverviewFilters = { tab: "active", technician: null, from: null, to: null };
+const none: TaskOverviewFilters = {
+  tab: "active",
+  technician: null,
+  from: null,
+  to: null,
+  page: 1,
+};
 
 function row(overrides: Partial<TaskOverviewRow> = {}): TaskOverviewRow {
   return {
@@ -62,7 +69,7 @@ describe("StatusTabs", () => {
   it("links to the tab and keeps the technician and period", () => {
     render(
       <StatusTabs
-        filters={{ tab: "active", technician: ID, from: "2026-11-01", to: "2026-11-30" }}
+        filters={{ tab: "active", technician: ID, from: "2026-11-01", to: "2026-11-30", page: 1 }}
         counts={counts}
       />,
     );
@@ -73,6 +80,21 @@ describe("StatusTabs", () => {
     expect(screen.getByRole("link", { name: /^Opgepikt/ })).toHaveAttribute(
       "href",
       `/tasks?status=picked_up&technician=${ID}&from=2026-11-01&to=2026-11-30`,
+    );
+  });
+
+  it("uses text colors that keep 4.5 : 1 on the muted background", () => {
+    render(<StatusTabs filters={{ ...none, tab: "open" }} counts={counts} />);
+    for (const link of screen.getAllByRole("link")) {
+      expect(link.className).not.toMatch(/(^|\s)text-muted-foreground(\s|$)/);
+    }
+  });
+
+  it("goes back to the first page when a tab is chosen", () => {
+    render(<StatusTabs filters={{ ...none, page: 4 }} counts={counts} />);
+    expect(screen.getByRole("link", { name: /^Open/ })).toHaveAttribute(
+      "href",
+      "/tasks?status=open",
     );
   });
 
@@ -115,7 +137,13 @@ describe("TaskFilters", () => {
   it("shows the active filters and offers to clear them", () => {
     render(
       <TaskFilters
-        filters={{ tab: "completed", technician: ID, from: "2026-11-01", to: "2026-11-30" }}
+        filters={{
+          tab: "completed",
+          technician: ID,
+          from: "2026-11-01",
+          to: "2026-11-30",
+          page: 1,
+        }}
         technicians={technicians}
       />,
     );
@@ -141,6 +169,102 @@ describe("TaskFilters", () => {
   it("has no 'Filters wissen' without a technician or period filter", () => {
     render(<TaskFilters filters={{ ...none, tab: "open" }} technicians={technicians} />);
     expect(screen.queryByRole("link", { name: "Filters wissen" })).not.toBeInTheDocument();
+  });
+});
+
+describe("TaskFilters when the filters change", () => {
+  const technicians = [{ id: ID, fullName: "Kevin Wouters", isActive: true }];
+
+  it("shows the new values, not the old ones (Filters wissen, a tab, the Back button)", () => {
+    const filled: TaskOverviewFilters = {
+      tab: "active",
+      technician: ID,
+      from: "2026-11-01",
+      to: "2026-11-30",
+      page: 1,
+    };
+    const { rerender } = render(<TaskFilters filters={filled} technicians={technicians} />);
+    expect(screen.getByLabelText("Van")).toHaveValue("2026-11-01");
+
+    rerender(<TaskFilters filters={none} technicians={technicians} />);
+    expect(screen.getByLabelText("Technieker")).toHaveValue("");
+    expect(screen.getByLabelText("Van")).toHaveValue("");
+    expect(screen.getByLabelText("Tot en met")).toHaveValue("");
+
+    // And back again, as the Back button does.
+    rerender(<TaskFilters filters={filled} technicians={technicians} />);
+    expect(screen.getByLabelText("Technieker")).toHaveValue(ID);
+    expect(screen.getByLabelText("Tot en met")).toHaveValue("2026-11-30");
+  });
+
+  it("keeps what is typed while the filters stay the same", () => {
+    const { rerender } = render(<TaskFilters filters={none} technicians={technicians} />);
+    // Same filters but another page of the list: the form is not recreated.
+    rerender(<TaskFilters filters={{ ...none, page: 2 }} technicians={technicians} />);
+    expect(screen.getByLabelText("Van")).toHaveValue("");
+  });
+});
+
+describe("TaskFilters with a period that ends before it begins", () => {
+  const reversed: TaskOverviewFilters = {
+    ...none,
+    from: "2026-11-30",
+    to: "2026-11-01",
+  };
+
+  it("shows the message at the end date, linked to the field", () => {
+    render(<TaskFilters filters={reversed} technicians={[]} periodReversed />);
+    const to = screen.getByLabelText("Tot en met");
+    expect(to).toHaveAttribute("aria-invalid", "true");
+    expect(to).toHaveAccessibleDescription("De einddatum ligt vóór de begindatum.");
+    // The typed dates stay in the form.
+    expect(screen.getByLabelText("Van")).toHaveValue("2026-11-30");
+    expect(to).toHaveValue("2026-11-01");
+  });
+
+  it("shows no message for a correct period", () => {
+    render(<TaskFilters filters={none} technicians={[]} />);
+    expect(screen.getByLabelText("Tot en met")).not.toHaveAttribute("aria-invalid");
+    expect(screen.queryByText(/einddatum/)).not.toBeInTheDocument();
+  });
+});
+
+describe("TaskPagination", () => {
+  it("shows nothing for one page", () => {
+    const { container } = render(<TaskPagination filters={none} pageCount={1} total={12} />);
+    expect(container).toBeEmptyDOMElement();
+  });
+
+  it("links to the next page on the first page, and keeps every filter", () => {
+    render(
+      <TaskPagination
+        filters={{ tab: "all", technician: ID, from: "2026-11-01", to: null, page: 1 }}
+        pageCount={3}
+        total={120}
+      />,
+    );
+    const nav = screen.getByRole("navigation", { name: "Paginering" });
+    expect(nav).toHaveTextContent("Taken 1 tot 50 van 120 (pagina 1 van 3)");
+    expect(within(nav).getByRole("link", { name: "Volgende" })).toHaveAttribute(
+      "href",
+      `/tasks?status=all&technician=${ID}&from=2026-11-01&page=2`,
+    );
+    expect(within(nav).queryByRole("link", { name: "Vorige" })).not.toBeInTheDocument();
+    expect(within(nav).getByText("Vorige")).toHaveAttribute("aria-disabled", "true");
+  });
+
+  it("links back to page 1 without ?page= from page 2", () => {
+    render(<TaskPagination filters={{ ...none, page: 2 }} pageCount={3} total={120} />);
+    expect(screen.getByRole("link", { name: "Vorige" })).toHaveAttribute("href", "/tasks");
+    expect(screen.getByRole("link", { name: "Volgende" })).toHaveAttribute("href", "/tasks?page=3");
+  });
+
+  it("has no 'Volgende' link on the last page, and counts the last page correctly", () => {
+    render(<TaskPagination filters={{ ...none, page: 3 }} pageCount={3} total={120} />);
+    expect(screen.getByRole("navigation", { name: "Paginering" })).toHaveTextContent(
+      "Taken 101 tot 120 van 120",
+    );
+    expect(screen.queryByRole("link", { name: "Volgende" })).not.toBeInTheDocument();
   });
 });
 
@@ -180,10 +304,10 @@ describe("TaskList", () => {
     expect(cells).toHaveTextContent("Toegewezen");
   });
 
-  it("links the task number and the card to the task page", () => {
+  it("links the task number, the customer name and the card to the task page", () => {
     render(<TaskList rows={[row()]} />);
     const links = screen.getAllByRole("link").map((link) => link.getAttribute("href"));
-    expect(links).toEqual(["/tasks/1042", "/tasks/1042"]);
+    expect(links).toEqual(["/tasks/1042", "/tasks/1042", "/tasks/1042"]);
   });
 
   it("says 'Nog niet toegewezen' for a task without technician", () => {

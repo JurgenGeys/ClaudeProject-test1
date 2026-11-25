@@ -302,4 +302,154 @@ test.describe("the task overview", () => {
       await expect(page.getByRole("columnheader", { name: "Soort" })).toBeVisible();
     }
   });
+
+  test("the filter form follows the address: 'Filters wissen', a tab and the Back button never leave old values behind", async ({
+    page,
+    technician,
+    token,
+  }) => {
+    await seedTasks(technician, token);
+    await signInAsBackoffice(page);
+    await page.goto(`/tasks?technician=${technician.id}&from=2031-03-11&to=2031-03-12`);
+    await expect(page.getByLabel("Van")).toHaveValue("2031-03-11");
+
+    await page.getByRole("link", { name: "Filters wissen" }).click();
+    await expect(page).toHaveURL("/tasks");
+    await expect(page.getByLabel("Technieker")).toHaveValue("");
+    await expect(page.getByLabel("Van")).toHaveValue("");
+    await expect(page.getByLabel("Tot en met")).toHaveValue("");
+
+    await test.step("Back restores the filters in the form", async () => {
+      await page.goBack();
+      await expect(page).toHaveURL(
+        `/tasks?technician=${technician.id}&from=2031-03-11&to=2031-03-12`,
+      );
+      await expect(page.getByLabel("Technieker")).toHaveValue(technician.id);
+      await expect(page.getByLabel("Van")).toHaveValue("2031-03-11");
+      await expect(page.getByLabel("Tot en met")).toHaveValue("2031-03-12");
+    });
+
+    await test.step("Forward clears them again", async () => {
+      await page.goForward();
+      await expect(page).toHaveURL("/tasks");
+      await expect(page.getByLabel("Technieker")).toHaveValue("");
+      await expect(page.getByLabel("Van")).toHaveValue("");
+    });
+
+    await test.step("a tab keeps the period in the form, and Back returns to the first tab", async () => {
+      await page.goto(`/tasks?technician=${technician.id}&from=2031-03-11&to=2031-03-12`);
+      await tab(page, "Opgepikt").click();
+      await expect(page).toHaveURL(
+        `/tasks?status=picked_up&technician=${technician.id}&from=2031-03-11&to=2031-03-12`,
+      );
+      await expect(page.getByLabel("Van")).toHaveValue("2031-03-11");
+      await page.goBack();
+      await expect(tab(page, "Actief")).toHaveAttribute("aria-current", "page");
+      await expect(page.getByLabel("Tot en met")).toHaveValue("2031-03-12");
+    });
+  });
+
+  test("an end date before the start date gives a message at the field and does not filter", async ({
+    page,
+    technician,
+    token,
+  }) => {
+    const t = await seedTasks(technician, token);
+    await signInAsBackoffice(page);
+    await page.goto(`/tasks?technician=${technician.id}&from=2031-03-12&to=2031-03-10`);
+
+    const to = page.getByLabel("Tot en met");
+    await expect(to).toHaveAttribute("aria-invalid", "true");
+    await expect(to).toHaveAccessibleDescription("De einddatum ligt vóór de begindatum.");
+    await expect(page.getByLabel("Van")).toHaveValue("2031-03-12");
+    // All four active tasks are still listed: the impossible period is not applied.
+    await expect(tab(page, "Actief")).toHaveText(/^Actief\s*4/);
+    await expect(taskLink(page, t.assigned)).toBeVisible();
+    await expect(taskLink(page, t.assignedLater)).toBeVisible();
+    await expect(page.getByText("Geen taken gevonden voor deze filter.")).toHaveCount(0);
+  });
+
+  test.describe("with more than 50 tasks", () => {
+    // One task more than a page: 51 for the technician of this test.
+    test("pages of 50 with 'Vorige' and 'Volgende', keeping the filters; the tab count is the total", async ({
+      page,
+      technician,
+      token,
+    }) => {
+      test.setTimeout(120_000);
+      const customerId = await createCustomer(`${token} Pagina`, BACKOFFICE.email, {
+        street: "Gasthuisstraat 23",
+        postalCode: "2300",
+        city: "Turnhout",
+      });
+      const numbers = await createTasksWithStatus(
+        technician.email,
+        BACKOFFICE.email,
+        customerId,
+        Array.from({ length: 51 }, (_, i) => ({
+          status: "assigned" as const,
+          scheduledDate: `2032-${String(1 + Math.floor(i / 28)).padStart(2, "0")}-${String(1 + (i % 28)).padStart(2, "0")}`,
+        })),
+      );
+      await signInAsBackoffice(page);
+      const base = `/tasks?technician=${technician.id}`;
+      await page.goto(base);
+
+      /** The task numbers that are linked on the page (a row has two links on a laptop). */
+      const shown = async () =>
+        [
+          ...new Set(
+            await page
+              .locator("a[href]:visible")
+              .evaluateAll((links) =>
+                links
+                  .map((l) => l.getAttribute("href")?.match(/^\/tasks\/(\d+)$/)?.[1])
+                  .filter(Boolean),
+              ),
+          ),
+        ].map(Number);
+
+      await test.step("page 1 has 50 tasks and the tab says 51", async () => {
+        await expect(tab(page, "Actief")).toHaveText(/^Actief\s*51/);
+        expect(await shown()).toEqual(numbers.slice(0, 50));
+        const nav = page.getByRole("navigation", { name: "Paginering" });
+        await expect(nav).toContainText("Taken 1 tot 50 van 51 (pagina 1 van 2)");
+        await expect(nav.getByRole("link", { name: "Vorige" })).toHaveCount(0);
+      });
+
+      await test.step("'Volgende' shows the last task and keeps the technician", async () => {
+        await page.getByRole("link", { name: "Volgende" }).click();
+        await expect(page).toHaveURL(`${base}&page=2`);
+        await expect(page.getByLabel("Technieker")).toHaveValue(technician.id);
+        expect(await shown()).toEqual([numbers[50]]);
+        await expect(tab(page, "Actief")).toHaveText(/^Actief\s*51/);
+        await expect(
+          page
+            .getByRole("navigation", { name: "Paginering" })
+            .getByRole("link", { name: "Volgende" }),
+        ).toHaveCount(0);
+      });
+
+      await test.step("'Vorige' returns to the first page", async () => {
+        await page.getByRole("link", { name: "Vorige" }).click();
+        await expect(page).toHaveURL(base);
+        expect(await shown()).toEqual(numbers.slice(0, 50));
+      });
+
+      await test.step("a page that is too high shows the last page; an invalid one the first", async () => {
+        await page.goto(`${base}&page=99`);
+        expect(await shown()).toEqual([numbers[50]]);
+        await page.goto(`${base}&page=abc`);
+        expect(await shown()).toEqual(numbers.slice(0, 50));
+        await page.goto(`${base}&page=0`);
+        expect(await shown()).toEqual(numbers.slice(0, 50));
+      });
+
+      await test.step("choosing a tab goes back to the first page", async () => {
+        await page.goto(`${base}&page=2`);
+        await tab(page, "Toegewezen").click();
+        await expect(page).toHaveURL(`/tasks?status=assigned&technician=${technician.id}`);
+      });
+    });
+  });
 });

@@ -41,17 +41,17 @@ export function StatusTabs({
         return (
           <Link
             key={tab}
-            href={taskOverviewHref({ ...filters, tab })}
+            href={taskOverviewHref({ ...filters, tab, page: 1 })}
             aria-current={current ? "page" : undefined}
             className={cn(
               "inline-flex min-h-11 items-center gap-1.5 rounded px-3 py-1.5 outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 md:min-h-9",
               current
                 ? "bg-background shadow-sm"
-                : "text-muted-foreground hover:bg-background/60 hover:text-foreground",
+                : "text-foreground/80 hover:bg-background/60 hover:text-foreground",
             )}
           >
             {TAB_LABELS[tab]}
-            <span className="text-muted-foreground tabular-nums">
+            <span className="tabular-nums text-foreground/80">
               {counts[tab]}
               <span className="sr-only"> {counts[tab] === 1 ? "taak" : "taken"}</span>
             </span>

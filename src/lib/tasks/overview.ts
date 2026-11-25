@@ -8,6 +8,8 @@ import { customers, profiles, taskCompletions, tasks } from "@/db/schema";
 import { requireRole } from "@/lib/auth/session";
 import {
   activeStatuses,
+  isPeriodReversed,
+  PAGE_SIZE,
   parseTaskOverviewParams,
   type TaskOverviewFilters,
 } from "@/lib/validation/task-overview";
@@ -46,6 +48,11 @@ export type TaskOverview = {
   technicians: FilterTechnician[];
   counts: TabCounts;
   rows: TaskOverviewRow[];
+  /** The page that is shown (from 1) and the number of pages of the current tab. */
+  page: number;
+  pageCount: number;
+  /** The period ends before it begins: it was not applied, and the form shows a message. */
+  periodReversed: boolean;
   /** Whether there is any task at all, whatever the filters. Tells "no tasks yet" from "no match". */
   hasAnyTask: boolean;
 };
@@ -67,16 +74,23 @@ export async function queryFilterTechnicians(
   );
 }
 
-/** The conditions of the technician and period filters, which the counts and the list share. */
+/** Longest piece of the instructions that is read: lists only show the first line. */
+const INSTRUCTIONS_PREVIEW_LENGTH = 300;
+
+/**
+ * The conditions of the technician and period filters, which the counts and the list share.
+ * An impossible period (end before start) is not applied.
+ */
 function extraConditions(filters: TaskOverviewFilters): SQL[] {
   const conditions: SQL[] = [];
+  const period = !isPeriodReversed(filters);
   if (filters.technician) {
     conditions.push(eq(tasks.assigneeId, filters.technician));
   }
-  if (filters.from) {
+  if (period && filters.from) {
     conditions.push(gte(tasks.scheduledDate, filters.from));
   }
-  if (filters.to) {
+  if (period && filters.to) {
     conditions.push(lte(tasks.scheduledDate, filters.to));
   }
   return conditions;
@@ -105,6 +119,7 @@ export async function queryTaskOverview(
   const technicians = await queryFilterTechnicians(db);
   const filters: TaskOverviewFilters = {
     ...requested,
+    page: 1, // replaced below, when the number of pages is known
     technician: technicians.some((t) => t.id === requested.technician)
       ? requested.technician
       : null,
@@ -115,36 +130,12 @@ export async function queryTaskOverview(
   const newestFirst = NEWEST_FIRST.includes(filters.tab);
   const direction = newestFirst ? desc : asc;
 
-  const [perStatus, rows, anyTask] = await Promise.all([
+  const [perStatus, anyTask] = await Promise.all([
     db
       .select({ status: tasks.status, total: sql<number>`count(*)::int` })
       .from(tasks)
       .where(and(...extra))
       .groupBy(tasks.status),
-    db
-      .select({
-        id: tasks.id,
-        number: tasks.number,
-        scheduledDate: tasks.scheduledDate,
-        startTime: tasks.startTime,
-        customerName: customers.name,
-        city: tasks.locationCity,
-        workType: tasks.workType,
-        instructions: tasks.instructions,
-        status: tasks.status,
-        technicianName: assignee.fullName,
-        pickedUpAt: tasks.pickedUpAt,
-        minutes: sql<
-          number | null
-        >`coalesce(${taskCompletions.correctedMinutes}, ${taskCompletions.workedMinutes})`,
-        corrected: sql<boolean>`${taskCompletions.correctedMinutes} is not null`,
-      })
-      .from(tasks)
-      .innerJoin(customers, eq(customers.id, tasks.customerId))
-      .leftJoin(assignee, eq(assignee.id, tasks.assigneeId))
-      .leftJoin(taskCompletions, eq(taskCompletions.taskId, tasks.id))
-      .where(and(tabCondition(filters.tab), ...extra))
-      .orderBy(direction(tasks.scheduledDate), direction(tasks.startTime), direction(tasks.number)),
     db.select({ id: tasks.id }).from(tasks).limit(1),
   ]);
 
@@ -154,12 +145,48 @@ export async function queryTaskOverview(
       perStatusMap[status] = total;
     }
   }
+  const counts = countsPerTab(perStatusMap);
+
+  // A page that is too high (a bookmark, or tasks that were removed from the tab) shows the last one.
+  const pageCount = Math.max(1, Math.ceil(counts[filters.tab] / PAGE_SIZE));
+  const page = Math.min(Math.max(1, requested.page), pageCount);
+
+  const rows = await db
+    .select({
+      id: tasks.id,
+      number: tasks.number,
+      scheduledDate: tasks.scheduledDate,
+      startTime: tasks.startTime,
+      customerName: customers.name,
+      city: tasks.locationCity,
+      workType: tasks.workType,
+      // Only the start: a list shows the first line, and instructions can be long.
+      instructions: sql<string>`left(${tasks.instructions}, ${INSTRUCTIONS_PREVIEW_LENGTH})`,
+      status: tasks.status,
+      technicianName: assignee.fullName,
+      pickedUpAt: tasks.pickedUpAt,
+      minutes: sql<
+        number | null
+      >`coalesce(${taskCompletions.correctedMinutes}, ${taskCompletions.workedMinutes})`,
+      corrected: sql<boolean>`${taskCompletions.correctedMinutes} is not null`,
+    })
+    .from(tasks)
+    .innerJoin(customers, eq(customers.id, tasks.customerId))
+    .leftJoin(assignee, eq(assignee.id, tasks.assigneeId))
+    .leftJoin(taskCompletions, eq(taskCompletions.taskId, tasks.id))
+    .where(and(tabCondition(filters.tab), ...extra))
+    .orderBy(direction(tasks.scheduledDate), direction(tasks.startTime), direction(tasks.number))
+    .limit(PAGE_SIZE)
+    .offset((page - 1) * PAGE_SIZE);
 
   return {
-    filters,
+    filters: { ...filters, page },
     technicians,
-    counts: countsPerTab(perStatusMap),
+    counts,
     rows: rows.map((row) => ({ ...row, corrected: row.corrected === true })),
+    page,
+    pageCount,
+    periodReversed: isPeriodReversed(filters),
     hasAnyTask: anyTask.length > 0,
   };
 }

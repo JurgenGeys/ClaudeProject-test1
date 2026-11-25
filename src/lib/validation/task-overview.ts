@@ -39,6 +39,11 @@ const paramSchemas = {
   technician: z.uuid(),
   from: dayParam,
   to: dayParam,
+  // A positive whole number, as plain digits (no "1e3", no "+2", no spaces).
+  page: z
+    .string()
+    .regex(/^[1-9]\d{0,5}$/)
+    .transform(Number),
 } as const;
 
 export type TaskOverviewFilters = {
@@ -49,7 +54,12 @@ export type TaskOverviewFilters = {
   from: string | null;
   /** Last planned day (inclusive), or `null`. */
   to: string | null;
+  /** Requested page, from 1. The query clamps it to the last page. */
+  page: number;
 };
+
+/** Tasks per page (decided by Jurgen, 25/11/2026). */
+export const PAGE_SIZE = 50;
 
 type RawParams = Record<string, string | string[] | undefined>;
 
@@ -74,7 +84,13 @@ export function parseTaskOverviewParams(raw: RawParams): TaskOverviewFilters {
     technician: readParam(raw, "technician") ?? null,
     from: readParam(raw, "from") ?? null,
     to: readParam(raw, "to") ?? null,
+    page: readParam(raw, "page") ?? 1,
   };
+}
+
+/** The period ends before it begins. Such a period is not applied; the form says so. */
+export function isPeriodReversed(filters: Pick<TaskOverviewFilters, "from" | "to">): boolean {
+  return filters.from !== null && filters.to !== null && filters.to < filters.from;
 }
 
 /** Whether a technician or period filter is set (the status tab is not a filter in this sense). */
@@ -84,7 +100,7 @@ export function hasExtraFilters(filters: TaskOverviewFilters): boolean {
 
 /**
  * The URL of the overview for these filters. Default values are left out, so the default view
- * is plain `/tasks`. Used for the tab links and for "Filters wissen".
+ * is plain `/tasks`. Used for the tab links, the page links and "Filters wissen".
  */
 export function taskOverviewHref(filters: Partial<TaskOverviewFilters>): string {
   const query = new URLSearchParams();
@@ -99,6 +115,9 @@ export function taskOverviewHref(filters: Partial<TaskOverviewFilters>): string 
   }
   if (filters.to) {
     query.set("to", filters.to);
+  }
+  if (filters.page && filters.page > 1) {
+    query.set("page", String(filters.page));
   }
   const text = query.toString();
   return text ? `/tasks?${text}` : "/tasks";
