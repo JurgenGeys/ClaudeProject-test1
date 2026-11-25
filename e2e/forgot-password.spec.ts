@@ -83,20 +83,17 @@ async function requestLink(page: Page, email: string): Promise<void> {
 }
 
 /**
- * Asks for `count` mails for this address (one per request; Auth wants a short interval
- * between two mails, so a request that was swallowed is repeated) and returns the links, newest
- * first.
+ * Asks for one more mail for this address and returns its link. `before` is the number of mails
+ * the address already got. Auth wants a short interval between two mails, so a request that was
+ * swallowed is repeated.
  */
-async function requestLinks(page: Page, email: string, count: number): Promise<string[]> {
-  await requestLink(page, email);
-  await waitForConfirmLinks(email, 1);
-  for (let have = 1; have < count; have++) {
-    await expect(async () => {
-      await requestLink(page, email);
-      expect(await countMails(email)).toBeGreaterThan(have);
-    }).toPass({ timeout: 30_000 });
-  }
-  return waitForConfirmLinks(email, count);
+async function requestNextLink(page: Page, email: string, before: number): Promise<string> {
+  await expect(async () => {
+    await requestLink(page, email);
+    expect(await countMails(email)).toBeGreaterThan(before);
+  }).toPass({ timeout: 30_000 });
+  const [newest] = await waitForConfirmLinks(email, before + 1);
+  return newest;
 }
 
 /** Opens the link from the mail and presses the button on the page it leads to. */
@@ -390,10 +387,10 @@ test.describe("forgot password: two links on two devices (one recovery session e
     makeUser,
   }) => {
     const user = await makeUser("backoffice");
-    const [newer, older] = await requestLinks(page, user.email, 2);
-
-    const a = await deviceWithLink(browser, baseURL, older);
-    const b = await deviceWithLink(browser, baseURL, newer);
+    // Supabase keeps only the newest recovery token: each device confirms its link before the
+    // next one is requested.
+    const a = await deviceWithLink(browser, baseURL, await requestNextLink(page, user.email, 0));
+    const b = await deviceWithLink(browser, baseURL, await requestNextLink(page, user.email, 1));
     try {
       await b.page.getByRole("button", { name: "Annuleren" }).click();
       await expect(b.page).toHaveURL("/login");
@@ -416,10 +413,10 @@ test.describe("forgot password: two links on two devices (one recovery session e
     makeUser,
   }) => {
     const user = await makeUser("backoffice");
-    const [newer, older] = await requestLinks(page, user.email, 2);
-
-    const a = await deviceWithLink(browser, baseURL, older);
-    const b = await deviceWithLink(browser, baseURL, newer);
+    // Supabase keeps only the newest recovery token: each device confirms its link before the
+    // next one is requested.
+    const a = await deviceWithLink(browser, baseURL, await requestNextLink(page, user.email, 0));
+    const b = await deviceWithLink(browser, baseURL, await requestNextLink(page, user.email, 1));
     try {
       await choosePassword(b.page, NEW_PASSWORD);
       await expect(b.page).toHaveURL("/tasks");
