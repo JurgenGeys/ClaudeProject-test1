@@ -1,0 +1,305 @@
+import { test as base, expect, type Page } from "@playwright/test";
+
+import { signIn } from "./support/sign-in";
+import { BACKOFFICE, type TestUser } from "./support/test-users";
+import {
+  createCustomer,
+  createTasksWithStatus,
+  ensureUser,
+  readProfileId,
+  removeCustomersNamed,
+  removeTasksOf,
+  removeUser,
+} from "./support/users";
+
+type Fixtures = {
+  /** A technician of this test only, so that the filter on technician isolates the tasks of this test. */
+  technician: TestUser & { id: string };
+  /** A text that only the customer of this test contains; customer and tasks are removed afterwards. */
+  token: string;
+};
+
+const test = base.extend<Fixtures>({
+  technician: async ({}, run, testInfo) => {
+    const random = Math.random().toString(36).slice(2, 8);
+    const user: TestUser = {
+      email: `e2e-overview-${testInfo.project.name}-${Date.now()}-${random}@example.com`,
+      fullName: `Olaf Overzicht ${random}`,
+      role: "technician",
+    };
+    await ensureUser(user);
+    await run({ ...user, id: await readProfileId(user.email) });
+    await removeTasksOf(user.email);
+    await removeUser(user.email);
+  },
+  token: async ({}, run, testInfo) => {
+    const token = `Zqxe2e${testInfo.project.name}${Date.now()}${Math.random().toString(36).slice(2, 6)}`;
+    await run(token);
+    await removeCustomersNamed(token);
+  },
+});
+
+async function signInAsBackoffice(page: Page): Promise<void> {
+  await signIn(page, BACKOFFICE);
+  await expect(page).toHaveURL("/tasks");
+}
+
+/** The link of a task in the table (laptop) or the cards (phone): only one of them is visible. */
+const taskLink = (page: Page, number: number) =>
+  page.getByRole("link", { name: new RegExp(`#${number}(?!\\d)`) });
+
+const tab = (page: Page, name: string) =>
+  page
+    .getByRole("navigation", { name: "Status" })
+    .getByRole("link", { name: new RegExp(`^${name}`) });
+
+/**
+ * Six tasks of one technician: two Toegewezen, one Opgepikt (since 07:48), one Afgewerkt with
+ * corrected hours, one Gefactureerd and one Geannuleerd. Returns their numbers by name.
+ */
+async function seedTasks(technician: TestUser, token: string) {
+  const customerName = `${token} Bakkerij`;
+  const customerId = await createCustomer(customerName, BACKOFFICE.email, {
+    street: "Gasthuisstraat 23",
+    postalCode: "2300",
+    city: "Turnhout",
+  });
+  const [assigned, assignedLater, pickedUp, completed, invoiced, cancelled] =
+    await createTasksWithStatus(technician.email, BACKOFFICE.email, customerId, [
+      { status: "assigned", scheduledDate: "2031-03-10", startTime: "09:00", city: "Turnhout" },
+      { status: "assigned", scheduledDate: "2031-03-12", startTime: "13:30", workType: "repair" },
+      {
+        status: "picked_up",
+        scheduledDate: "2031-03-11",
+        startTime: "08:00",
+        workType: "maintenance",
+        city: "Turnhout",
+        instructions: "Jaarlijks onderhoud\nTweede regel",
+        pickedUpAt: new Date("2031-03-11T06:48:00Z"),
+      },
+      {
+        status: "completed",
+        scheduledDate: "2031-03-05",
+        workedMinutes: 120,
+        correctedMinutes: 90,
+      },
+      { status: "invoiced", scheduledDate: "2031-02-01", workedMinutes: 60 },
+      { status: "cancelled", scheduledDate: "2031-03-20" },
+    ]);
+  return { customerName, assigned, assignedLater, pickedUp, completed, invoiced, cancelled };
+}
+
+test.describe("the task overview", () => {
+  test("the technician filter from the link 'Toon zijn taken' shows only his tasks, with the counts per tab", async ({
+    page,
+    technician,
+    token,
+  }) => {
+    const t = await seedTasks(technician, token);
+    await signInAsBackoffice(page);
+    await page.goto(`/tasks?technician=${technician.id}`);
+
+    await test.step("the technician is selected and the tabs count his tasks", async () => {
+      await expect(page.getByLabel("Technieker")).toHaveValue(technician.id);
+      await expect(tab(page, "Actief")).toHaveText(/^Actief\s*4/);
+      await expect(tab(page, "Open")).toHaveText(/^Open\s*0/);
+      await expect(tab(page, "Toegewezen")).toHaveText(/^Toegewezen\s*2/);
+      await expect(tab(page, "Opgepikt")).toHaveText(/^Opgepikt\s*1/);
+      await expect(tab(page, "Afgewerkt")).toHaveText(/^Afgewerkt\s*1/);
+      await expect(tab(page, "Gefactureerd")).toHaveText(/^Gefactureerd\s*1/);
+      await expect(tab(page, "Geannuleerd")).toHaveText(/^Geannuleerd\s*1/);
+      await expect(tab(page, "Alle")).toHaveText(/^Alle\s*6/);
+      await expect(tab(page, "Actief")).toHaveAttribute("aria-current", "page");
+    });
+
+    await test.step("Actief shows four tasks, oldest first, and not the cancelled or invoiced ones", async () => {
+      for (const number of [t.completed, t.assigned, t.pickedUp, t.assignedLater]) {
+        await expect(taskLink(page, number)).toBeVisible();
+      }
+      await expect(taskLink(page, t.cancelled)).toHaveCount(0);
+      await expect(taskLink(page, t.invoiced)).toHaveCount(0);
+      const order = await page
+        .getByRole("link", { name: /#\d+/ })
+        .evaluateAll((links) => links.map((link) => link.textContent?.match(/#(\d+)/)?.[1]));
+      expect(order.map(Number)).toEqual([t.completed, t.assigned, t.pickedUp, t.assignedLater]);
+    });
+
+    await test.step("a task shows what the design asks for, and since when it is picked up", async () => {
+      const picked = taskLink(page, t.pickedUp);
+      await expect(picked).toHaveAttribute("href", `/tasks/${t.pickedUp}`);
+      const row = page
+        .getByRole("row", { name: new RegExp(`#${t.pickedUp}(?!\\d)`) })
+        .or(page.getByRole("listitem").filter({ has: picked }));
+      const visibleRow = row.filter({ visible: true });
+      await expect(visibleRow).toContainText(t.customerName);
+      await expect(visibleRow).toContainText("Turnhout");
+      await expect(visibleRow).toContainText("Onderhoud");
+      await expect(visibleRow).toContainText("Jaarlijks onderhoud");
+      await expect(visibleRow).not.toContainText("Tweede regel");
+      await expect(visibleRow).toContainText(technician.fullName);
+      await expect(visibleRow).toContainText("Opgepikt");
+      await expect(visibleRow).toContainText("sinds 07:48");
+    });
+
+    await test.step("corrected hours show the hours that count", async () => {
+      const card = page
+        .getByRole("row", { name: new RegExp(`#${t.completed}(?!\\d)`) })
+        .or(page.getByRole("listitem").filter({ has: taskLink(page, t.completed) }))
+        .filter({ visible: true });
+      await expect(card).toContainText("1u30");
+      await expect(card).toContainText("gecorrigeerd");
+    });
+  });
+
+  test("a tab changes the list and the address, keeps the technician, and is reached with the keyboard", async ({
+    page,
+    technician,
+    token,
+  }) => {
+    const t = await seedTasks(technician, token);
+    await signInAsBackoffice(page);
+    await page.goto(`/tasks?technician=${technician.id}`);
+
+    await tab(page, "Geannuleerd").focus();
+    await page.keyboard.press("Enter");
+    await expect(page).toHaveURL(`/tasks?status=cancelled&technician=${technician.id}`);
+    await expect(tab(page, "Geannuleerd")).toHaveAttribute("aria-current", "page");
+    await expect(tab(page, "Actief")).not.toHaveAttribute("aria-current", /.*/);
+    await expect(taskLink(page, t.cancelled)).toBeVisible();
+    await expect(taskLink(page, t.assigned)).toHaveCount(0);
+    await expect(page.getByLabel("Technieker")).toHaveValue(technician.id);
+
+    await tab(page, "Afgewerkt").click();
+    await expect(page).toHaveURL(`/tasks?status=completed&technician=${technician.id}`);
+    await expect(taskLink(page, t.completed)).toBeVisible();
+    await expect(taskLink(page, t.pickedUp)).toHaveCount(0);
+
+    await tab(page, "Alle").click();
+    await expect(taskLink(page, t.cancelled)).toBeVisible();
+    await expect(taskLink(page, t.invoiced)).toBeVisible();
+  });
+
+  test("the filter form sets technician and period in the address, and 'Filters wissen' removes them", async ({
+    page,
+    technician,
+    token,
+  }) => {
+    const t = await seedTasks(technician, token);
+    await signInAsBackoffice(page);
+    await page.goto("/tasks");
+
+    await page.getByLabel("Technieker").selectOption(technician.id);
+    await page.getByLabel("Van").fill("2031-03-11");
+    await page.getByLabel("Tot en met").fill("2031-03-12");
+    await page.getByRole("button", { name: "Filteren" }).click();
+
+    await expect(page).toHaveURL(
+      `/tasks?technician=${technician.id}&from=2031-03-11&to=2031-03-12`,
+    );
+    await expect(taskLink(page, t.pickedUp)).toBeVisible();
+    await expect(taskLink(page, t.assignedLater)).toBeVisible();
+    await expect(taskLink(page, t.assigned)).toHaveCount(0);
+    await expect(taskLink(page, t.completed)).toHaveCount(0);
+    // The counts follow the period as well.
+    await expect(tab(page, "Actief")).toHaveText(/^Actief\s*2/);
+
+    await page.getByRole("link", { name: "Filters wissen" }).click();
+    await expect(page).toHaveURL("/tasks");
+    await expect(page.getByLabel("Technieker")).toHaveValue("");
+    await expect(page.getByLabel("Van")).toHaveValue("");
+  });
+
+  test("a filter without result says so and can be cleared", async ({
+    page,
+    technician,
+    token,
+  }) => {
+    await seedTasks(technician, token);
+    await signInAsBackoffice(page);
+    await page.goto(`/tasks?technician=${technician.id}&from=2020-01-01&to=2020-01-02`);
+
+    await expect(page.getByText("Geen taken gevonden voor deze filter.")).toBeVisible();
+    await page.getByRole("link", { name: "Filters wissen" }).last().click();
+    await expect(page).toHaveURL("/tasks");
+  });
+
+  test("an empty tab for a technician without tasks says that no tasks were found", async ({
+    page,
+    technician,
+  }) => {
+    await signInAsBackoffice(page);
+    await page.goto(`/tasks?status=cancelled&technician=${technician.id}`);
+    await expect(page.getByText("Geen taken gevonden voor deze filter.")).toBeVisible();
+  });
+
+  test("invalid parameters are ignored: the default overview opens", async ({ page }) => {
+    await signInAsBackoffice(page);
+    await page.goto(
+      "/tasks?status=bogus&technician=not-a-uuid&from=2026-02-30&to=morgen&technician=x",
+    );
+    await expect(page.getByRole("heading", { level: 1, name: "Taken" })).toBeVisible();
+    await expect(tab(page, "Actief")).toHaveAttribute("aria-current", "page");
+    await expect(page.getByLabel("Technieker")).toHaveValue("");
+    await expect(page.getByLabel("Van")).toHaveValue("");
+    await expect(page.getByLabel("Tot en met")).toHaveValue("");
+  });
+
+  test("an unknown technician id is ignored too, instead of showing an empty list for 'Alle techniekers'", async ({
+    page,
+    technician,
+    token,
+  }) => {
+    await seedTasks(technician, token);
+    await signInAsBackoffice(page);
+    await page.goto("/tasks?technician=6f1c1c7e-4f55-4c3b-9d33-000000000000");
+    await expect(page.getByLabel("Technieker")).toHaveValue("");
+    await expect(tab(page, "Actief")).toHaveAttribute("aria-current", "page");
+    // The tasks of the other technician are still among the tasks that are shown.
+    await expect(page.getByRole("link", { name: /#\d+/ }).first()).toBeVisible();
+  });
+
+  test("the confirmation after saving and the 'Nieuwe taak' button keep working next to the overview", async ({
+    page,
+  }) => {
+    await signInAsBackoffice(page);
+    await page.goto("/tasks?saved=1051");
+    await expect(page.getByRole("status")).toHaveText("Taak #1051 bewaard.");
+    await page.getByRole("link", { name: "Nieuwe taak" }).click();
+    await expect(page).toHaveURL("/tasks/new");
+  });
+
+  test("the page does not scroll sideways, on a phone or a laptop", async ({
+    page,
+    technician,
+    token,
+  }) => {
+    await seedTasks(technician, token);
+    await signInAsBackoffice(page);
+    await page.goto(`/tasks?technician=${technician.id}&status=all`);
+    await expect(tab(page, "Alle")).toBeVisible();
+    const overflow = await page.evaluate(
+      () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    );
+    expect(overflow).toBeLessThanOrEqual(0);
+  });
+
+  test("on a phone the tasks are cards, on a laptop a table", async ({
+    page,
+    technician,
+    token,
+  }, testInfo) => {
+    const t = await seedTasks(technician, token);
+    await signInAsBackoffice(page);
+    await page.goto(`/tasks?technician=${technician.id}`);
+    await expect(taskLink(page, t.assigned)).toBeVisible();
+    if (testInfo.project.name === "mobile") {
+      await expect(page.getByRole("table")).toHaveCount(0);
+      await expect(page.getByRole("list", { name: "Taken" })).toBeVisible();
+    } else {
+      await expect(page.getByRole("table", { name: "Taken" })).toBeVisible();
+      await expect(page.getByRole("list", { name: "Taken" })).toHaveCount(0);
+      await expect(page.getByRole("columnheader", { name: "Nr." })).toBeVisible();
+      await expect(page.getByRole("columnheader", { name: "Soort" })).toBeVisible();
+    }
+  });
+});

@@ -1,5 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
-import { eq, sql } from "drizzle-orm";
+import { eq, inArray, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { authUsers } from "drizzle-orm/supabase";
@@ -9,7 +9,7 @@ import { assertLocalSupabase } from "../../src/lib/supabase/local-only";
 import { customers } from "../../src/db/schema/customers";
 import { profiles } from "../../src/db/schema/profiles";
 import { recoverySessions } from "../../src/db/schema/recovery-sessions";
-import { tasks } from "../../src/db/schema/tasks";
+import { taskCompletions, tasks } from "../../src/db/schema/tasks";
 
 import { TEST_PASSWORD, type TestUser } from "./test-users";
 
@@ -223,6 +223,15 @@ export async function removeTasksOf(technicianEmail: string): Promise<void> {
       .from(profiles)
       .where(eq(profiles.email, technicianEmail.toLowerCase()));
     if (technician) {
+      // The completions first: they refer to the tasks (and to the technician).
+      await db
+        .delete(taskCompletions)
+        .where(
+          inArray(
+            taskCompletions.taskId,
+            db.select({ id: tasks.id }).from(tasks).where(eq(tasks.assigneeId, technician.id)),
+          ),
+        );
       await db.delete(tasks).where(eq(tasks.assigneeId, technician.id));
     }
     await db.delete(customers).where(eq(customers.name, `E2E klant van ${technicianEmail}`));
@@ -291,6 +300,14 @@ export async function removeCustomersNamed(prefix: string): Promise<void> {
       .from(customers)
       .where(sql`${customers.name} like ${prefix + "%"}`);
     for (const { id } of found) {
+      await db
+        .delete(taskCompletions)
+        .where(
+          inArray(
+            taskCompletions.taskId,
+            db.select({ id: tasks.id }).from(tasks).where(eq(tasks.customerId, id)),
+          ),
+        );
       await db.delete(tasks).where(eq(tasks.customerId, id));
       await db.delete(customers).where(eq(customers.id, id));
     }
@@ -346,5 +363,110 @@ export async function countTasksOfCustomersNamed(prefix: string): Promise<number
       .innerJoin(customers, eq(customers.id, tasks.customerId))
       .where(sql`${customers.name} like ${prefix + "%"}`);
     return row.total;
+  });
+}
+
+/** The id of the profile with this address (as `?technician=<id>` in the overview uses it). */
+export async function readProfileId(email: string): Promise<string> {
+  assertLocalSupabase(process.env);
+  return withDb(async (db) => {
+    const [row] = await db
+      .select({ id: profiles.id })
+      .from(profiles)
+      .where(eq(profiles.email, email.toLowerCase()));
+    if (!row) {
+      throw new Error(`readProfileId: no profile for ${email}`);
+    }
+    return row.id;
+  });
+}
+
+export type SeededTask = {
+  status: "assigned" | "picked_up" | "completed" | "invoiced" | "cancelled";
+  scheduledDate: string;
+  startTime?: string;
+  /** Needed for Opgepikt and later (the database requires it). Defaults to 06:48 UTC, 07:48 in Belgium in winter. */
+  pickedUpAt?: Date;
+  /** Worked minutes of a completed or invoiced task. */
+  workedMinutes?: number;
+  /** A correction by the back office, in minutes. */
+  correctedMinutes?: number;
+  workType?: "inspection" | "maintenance" | "repair";
+  instructions?: string;
+  city?: string;
+};
+
+/**
+ * Makes tasks of every status for a technician and a customer, through Drizzle, in the state the
+ * database requires for that status (check constraints). Returns the task numbers in the order
+ * given. Remove them with `removeCustomersNamed` (the customer's name must start with the prefix
+ * that test removes) or `removeTasksOf`.
+ */
+export async function createTasksWithStatus(
+  technicianEmail: string,
+  createdByEmail: string,
+  customerId: string,
+  specs: SeededTask[],
+): Promise<number[]> {
+  assertLocalSupabase(process.env);
+  return withDb(async (db) => {
+    const [technician] = await db
+      .select({ id: profiles.id })
+      .from(profiles)
+      .where(eq(profiles.email, technicianEmail.toLowerCase()));
+    const [office] = await db
+      .select({ id: profiles.id })
+      .from(profiles)
+      .where(eq(profiles.email, createdByEmail.toLowerCase()));
+    if (!technician || !office) {
+      throw new Error("createTasksWithStatus: technician or backoffice user not found");
+    }
+    const numbers: number[] = [];
+    for (const spec of specs) {
+      const now = new Date();
+      const [task] = await db
+        .insert(tasks)
+        .values({
+          customerId,
+          locationStreet: "Teststraat 1",
+          locationPostalCode: "9000",
+          locationCity: spec.city ?? "Gent",
+          workType: spec.workType ?? "inspection",
+          instructions: spec.instructions ?? "E2E-taak",
+          scheduledDate: spec.scheduledDate,
+          startTime: spec.startTime ?? "09:00",
+          assigneeId: technician.id,
+          status: spec.status,
+          pickedUpAt:
+            spec.status === "assigned" || spec.status === "cancelled"
+              ? null
+              : (spec.pickedUpAt ?? new Date("2026-11-23T06:48:00Z")),
+          invoicedAt: spec.status === "invoiced" ? now : null,
+          invoicedBy: spec.status === "invoiced" ? office.id : null,
+          cancelledAt: spec.status === "cancelled" ? now : null,
+          cancelledBy: spec.status === "cancelled" ? office.id : null,
+          createdBy: office.id,
+          updatedBy: office.id,
+        })
+        .returning({ id: tasks.id, number: tasks.number });
+      if (spec.status === "completed" || spec.status === "invoiced") {
+        const corrected = spec.correctedMinutes !== undefined;
+        await db.insert(taskCompletions).values({
+          taskId: task.id,
+          workedMinutes: spec.workedMinutes ?? 60,
+          completedBy: technician.id,
+          ...(corrected
+            ? {
+                correctedMinutes: spec.correctedMinutes,
+                correctionReason: "E2E-correctie",
+                correctedBy: office.id,
+                correctedAt: now,
+              }
+            : {}),
+        });
+      }
+      numbers.push(task.number);
+    }
+    return numbers;
   });
 }
