@@ -4,12 +4,11 @@ import { eq } from "drizzle-orm";
 import { cache } from "react";
 
 import { getDb } from "@/db/client";
-import { profiles, type UserRole } from "@/db/schema";
+import { profiles, recoverySessions, type UserRole } from "@/db/schema";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 import { isInviteSessionExpired } from "./invite";
 import { isResetSessionExpired } from "./recovery";
-import { sessionIdFromAccessToken } from "./session-id";
 import { isTemporaryAuthError } from "./temporary-error";
 
 /** The signed-in user as the application sees them: Supabase Auth user plus profile. */
@@ -33,7 +32,7 @@ export type CurrentUser = {
  * - `invite-expired`: as `password-pending`, but the link was verified more than 24 hours ago.
  *   The session is treated as not signed in: the caller ends it and shows "De link is verlopen".
  * - `reset-pending`: valid session and an active profile, but this very session is the temporary
- *   one that a "wachtwoord vergeten" link created (`profiles.recovery_session_id`). It may only
+ *   one that a "wachtwoord vergeten" link created (it has a row in `recovery_sessions`). It may only
  *   be used to choose a new password (design G2, mode reset); other sessions of the same user
  *   are not affected. The user is complete (with role) so the action can send them home.
  * - `reset-expired`: as `reset-pending`, but the link was confirmed more than 24 hours ago.
@@ -48,8 +47,8 @@ export type AuthState =
   | { status: "inactive" }
   | { status: "password-pending"; user: PendingUser }
   | { status: "invite-expired" }
-  | { status: "reset-pending"; user: CurrentUser }
-  | { status: "reset-expired" }
+  | { status: "reset-pending"; user: CurrentUser; sessionId: string }
+  | { status: "reset-expired"; sessionId: string }
   | { status: "unavailable" };
 
 /** An invited user who still has to choose a password. */
@@ -129,21 +128,28 @@ export const getAuthState = cache(async (): Promise<AuthState> => {
     role: profile.role,
   };
 
-  if (profile.recoverySessionId) {
-    // Somebody confirmed a "wachtwoord vergeten" link. That one session is restricted; any other
-    // session of the same user (signed in earlier, on another device) is a normal session. The
-    // access token was just verified by `getUser`, so its `session_id` can be trusted.
-    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-    const sessionId = sessionIdFromAccessToken(sessionData.session?.access_token);
-    if (sessionError || !sessionId) {
-      // Cannot tell which session this is: do not hand out a normal session by accident.
+  // Does this user have any recovery session at all? Only then is the id of this request's
+  // session needed, so normal requests pay for one small query and nothing else.
+  const recovering = await getDb()
+    .select({ sessionId: recoverySessions.sessionId, verifiedAt: recoverySessions.verifiedAt })
+    .from(recoverySessions)
+    .where(eq(recoverySessions.userId, profile.id));
+  if (recovering.length > 0) {
+    // `getClaims` verifies the signature of the access token, which `getUser` just had the Auth
+    // server accept, so its `session_id` can be trusted. When it cannot be read, the answer is
+    // `unavailable` (never "normal session"): as long as that lasts, every session of this user
+    // is blocked while a recovery session exists, which is the safe side of the choice.
+    const { data: claimsData, error: claimsError } = await supabase.auth.getClaims();
+    const sessionId = claimsData?.claims.session_id;
+    if (claimsError || typeof sessionId !== "string" || sessionId.length === 0) {
       return { status: "unavailable" };
     }
-    if (sessionId === profile.recoverySessionId) {
-      if (isResetSessionExpired(profile.recoveryVerifiedAt, new Date())) {
-        return { status: "reset-expired" };
+    const own = recovering.find((row) => row.sessionId === sessionId);
+    if (own) {
+      if (isResetSessionExpired(own.verifiedAt, new Date())) {
+        return { status: "reset-expired", sessionId };
       }
-      return { status: "reset-pending", user };
+      return { status: "reset-pending", user, sessionId };
     }
   }
 

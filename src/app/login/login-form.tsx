@@ -81,18 +81,10 @@ export function LoginForm({ notice }: { notice?: string }) {
             ) : null}
           </div>
 
-          <div>
-            <div className="flex items-center justify-between">
-              <Label htmlFor="password" className="block">
-                Wachtwoord
-              </Label>
-              <Link
-                href={FORGOT_PASSWORD_PATH}
-                className="text-sm text-muted-foreground underline underline-offset-4"
-              >
-                Wachtwoord vergeten?
-              </Link>
-            </div>
+          <div className="relative">
+            <Label htmlFor="password" className="block">
+              Wachtwoord
+            </Label>
             <Input
               id="password"
               name="password"
@@ -107,6 +99,15 @@ export function LoginForm({ notice }: { notice?: string }) {
                 {fieldErrors.password}
               </p>
             ) : null}
+            {/* After the field in the DOM, so the Tab order is e-mail, password, this link, button
+                (a link in front of the field would take the focus, and the typed password). It
+                is placed top right, level with the label. */}
+            <Link
+              href={FORGOT_PASSWORD_PATH}
+              className="absolute top-0 right-0 text-sm text-muted-foreground underline underline-offset-4"
+            >
+              Wachtwoord vergeten?
+            </Link>
           </div>
 
           <Button type="submit" disabled={pending} className="h-11 w-full text-base font-semibold">

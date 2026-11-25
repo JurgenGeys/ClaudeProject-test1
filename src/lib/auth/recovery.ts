@@ -9,9 +9,9 @@ import { INVITE_SESSION_MAX_AGE_MS } from "./invite";
 export const RESET_SESSION_MAX_AGE_MS = INVITE_SESSION_MAX_AGE_MS;
 
 /**
- * Whether a recovery session has run out. `verifiedAt` is `profiles.recovery_verified_at`, the
+ * Whether a recovery session has run out. `verifiedAt` is `recovery_sessions.verified_at`, the
  * server time of the click on the button of `/auth/confirm`. A missing moment cannot happen
- * (the database requires both columns together) and counts as expired to be safe.
+ * (the column is not null) and counts as expired to be safe.
  */
 export function isResetSessionExpired(verifiedAt: Date | null, now: Date): boolean {
   if (!verifiedAt) {

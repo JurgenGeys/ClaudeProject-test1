@@ -9,7 +9,7 @@ import { TEST_PASSWORD, type TestUser } from "./test-users";
  */
 export async function openLoginPage(page: Page): Promise<void> {
   await page.goto("/login");
-  await page.locator('form[data-hydrated="true"]').waitFor();
+  await page.locator('form[data-hydrated="true"]:visible').waitFor();
 }
 
 /** Fills in and submits the login form. Does not wait for the result. */

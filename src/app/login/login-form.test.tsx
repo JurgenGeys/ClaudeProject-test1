@@ -27,6 +27,21 @@ describe("LoginForm", () => {
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
+  it("puts the reminder link after the password field, so Tab goes e-mail, password, link, button", () => {
+    render(<LoginForm />);
+    const order = [
+      screen.getByLabelText("E-mailadres"),
+      screen.getByLabelText("Wachtwoord"),
+      screen.getByRole("link", { name: "Wachtwoord vergeten?" }),
+      screen.getByRole("button", { name: "Aanmelden" }),
+    ];
+    for (let i = 0; i < order.length - 1; i++) {
+      expect(
+        order[i].compareDocumentPosition(order[i + 1]) & Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
+    }
+  });
+
   it("marks the form as hydrated, for the end-to-end tests", () => {
     const { container } = render(<LoginForm />);
     expect(container.querySelector("form")).toHaveAttribute("data-hydrated", "true");

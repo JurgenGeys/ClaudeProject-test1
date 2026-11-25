@@ -3,12 +3,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 
-const { verifyOtp, signOut, findProfile, set, cookieStore } = vi.hoisted(() => ({
+const { verifyOtp, signOut, findProfile, set, insertRow, cookieStore } = vi.hoisted(() => ({
   cookieStore: { getAll: vi.fn(), delete: vi.fn() },
   verifyOtp: vi.fn(),
   signOut: vi.fn(),
   findProfile: vi.fn(),
   set: vi.fn(),
+  insertRow: vi.fn(),
 }));
 vi.mock("@/lib/supabase/server", () => ({
   createSupabaseServerClient: async () => ({ auth: { verifyOtp, signOut } }),
@@ -16,6 +17,12 @@ vi.mock("@/lib/supabase/server", () => ({
 vi.mock("@/db/client", () => ({
   getDb: () => ({
     query: { profiles: { findFirst: findProfile } },
+    insert: () => ({
+      values: (...args: unknown[]) => {
+        insertRow(...args);
+        return { onConflictDoUpdate: () => Promise.resolve() };
+      },
+    }),
     update: () => ({
       set: (...args: unknown[]) => {
         set(...args);
@@ -182,12 +189,11 @@ describe("confirmLink: a recovery link of somebody who has a password (wachtwoor
       findProfile.mockResolvedValue(profile);
       await expect(recover()).rejects.toThrow("NEXT_REDIRECT:/set-password?mode=reset");
       expect(verifyOtp).toHaveBeenCalledWith({ type: "recovery", token_hash: TOKEN });
-      // This very session, and the database clock for the 24 hours; the invitation fields stay alone.
-      expect(set).toHaveBeenCalledTimes(1);
-      expect(set).toHaveBeenCalledWith({
-        recoverySessionId: SESSION_ID,
-        recoveryVerifiedAt: expect.anything(),
-      });
+      // A row for this very session only (the database clock fills in the moment); the profile
+      // and the invitation fields stay alone, and no other recovery session is touched.
+      expect(insertRow).toHaveBeenCalledTimes(1);
+      expect(insertRow).toHaveBeenCalledWith({ sessionId: SESSION_ID, userId: "u1" });
+      expect(set).not.toHaveBeenCalled();
       expect(signOut).not.toHaveBeenCalled();
     },
   );
@@ -202,6 +208,7 @@ describe("confirmLink: a recovery link of somebody who has a password (wachtwoor
     expect(signOut).toHaveBeenCalledWith({ scope: "local" });
     expect(cookieStore.delete).toHaveBeenCalledWith("sb-local-auth-token");
     expect(set).not.toHaveBeenCalled();
+    expect(insertRow).not.toHaveBeenCalled();
   });
 
   it("refuses a session whose token has no session id: it could not be restricted", async () => {
@@ -213,6 +220,7 @@ describe("confirmLink: a recovery link of somebody who has a password (wachtwoor
     await expect(recover()).rejects.toThrow(RESET_INVALID);
     expect(signOut).toHaveBeenCalledWith({ scope: "local" });
     expect(set).not.toHaveBeenCalled();
+    expect(insertRow).not.toHaveBeenCalled();
   });
 
   it("shows the reset message for an expired or used token and records nothing", async () => {

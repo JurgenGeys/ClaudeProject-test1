@@ -16,7 +16,7 @@ function submit() {
 
 describe("SetPasswordForm", () => {
   it("has two labelled password fields with the rule, and a submit button", () => {
-    render(<SetPasswordForm />);
+    render(<SetPasswordForm mode="invite" />);
     const password = screen.getByLabelText("Nieuw wachtwoord");
     expect(password).toHaveAttribute("type", "password");
     expect(password).toHaveAttribute("autocomplete", "new-password");
@@ -26,8 +26,15 @@ describe("SetPasswordForm", () => {
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
+  it("sends the mode along, only to choose the wording of a refusal", () => {
+    const { container, rerender } = render(<SetPasswordForm mode="reset" />);
+    expect(container.querySelector('input[name="mode"]')).toHaveValue("reset");
+    rerender(<SetPasswordForm mode="invite" />);
+    expect(container.querySelector('input[name="mode"]')).toHaveValue("invite");
+  });
+
   it("marks the form as hydrated, for the end-to-end tests", () => {
-    const { container } = render(<SetPasswordForm />);
+    const { container } = render(<SetPasswordForm mode="invite" />);
     expect(container.querySelector("form")).toHaveAttribute("data-hydrated", "true");
   });
 
@@ -38,7 +45,7 @@ describe("SetPasswordForm", () => {
         confirmPassword: "De twee wachtwoorden zijn niet gelijk.",
       },
     });
-    render(<SetPasswordForm />);
+    render(<SetPasswordForm mode="invite" />);
     submit();
 
     await waitFor(() => expect(screen.getByRole("alert")).toBeInTheDocument());
@@ -60,7 +67,7 @@ describe("SetPasswordForm", () => {
       fieldErrors: {},
       formError: "Deze link is niet meer geldig. Vraag kantoor om een nieuwe uitnodiging.",
     });
-    render(<SetPasswordForm />);
+    render(<SetPasswordForm mode="invite" />);
     submit();
     await waitFor(() =>
       expect(screen.getByRole("alert")).toHaveTextContent(
@@ -72,7 +79,7 @@ describe("SetPasswordForm", () => {
 
   it("sends both fields to the action", async () => {
     setPassword.mockResolvedValue(null);
-    render(<SetPasswordForm />);
+    render(<SetPasswordForm mode="invite" />);
     fireEvent.change(screen.getByLabelText("Nieuw wachtwoord"), {
       target: { value: "een-goed-wachtwoord" },
     });
