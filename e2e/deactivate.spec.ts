@@ -71,7 +71,9 @@ test.describe("switching off a technician", () => {
       await test.step("backoffice confirms in the dialog", async () => {
         await signInAsBackoffice(page);
         await page.goto("/technicians");
-        await expect(rowOf(page, technician.email).getByText("Actief")).toBeVisible();
+        await expect(
+          rowOf(page, technician.email).getByText("Actief", { exact: true }),
+        ).toBeVisible();
 
         const dialog = await openDialogFor(page, technician.email, "Bram Uitschakel uitschakelen?");
         await expect(dialog).toContainText(
@@ -84,7 +86,7 @@ test.describe("switching off a technician", () => {
           "Bram Uitschakel is uitgeschakeld. Zijn afgewerkte taken en uren blijven bewaard.",
         );
         const row = rowOf(page, technician.email);
-        await expect(row.getByText("Uitgeschakeld")).toBeVisible();
+        await expect(row.getByText("Uitgeschakeld", { exact: true })).toBeVisible();
         // Switched off: no "Uitschakelen" and no "Uitnodiging opnieuw versturen" any more.
         await expect(row.getByRole("button")).toHaveCount(0);
       });
@@ -122,7 +124,7 @@ test.describe("switching off a technician", () => {
   }) => {
     await signInAsBackoffice(page);
     await page.goto("/technicians");
-    await expect(rowOf(page, technician.email).getByText("Actief")).toBeVisible();
+    await expect(rowOf(page, technician.email).getByText("Actief", { exact: true })).toBeVisible();
 
     await test.step("tasks arrive after the list was shown: the server still refuses", async () => {
       await createAssignedTasks(technician.email, BACKOFFICE.email, 2);
@@ -145,7 +147,9 @@ test.describe("switching off a technician", () => {
 
     await test.step("after a reload the list shows the open tasks and goes straight to the refusal", async () => {
       await page.reload();
-      await expect(rowOf(page, technician.email).getByRole("cell", { name: "2" })).toBeVisible();
+      await expect(
+        rowOf(page, technician.email).getByRole("cell", { name: "2", exact: true }),
+      ).toBeVisible();
       const refusal = await openDialogFor(page, technician.email, "Uitschakelen kan nog niet");
       await expect(refusal).toContainText("(2)");
       await expect(refusal.getByRole("button", { name: "Uitschakelen" })).toHaveCount(0);

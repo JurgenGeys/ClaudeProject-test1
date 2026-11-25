@@ -295,6 +295,25 @@ describe("auth helpers", () => {
       expect(await getAuthState()).toEqual({ status: "unauthenticated" });
     });
 
+    it("treats a blocked Auth account (`user_banned`) as `inactive`, so the user is told so", async () => {
+      getUser.mockResolvedValue({
+        data: { user: null },
+        error: new AuthApiError("User is banned", 403, "user_banned"),
+      });
+      expect(await getAuthState()).toEqual({ status: "inactive" });
+      expect(findFirst).not.toHaveBeenCalled();
+      expect(await getCurrentUser()).toBeNull();
+      expect(await codeOf(requireRole("technician"))).toBe("inactive");
+    });
+
+    it("does not treat other refusals (403 without `user_banned`) as `inactive`", async () => {
+      getUser.mockResolvedValue({
+        data: { user: null },
+        error: new AuthApiError("Forbidden", 403, "not_admin"),
+      });
+      expect(await getAuthState()).toEqual({ status: "unauthenticated" });
+    });
+
     it("makes requireRole throw `unavailable`", async () => {
       getUser.mockResolvedValue({
         data: { user: null },

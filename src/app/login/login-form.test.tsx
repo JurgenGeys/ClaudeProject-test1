@@ -72,7 +72,7 @@ describe("LoginForm", () => {
     expect(password).toHaveAttribute("aria-invalid", "true");
     expect(password).toHaveAccessibleDescription("Vul je wachtwoord in.");
     // The focus moves to the message so a screen reader announces it.
-    expect(screen.getByRole("alert")).toHaveFocus();
+    await waitFor(() => expect(screen.getByRole("alert")).toHaveFocus());
   });
 
   it("uses the singular in the summary of one field error", async () => {
