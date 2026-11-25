@@ -111,16 +111,14 @@ describe("taskSchema", () => {
       }
     });
 
-    it("only refuses absurd values: the technical limit is not a product decision", () => {
-      // TODO (Jurgen decides): the limit is a safety limit of 7 days for now.
-      expect(MAX_ESTIMATED_MINUTES).toBe(7 * 24 * 60);
+    it("accepts at most 8u00 (decision K8)", () => {
+      expect(MAX_ESTIMATED_MINUTES).toBe(8 * 60);
       expect(
         taskSchema.parse({ ...valid, estimatedMinutes: MAX_ESTIMATED_MINUTES }).estimatedMinutes,
       ).toBe(MAX_ESTIMATED_MINUTES);
-      // A neutral message: the maximum is not a decided product rule.
       expect(
         fieldErrors(taskSchema, { ...valid, estimatedMinutes: MAX_ESTIMATED_MINUTES + 15 }),
-      ).toEqual({ estimatedMinutes: ["Deze waarde is te groot."] });
+      ).toEqual({ estimatedMinutes: ["De geschatte duur mag niet meer zijn dan 8u00."] });
     });
   });
 

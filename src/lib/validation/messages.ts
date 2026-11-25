@@ -2,6 +2,8 @@ import { formatHours } from "@/lib/time/format";
 import {
   CANCELLATION_REASON_MAX_LENGTH,
   CORRECTION_REASON_MAX_LENGTH,
+  MAX_CORRECTED_MINUTES,
+  MAX_ESTIMATED_MINUTES,
   MAX_WORKED_MINUTES,
   NOTES_MAX_LENGTH,
 } from "@/lib/tasks/limits";
@@ -18,8 +20,7 @@ export const TASK_MESSAGES = {
   dateRequired: "Kies een datum.",
   startTimeRequired: "Kies een startuur.",
   estimatedMinutesInvalid: "Vul de geschatte duur in per kwartier, bv. 1u30.",
-  // Neutral on purpose: the maximum is a safety limit that Jurgen has not decided yet.
-  estimatedMinutesTooLong: "Deze waarde is te groot.",
+  estimatedMinutesTooLong: `De geschatte duur mag niet meer zijn dan ${formatHours(MAX_ESTIMATED_MINUTES)}.`,
   assigneeInvalid: "Kies een technieker uit de lijst.",
   tooLong: "Deze tekst is te lang. Maak hem korter.",
 } as const;
@@ -41,8 +42,7 @@ export const COMPLETION_MESSAGES = {
 export const CORRECTION_MESSAGES = {
   minutesRequired: "Vul de nieuwe uren in. Dat moet minstens 0u15 zijn.",
   minutesNotQuarter: "Vul de nieuwe uren in per kwartier, bv. 1u30.",
-  // Neutral on purpose, see `TASK_MESSAGES.estimatedMinutesTooLong`.
-  minutesTooMany: "Deze waarde is te groot.",
+  minutesTooMany: `De nieuwe uren mogen niet meer zijn dan ${formatHours(MAX_CORRECTED_MINUTES)}.`,
   reasonRequired: "Geef een reden voor de correctie, bv. 'pauze niet afgetrokken'.",
   reasonTooLong: `De reden is te lang. Houd ze korter dan ${CORRECTION_REASON_MAX_LENGTH} tekens.`,
 } as const;

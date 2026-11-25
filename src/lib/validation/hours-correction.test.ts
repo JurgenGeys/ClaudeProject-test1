@@ -33,9 +33,8 @@ describe("hoursCorrectionSchema", () => {
     }
   });
 
-  it("only refuses absurd hours: the technical limit is not a product decision", () => {
-    // TODO (Jurgen decides): the limit is a safety limit of 7 days for now.
-    expect(MAX_CORRECTED_MINUTES).toBe(7 * 24 * 60);
+  it("accepts at most 16u00 (decision K8)", () => {
+    expect(MAX_CORRECTED_MINUTES).toBe(16 * 60);
     expect(
       hoursCorrectionSchema.parse({ correctedMinutes: MAX_CORRECTED_MINUTES, reason: "x" })
         .correctedMinutes,
@@ -45,12 +44,15 @@ describe("hoursCorrectionSchema", () => {
         correctedMinutes: MAX_CORRECTED_MINUTES + 15,
         reason: "x",
       }),
-    ).toEqual({ correctedMinutes: ["Deze waarde is te groot."] });
+    ).toEqual({ correctedMinutes: ["De nieuwe uren mogen niet meer zijn dan 16u00."] });
   });
 
-  it("refuses an absurdly long reason", () => {
+  it("accepts a reason of at most 500 characters (decision K8)", () => {
     expect(
-      fieldErrors(hoursCorrectionSchema, { correctedMinutes: 60, reason: "x".repeat(1001) }),
-    ).toHaveProperty("reason");
+      hoursCorrectionSchema.parse({ correctedMinutes: 60, reason: "x".repeat(500) }).reason,
+    ).toHaveLength(500);
+    expect(
+      fieldErrors(hoursCorrectionSchema, { correctedMinutes: 60, reason: "x".repeat(501) }),
+    ).toEqual({ reason: ["De reden is te lang. Houd ze korter dan 500 tekens."] });
   });
 });
