@@ -394,6 +394,10 @@ export type SeededTask = {
   workType?: "inspection" | "maintenance" | "repair";
   instructions?: string;
   city?: string;
+  /** Reason of a cancelled task. */
+  cancellationReason?: string;
+  /** Notes of the technician on a completed or invoiced task. */
+  notes?: string;
 };
 
 /**
@@ -445,6 +449,8 @@ export async function createTasksWithStatus(
           invoicedBy: spec.status === "invoiced" ? office.id : null,
           cancelledAt: spec.status === "cancelled" ? now : null,
           cancelledBy: spec.status === "cancelled" ? office.id : null,
+          cancellationReason:
+            spec.status === "cancelled" ? (spec.cancellationReason ?? null) : null,
           createdBy: office.id,
           updatedBy: office.id,
         })
@@ -454,6 +460,7 @@ export async function createTasksWithStatus(
         await db.insert(taskCompletions).values({
           taskId: task.id,
           workedMinutes: spec.workedMinutes ?? 60,
+          notes: spec.notes ?? null,
           completedBy: technician.id,
           ...(corrected
             ? {
@@ -468,5 +475,16 @@ export async function createTasksWithStatus(
       numbers.push(task.number);
     }
     return numbers;
+  });
+}
+
+/**
+ * Changes a task behind the back of an open form, like a colleague would: another instruction
+ * text, through Drizzle, so `updated_at` moves like it does for every writer.
+ */
+export async function changeTaskInstructions(number: number, instructions: string): Promise<void> {
+  assertLocalSupabase(process.env);
+  await withDb(async (db) => {
+    await db.update(tasks).set({ instructions }).where(eq(tasks.number, number));
   });
 }

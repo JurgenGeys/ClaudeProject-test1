@@ -76,12 +76,13 @@ async function fillTask(page: Page, workType: "Nazicht" | "Onderhoud" | "Herstel
   await page.getByLabel(/^Startuur/).fill("14:15");
 }
 
-/** Saves, waits for the overview and returns the task number from the confirmation. */
+/** Saves, waits for the task page (B3) and returns the task number from the confirmation. */
 async function save(page: Page): Promise<number> {
   await page.getByRole("button", { name: "Taak bewaren" }).click();
-  await expect(page).toHaveURL(/\/tasks\?saved=\d+$/);
-  const number = Number(new URL(page.url()).searchParams.get("saved"));
+  await expect(page).toHaveURL(/\/tasks\/\d+\?saved=1$/);
+  const number = Number(new URL(page.url()).pathname.split("/").at(-1));
   await expect(page.getByRole("status")).toHaveText(`Taak #${number} bewaard.`);
+  await expect(page.getByText(`Taak #${number}`, { exact: true })).toBeVisible();
   return number;
 }
 
@@ -115,7 +116,7 @@ test.describe("creating a task", () => {
     await fillTask(page, "Onderhoud");
     await page.getByLabel("Geschatte duur").selectOption({ label: "1u30" });
 
-    await test.step("saving leads to the overview with the task number", async () => {
+    await test.step("saving leads to the task page with the task number", async () => {
       const number = await save(page);
       expect(number).toBeGreaterThanOrEqual(1001);
 
