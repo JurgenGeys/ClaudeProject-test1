@@ -11,6 +11,7 @@ import { AuthError, requireRole } from "@/lib/auth/session";
 import { SiteUrlError, getInviteRedirectUrl } from "@/lib/site-url";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseCredentialsClient } from "@/lib/supabase/credentials";
+import { AuthTimeoutError, BanFailedError, changeAuthBan } from "@/lib/technicians/ban";
 import {
   AUTH_BAN_DURATION,
   INVITED_BY_APP_KEY,
@@ -295,11 +296,19 @@ export async function resendInvite(
   }
 }
 
-/** The Auth server did not accept the change of the block; the database change is rolled back. */
-class BanFailedError extends Error {
-  constructor(readonly cause: unknown) {
-    super("Changing the block of the Auth account failed");
-    this.name = "BanFailedError";
+/**
+ * Best-effort change of the block (compensation after a failed commit, and repair inside the transaction). A failure is
+ * only logged, with the technician id (a UUID, no e-mail address or name) so the account can be
+ * found; the user gets the message he would have got anyway.
+ */
+async function tryChangeBan(technicianId: string, banDuration: string, what: string) {
+  try {
+    await changeAuthBan(createSupabaseAdminClient(), technicianId, banDuration);
+  } catch (error) {
+    console.error(
+      `${what} for technician ${technicianId}:`,
+      describeError(error instanceof BanFailedError ? error.cause : error),
+    );
   }
 }
 
@@ -317,6 +326,9 @@ class BanFailedError extends Error {
  *    switched off or not at all. If the commit itself fails after the block was set, the block is
  *    lifted again (best effort; a block without `is_active = false` only matters until the next
  *    attempt, which sets both again).
+ * When the technician is already switched off (for example after an ambiguous commit), the block is
+ * set again in step 2's place, also inside the transaction while the lock is held; a failure is only
+ * logged.
  * Existing sessions: `requireRole` reads `is_active` at every request, so a signed-in technician
  * is refused at once and sent to `/auth/inactive`; the block stops the session from being
  * refreshed afterwards. Tokens cannot be revoked by user id with the admin API, only by the
@@ -347,32 +359,28 @@ export async function deactivateTechnician(
     outcome = await getDb().transaction(async (tx) => {
       const result = await deactivateTechnicianProfile(tx, id.data);
       if (result.kind === "deactivated") {
-        const { error } = await admin.auth.admin.updateUserById(id.data, {
-          ban_duration: AUTH_BAN_DURATION,
-        });
-        if (error) {
-          throw new BanFailedError(error);
-        }
+        await changeAuthBan(admin, id.data, AUTH_BAN_DURATION);
         banned = true;
+      } else if (result.kind === "already-disabled") {
+        // Also repairs an ambiguous commit: the database says switched off, so make sure Auth
+        // agrees. Inside the transaction, so the row lock is still held and a concurrent switch-on
+        // cannot interleave. A failure is only logged and never fails the action.
+        await tryChangeBan(
+          id.data,
+          AUTH_BAN_DURATION,
+          "Repairing the block of a switched-off technician failed",
+        );
       }
       return result;
     });
   } catch (error) {
-    if (banned) {
+    // After a time-out the block may have been applied anyway, so it is undone as well.
+    if (banned || error instanceof AuthTimeoutError) {
       // The block was set but the commit failed: undo the block as well.
-      const { error: unbanError } = await createSupabaseAdminClient().auth.admin.updateUserById(
-        id.data,
-        { ban_duration: "none" },
-      );
-      if (unbanError) {
-        console.error(
-          "Lifting the block after a failed switch-off failed:",
-          describeError(unbanError),
-        );
-      }
+      await tryChangeBan(id.data, "none", "Lifting the block after a failed switch-off failed");
     }
     console.error(
-      "Switching off a technician failed:",
+      `Switching off technician ${id.data} failed:`,
       describeError(error instanceof BanFailedError ? error.cause : error),
     );
     return refused(LOGIN_MESSAGES.technicalProblem);
@@ -408,6 +416,8 @@ export async function deactivateTechnician(
  *    If that fails the transaction is rolled back: the technician is either fully switched on or
  *    not at all. If the commit itself fails after the block was lifted, the block is set again
  *    (best effort; `requireRole` refuses a profile with `is_active = false` anyway).
+ * When the technician is already active (for example after an ambiguous commit), the block is lifted
+ * in step 2's place, also inside the transaction while the lock is held; a failure is only logged.
  * The old password stays valid and no invitation is sent. Sessions that were ended stay ended: the
  * technician signs in again. Tasks are not assigned back.
  */
@@ -436,32 +446,27 @@ export async function reactivateTechnician(
     outcome = await getDb().transaction(async (tx) => {
       const result = await reactivateTechnicianProfile(tx, id.data);
       if (result.kind === "reactivated") {
-        const { error } = await admin.auth.admin.updateUserById(id.data, {
-          ban_duration: "none",
-        });
-        if (error) {
-          throw new BanFailedError(error);
-        }
+        await changeAuthBan(admin, id.data, "none");
         unbanned = true;
+      } else if (result.kind === "already-active") {
+        // Also repairs an ambiguous commit: the database says active, so make sure Auth agrees.
+        // Inside the transaction (row lock still held); a failure is only logged.
+        await tryChangeBan(id.data, "none", "Repairing the block of an active technician failed");
       }
       return result;
     });
   } catch (error) {
-    if (unbanned) {
+    // After a time-out the block may have been lifted anyway, so it is set again as well.
+    if (unbanned || error instanceof AuthTimeoutError) {
       // The block was lifted but the commit failed: set the block again.
-      const { error: banError } = await createSupabaseAdminClient().auth.admin.updateUserById(
+      await tryChangeBan(
         id.data,
-        { ban_duration: AUTH_BAN_DURATION },
+        AUTH_BAN_DURATION,
+        "Blocking the account again after a failed switch-on failed",
       );
-      if (banError) {
-        console.error(
-          "Blocking the account again after a failed switch-on failed:",
-          describeError(banError),
-        );
-      }
     }
     console.error(
-      "Switching on a technician failed:",
+      `Switching on technician ${id.data} failed:`,
       describeError(error instanceof BanFailedError ? error.cause : error),
     );
     return refused(LOGIN_MESSAGES.technicalProblem);

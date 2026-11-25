@@ -397,8 +397,8 @@ describe("B7 Techniekers: Uitschakelen", () => {
     expect(within(refusal).getByRole("link", { name: "Toon zijn taken" })).toBeInTheDocument();
 
     // Closing and opening again starts from what the list shows.
-    // The dialog has a corner cross (also "Sluiten") and the footer button of the design: use the latter.
-    fireEvent.click(within(refusal).getAllByRole("button", { name: "Sluiten" }).at(-1)!);
+    // Only the footer button of the design: the corner cross is off in this dialog.
+    fireEvent.click(within(refusal).getByRole("button", { name: "Sluiten" }));
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
     fireEvent.click(screen.getByRole("button", { name: "Uitschakelen" }));
     expect(await screen.findByRole("dialog", { name: "Bram Claes uitschakelen?" })).toBeVisible();
