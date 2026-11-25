@@ -51,5 +51,8 @@ export const profiles = pgTable(
   // Row Level Security without policies: the public Supabase API can do nothing with this table.
 ).enableRLS();
 
+// Invitations can be revoked (BT-07c): `revokeInvitationProfile` (src/lib/technicians/revoke.ts)
+// deletes a profile and checks by hand every column that refers to `profiles.id`. A new foreign
+// key to `profiles` must be added to that list, or revoking would fail with a database error.
 export type Profile = typeof profiles.$inferSelect;
 export type NewProfile = typeof profiles.$inferInsert;
