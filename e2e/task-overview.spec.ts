@@ -223,16 +223,26 @@ test.describe("the task overview", () => {
     await expect(page).toHaveURL("/tasks");
   });
 
-  test("an empty tab for a technician without tasks says that no tasks were found", async ({
+  test("an empty tab for a technician says that no tasks were found", async ({
     page,
     technician,
+    token,
   }) => {
+    // The technician has tasks, but none that is Open: the tab is empty. (Without any task in
+    // the database at all the page shows "Er zijn nog geen taken" and no tabs, so a task is needed.)
+    await seedTasks(technician, token);
     await signInAsBackoffice(page);
-    await page.goto(`/tasks?status=cancelled&technician=${technician.id}`);
+    await page.goto(`/tasks?status=open&technician=${technician.id}`);
     await expect(page.getByText("Geen taken gevonden voor deze filter.")).toBeVisible();
   });
 
-  test("invalid parameters are ignored: the default overview opens", async ({ page }) => {
+  test("invalid parameters are ignored: the default overview opens", async ({
+    page,
+    technician,
+    token,
+  }) => {
+    // A task makes sure the tabs are there: with no task at all the page shows the empty state.
+    await seedTasks(technician, token);
     await signInAsBackoffice(page);
     await page.goto(
       "/tasks?status=bogus&technician=not-a-uuid&from=2026-02-30&to=morgen&technician=x",
@@ -411,7 +421,7 @@ test.describe("the task overview", () => {
 
       await test.step("page 1 has 50 tasks and the tab says 51", async () => {
         await expect(tab(page, "Actief")).toHaveText(/^Actief\s*51/);
-        expect(await shown()).toEqual(numbers.slice(0, 50));
+        await expect.poll(shown).toEqual(numbers.slice(0, 50));
         const nav = page.getByRole("navigation", { name: "Paginering" });
         await expect(nav).toContainText("Taken 1 tot 50 van 51 (pagina 1 van 2)");
         await expect(nav.getByRole("link", { name: "Vorige" })).toHaveCount(0);
@@ -421,7 +431,7 @@ test.describe("the task overview", () => {
         await page.getByRole("link", { name: "Volgende" }).click();
         await expect(page).toHaveURL(`${base}&page=2`);
         await expect(page.getByLabel("Technieker")).toHaveValue(technician.id);
-        expect(await shown()).toEqual([numbers[50]]);
+        await expect.poll(shown).toEqual([numbers[50]]);
         await expect(tab(page, "Actief")).toHaveText(/^Actief\s*51/);
         await expect(
           page
@@ -433,16 +443,16 @@ test.describe("the task overview", () => {
       await test.step("'Vorige' returns to the first page", async () => {
         await page.getByRole("link", { name: "Vorige" }).click();
         await expect(page).toHaveURL(base);
-        expect(await shown()).toEqual(numbers.slice(0, 50));
+        await expect.poll(shown).toEqual(numbers.slice(0, 50));
       });
 
       await test.step("a page that is too high shows the last page; an invalid one the first", async () => {
         await page.goto(`${base}&page=99`);
-        expect(await shown()).toEqual([numbers[50]]);
+        await expect.poll(shown).toEqual([numbers[50]]);
         await page.goto(`${base}&page=abc`);
-        expect(await shown()).toEqual(numbers.slice(0, 50));
+        await expect.poll(shown).toEqual(numbers.slice(0, 50));
         await page.goto(`${base}&page=0`);
-        expect(await shown()).toEqual(numbers.slice(0, 50));
+        await expect.poll(shown).toEqual(numbers.slice(0, 50));
       });
 
       await test.step("choosing a tab goes back to the first page", async () => {
