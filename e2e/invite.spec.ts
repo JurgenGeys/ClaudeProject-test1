@@ -19,7 +19,9 @@ const PASSWORD = "Een-nieuw-wachtwoord-2026";
  * technician list of later tests (and later build tasks) is not influenced.
  */
 const test = base.extend<{ inviteeEmail: string }>({
-  inviteeEmail: async (_fixtures, run, testInfo: TestInfo) => {
+  // Playwright requires an object pattern as first argument; this fixture uses no other fixtures.
+  // eslint-disable-next-line no-empty-pattern
+  inviteeEmail: async ({}, run, testInfo: TestInfo) => {
     const random = Math.random().toString(36).slice(2, 8);
     const email = `e2e-invite-${testInfo.project.name}-${Date.now()}-${random}@example.com`;
     await run(email);
