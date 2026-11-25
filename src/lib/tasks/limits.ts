@@ -4,15 +4,15 @@
  *
  * There are two kinds, and the difference matters:
  *
- * 1. Limits from the design (chapter 3 and 5). Decided. The lengths of the notes and of the
- *    cancellation reason are also check constraints in the database. The 16u00 maximum is
- *    deliberately only in the Zod schema, so it can change without a migration.
- * 2. Technical safety limits. Nobody decided these: they only refuse absurd input (a pasted
- *    book, a duration of ten years). They are NOT product rules and are NOT in the database.
- *    Jurgen still has to decide the three TODO constants.
+ * 1. Decided limits (design chapter 3 and 5, and decision K8). The lengths of the notes and of
+ *    the cancellation reason are also check constraints in the database. The hour maxima and
+ *    the correction reason length are deliberately only in the Zod schemas, so they can
+ *    change without a migration.
+ * 2. Technical safety limits for text fields without a length in the design. They only refuse
+ *    absurd input (a pasted book). They are NOT product rules and are NOT in the database.
  */
 
-// ---- 1. Decided in the design ------------------------------------------------------------
+// ---- 1. Decided ------------------------------------------------------------
 
 /** Free text of a completion (design T3 and chapter 5). */
 export const NOTES_MAX_LENGTH = 2000;
@@ -23,28 +23,25 @@ export const CANCELLATION_REASON_MAX_LENGTH = 500;
 /** Worked hours entered by the technician: 16u00 at most (design T3). */
 export const MAX_WORKED_MINUTES = 16 * 60;
 
-// ---- 2. Not decided yet: technical safety limits only ------------------------------------
+/**
+ * Maximum estimated duration of a task (B2): 8u00, one working day.
+ * Decided by Jurgen on 25/11/2026 (K8).
+ */
+export const MAX_ESTIMATED_MINUTES = 8 * 60;
 
 /**
- * TODO: still to be decided by Jurgen.
- * Maximum estimated duration of a task (B2). The design only says "per quarter of an hour".
- * Until Jurgen decides, 7 days only refuses absurd values. Users see a neutral message for it.
+ * Maximum of the hours the back office enters in "Uren corrigeren" (B3): 16u00, the same as
+ * the technician's limit. Decided by Jurgen on 25/11/2026 (K8).
  */
-export const MAX_ESTIMATED_MINUTES = 7 * 24 * 60;
+export const MAX_CORRECTED_MINUTES = 16 * 60;
 
 /**
- * TODO: still to be decided by Jurgen.
- * Maximum of the hours the back office enters in "Uren corrigeren" (B3). The design does not
- * say whether this is 16u00 like the technician's limit. Until Jurgen decides, 7 days only
- * refuses absurd values.
+ * Maximum length of the reason of an hours correction (B3): 500 characters, the same as the
+ * cancellation reason. Decided by Jurgen on 25/11/2026 (K8).
  */
-export const MAX_CORRECTED_MINUTES = 7 * 24 * 60;
+export const CORRECTION_REASON_MAX_LENGTH = 500;
 
-/**
- * TODO: still to be decided by Jurgen.
- * Maximum length of the reason of an hours correction (B3). The design only makes it required.
- */
-export const CORRECTION_REASON_MAX_LENGTH = 1000;
+// ---- 2. Technical safety limits ------------------------------------------------------------
 
 /**
  * Technical safety limits for the other text fields. The design gives no lengths for these;
