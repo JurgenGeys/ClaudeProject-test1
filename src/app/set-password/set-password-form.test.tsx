@@ -50,7 +50,8 @@ describe("SetPasswordForm", () => {
 
     await waitFor(() => expect(screen.getByRole("alert")).toBeInTheDocument());
     expect(screen.getByRole("alert")).toHaveTextContent("Vul de 2 gemarkeerde velden in.");
-    expect(screen.getByRole("alert")).toHaveFocus();
+    // The focus moves after the render that shows the summary: wait for it.
+    await waitFor(() => expect(screen.getByRole("alert")).toHaveFocus());
 
     const password = screen.getByLabelText("Nieuw wachtwoord");
     expect(password).toHaveAttribute("aria-invalid", "true");

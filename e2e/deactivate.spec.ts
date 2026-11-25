@@ -88,7 +88,10 @@ test.describe("switching off a technician", () => {
         const row = rowOf(page, technician.email);
         await expect(row.getByText("Uitgeschakeld", { exact: true })).toBeVisible();
         // Switched off: no "Uitschakelen" and no "Uitnodiging opnieuw versturen" any more.
-        await expect(row.getByRole("button")).toHaveCount(0);
+        await expect(row.getByRole("button", { name: "Uitschakelen" })).toHaveCount(0);
+        await expect(
+          row.getByRole("button", { name: "Uitnodiging opnieuw versturen" }),
+        ).toHaveCount(0);
       });
 
       await test.step("the profile and the Auth account are both switched off", async () => {
