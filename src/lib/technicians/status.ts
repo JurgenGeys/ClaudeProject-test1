@@ -4,7 +4,7 @@
  * - `active`: may sign in.
  * - `invited`: got an invitation and has not chosen a password yet (`invite_pending`).
  * - `disabled`: switched off (`is_active = false`), whatever else is true. Switching off
- *   itself is built in BT-07 (`deactivateTechnician`); reactivating comes in BT-07b.
+ *   itself is `deactivateTechnician` (BT-07), switching on again `reactivateTechnician` (BT-07b).
  */
 export const technicianStatuses = ["active", "invited", "disabled"] as const;
 export type TechnicianStatus = (typeof technicianStatuses)[number];

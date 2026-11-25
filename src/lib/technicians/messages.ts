@@ -17,4 +17,9 @@ export const TECHNICIAN_ACTION_MESSAGES = {
   alreadyDisabled: (name: string) => `${name} is al uitgeschakeld. Laad de pagina opnieuw.`,
   notAccepted: (name: string) =>
     `${name} heeft de uitnodiging nog niet aanvaard en kan daarom niet uitgeschakeld worden.`,
+  // Switching on again (BT-07b). `reactivated` follows the text of design B7.
+  reactivated: (name: string) => `${name} is opnieuw actief. Je kan hem weer taken toewijzen.`,
+  alreadyActive: (name: string) => `${name} is al actief. Laad de pagina opnieuw.`,
+  notDisabled: (name: string) =>
+    `${name} heeft de uitnodiging nog niet aanvaard en is niet uitgeschakeld.`,
 } as const;

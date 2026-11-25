@@ -18,6 +18,7 @@ import {
 } from "@/lib/technicians/auth-users";
 import { deactivateTechnicianProfile, type DeactivateOutcome } from "@/lib/technicians/deactivate";
 import { TECHNICIAN_ACTION_MESSAGES } from "@/lib/technicians/messages";
+import { reactivateTechnicianProfile, type ReactivateOutcome } from "@/lib/technicians/reactivate";
 import { TECHNICIAN_MESSAGES } from "@/lib/validation/messages";
 import { technicianIdSchema, technicianSchema } from "@/lib/validation/technician";
 
@@ -294,10 +295,10 @@ export async function resendInvite(
   }
 }
 
-/** The Auth server did not accept the block; the database change is rolled back. */
+/** The Auth server did not accept the change of the block; the database change is rolled back. */
 class BanFailedError extends Error {
   constructor(readonly cause: unknown) {
-    super("Blocking the Auth account failed");
+    super("Changing the block of the Auth account failed");
     this.name = "BanFailedError";
   }
 }
@@ -394,5 +395,87 @@ export async function deactivateTechnician(
     case "deactivated":
       revalidatePath(PATH);
       return { ok: true, message: TECHNICIAN_ACTION_MESSAGES.deactivated(outcome.fullName) };
+  }
+}
+
+/**
+ * Switches a technician on again (design B7, "Opnieuw activeren"; P3, BT-07b). Mirror image of
+ * `deactivateTechnician`: the technician comes from a hidden field (id only), and one database
+ * transaction does everything that must not be separated:
+ * 1. `reactivateTechnicianProfile` locks the profile, refuses anything but a switched-off
+ *    technician and otherwise sets `is_active = true` and `deactivated_at = null`.
+ * 2. Still inside the transaction, the block of the Auth account is lifted (`ban_duration: "none"`).
+ *    If that fails the transaction is rolled back: the technician is either fully switched on or
+ *    not at all. If the commit itself fails after the block was lifted, the block is set again
+ *    (best effort; `requireRole` refuses a profile with `is_active = false` anyway).
+ * The old password stays valid and no invitation is sent. Sessions that were ended stay ended: the
+ * technician signs in again. Tasks are not assigned back.
+ */
+export async function reactivateTechnician(
+  _previous: TechnicianActionState,
+  formData: FormData,
+): Promise<TechnicianActionState> {
+  try {
+    await requireRole("backoffice");
+  } catch (error) {
+    if (error instanceof AuthError) {
+      return refused(authFailureMessage(error));
+    }
+    throw error;
+  }
+
+  const id = technicianIdSchema.safeParse(formData.get("id"));
+  if (!id.success) {
+    return refused(TECHNICIAN_ACTION_MESSAGES.notFound);
+  }
+
+  let unbanned = false;
+  let outcome: ReactivateOutcome;
+  try {
+    const admin = createSupabaseAdminClient();
+    outcome = await getDb().transaction(async (tx) => {
+      const result = await reactivateTechnicianProfile(tx, id.data);
+      if (result.kind === "reactivated") {
+        const { error } = await admin.auth.admin.updateUserById(id.data, {
+          ban_duration: "none",
+        });
+        if (error) {
+          throw new BanFailedError(error);
+        }
+        unbanned = true;
+      }
+      return result;
+    });
+  } catch (error) {
+    if (unbanned) {
+      // The block was lifted but the commit failed: set the block again.
+      const { error: banError } = await createSupabaseAdminClient().auth.admin.updateUserById(
+        id.data,
+        { ban_duration: AUTH_BAN_DURATION },
+      );
+      if (banError) {
+        console.error(
+          "Blocking the account again after a failed switch-on failed:",
+          describeError(banError),
+        );
+      }
+    }
+    console.error(
+      "Switching on a technician failed:",
+      describeError(error instanceof BanFailedError ? error.cause : error),
+    );
+    return refused(LOGIN_MESSAGES.technicalProblem);
+  }
+
+  switch (outcome.kind) {
+    case "not-found":
+      return refused(TECHNICIAN_ACTION_MESSAGES.notFound);
+    case "already-active":
+      return refused(TECHNICIAN_ACTION_MESSAGES.alreadyActive(outcome.fullName));
+    case "invited":
+      return refused(TECHNICIAN_ACTION_MESSAGES.notDisabled(outcome.fullName));
+    case "reactivated":
+      revalidatePath(PATH);
+      return { ok: true, message: TECHNICIAN_ACTION_MESSAGES.reactivated(outcome.fullName) };
   }
 }
