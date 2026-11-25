@@ -1,5 +1,8 @@
+import { eq } from "drizzle-orm";
 import { NextResponse, type NextRequest } from "next/server";
 
+import { getDb } from "@/db/client";
+import { recoverySessions } from "@/db/schema";
 import { endLocalSession } from "@/lib/auth/login-redirect";
 import {
   SET_PASSWORD_ERROR_EXPIRED,
@@ -27,6 +30,17 @@ export async function GET(request: NextRequest) {
   // Also removes the cookies when Auth cannot be reached; otherwise the session would stay and
   // this page could send the visitor round in circles.
   await endLocalSession(await createSupabaseServerClient());
+
+  // The row goes only after the session has ended (deleting an expired row of a living session
+  // would turn it into a normal one), and only the row of this very session.
+  try {
+    await getDb().delete(recoverySessions).where(eq(recoverySessions.sessionId, state.sessionId));
+  } catch (error) {
+    console.error(
+      "Removing an expired recovery session failed:",
+      error instanceof Error ? error.name : typeof error,
+    );
+  }
 
   return NextResponse.redirect(
     new URL(

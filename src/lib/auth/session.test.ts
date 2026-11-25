@@ -4,14 +4,18 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
 
 const getUser = vi.fn();
-const getSession = vi.fn();
+const getClaims = vi.fn();
 vi.mock("@/lib/supabase/server", () => ({
-  createSupabaseServerClient: async () => ({ auth: { getUser, getSession } }),
+  createSupabaseServerClient: async () => ({ auth: { getUser, getClaims } }),
 }));
 
 const findFirst = vi.fn();
+const selectRecovery = vi.fn();
 vi.mock("@/db/client", () => ({
-  getDb: () => ({ query: { profiles: { findFirst } } }),
+  getDb: () => ({
+    query: { profiles: { findFirst } },
+    select: () => ({ from: () => ({ where: selectRecovery }) }),
+  }),
 }));
 
 import { AuthApiError, AuthRetryableFetchError } from "@supabase/supabase-js";
@@ -28,8 +32,6 @@ const technicianProfile: Profile = {
   isActive: true,
   invitePending: false,
   inviteVerifiedAt: null,
-  recoverySessionId: null,
-  recoveryVerifiedAt: null,
   createdAt: new Date("2026-11-24T08:00:00Z"),
   deactivatedAt: null,
 };
@@ -45,13 +47,10 @@ const backofficeProfile: Profile = {
 const SESSION_ID = "5e5510a9-0000-4000-8000-000000000001";
 const OTHER_SESSION_ID = "5e5510a9-0000-4000-8000-000000000002";
 
-/** The cookie session of this request: an access token with this `session_id` claim. */
+/** The session of this request, as `getClaims` reports it (or null: it cannot be read). */
 function sessionIs(sessionId: string | null) {
-  const claims = Buffer.from(JSON.stringify(sessionId ? { session_id: sessionId } : {})).toString(
-    "base64url",
-  );
-  getSession.mockResolvedValue({
-    data: { session: { access_token: `x.${claims}.y` } },
+  getClaims.mockResolvedValue({
+    data: { claims: sessionId ? { session_id: sessionId } : {} },
     error: null,
   });
 }
@@ -74,7 +73,9 @@ async function codeOf(promise: Promise<unknown>): Promise<string | undefined> {
 describe("auth helpers", () => {
   beforeEach(() => {
     getUser.mockReset();
-    getSession.mockReset();
+    getClaims.mockReset();
+    selectRecovery.mockReset();
+    selectRecovery.mockResolvedValue([]);
     findFirst.mockReset();
   });
 
@@ -171,21 +172,22 @@ describe("auth helpers", () => {
   });
 
   describe("getAuthState with a recovery session (wachtwoord vergeten)", () => {
-    const recovering = (verifiedAt: Date | null, profile: Profile = backofficeProfile) => ({
-      ...profile,
-      recoverySessionId: SESSION_ID,
-      recoveryVerifiedAt: verifiedAt,
-    });
     const HOUR = 60 * 60 * 1000;
+    /** The user has these recovery sessions (rows of `recovery_sessions`). */
+    const recoveryRows = (...rows: { sessionId: string; verifiedAt: Date }[]) =>
+      selectRecovery.mockResolvedValue(rows);
+    const own = (verifiedAt: Date) => ({ sessionId: SESSION_ID, verifiedAt });
 
     it.each([
       ["backoffice", backofficeProfile],
       ["technician", technicianProfile],
     ])("restricts the recovery session of an active %s", async (_name, profile) => {
-      signedInAs(recovering(new Date(), profile));
+      signedInAs(profile);
+      recoveryRows(own(new Date()));
       sessionIs(SESSION_ID);
       expect(await getAuthState()).toEqual({
         status: "reset-pending",
+        sessionId: SESSION_ID,
         user: {
           id: profile.id,
           email: profile.email,
@@ -196,65 +198,80 @@ describe("auth helpers", () => {
     });
 
     it("does not restrict another session of the same user (a phone that was already signed in)", async () => {
-      signedInAs(recovering(new Date()));
-      sessionIs(OTHER_SESSION_ID);
+      signedInAs(backofficeProfile);
+      recoveryRows({ sessionId: OTHER_SESSION_ID, verifiedAt: new Date() });
+      sessionIs(SESSION_ID);
       expect(await getAuthState()).toMatchObject({ status: "authenticated" });
     });
 
-    it("expires the recovery session after 24 hours, and not before", async () => {
-      signedInAs(recovering(new Date(Date.now() - 24 * HOUR + 60_000)));
+    it("restricts each of two recovery sessions on its own", async () => {
+      signedInAs(backofficeProfile);
+      recoveryRows(own(new Date()), { sessionId: OTHER_SESSION_ID, verifiedAt: new Date() });
       sessionIs(SESSION_ID);
+      expect(await getAuthState()).toMatchObject({
+        status: "reset-pending",
+        sessionId: SESSION_ID,
+      });
+      sessionIs(OTHER_SESSION_ID);
+      expect(await getAuthState()).toMatchObject({
+        status: "reset-pending",
+        sessionId: OTHER_SESSION_ID,
+      });
+    });
+
+    it("expires the recovery session after 24 hours, and not before", async () => {
+      signedInAs(backofficeProfile);
+      sessionIs(SESSION_ID);
+      recoveryRows(own(new Date(Date.now() - 24 * HOUR + 60_000)));
       expect(await getAuthState()).toMatchObject({ status: "reset-pending" });
 
-      signedInAs(recovering(new Date(Date.now() - 24 * HOUR - 60_000)));
-      sessionIs(SESSION_ID);
-      expect(await getAuthState()).toEqual({ status: "reset-expired" });
+      recoveryRows(own(new Date(Date.now() - 24 * HOUR - 60_000)));
+      expect(await getAuthState()).toEqual({ status: "reset-expired", sessionId: SESSION_ID });
     });
 
     it("does not look at the session at all when nobody is resetting", async () => {
       signedInAs(backofficeProfile);
       expect(await getAuthState()).toMatchObject({ status: "authenticated" });
-      expect(getSession).not.toHaveBeenCalled();
+      expect(getClaims).not.toHaveBeenCalled();
     });
 
     it("does not hand out a normal session when it cannot tell which session this is", async () => {
-      signedInAs(recovering(new Date()));
+      signedInAs(backofficeProfile);
+      recoveryRows(own(new Date()));
       sessionIs(null);
       expect(await getAuthState()).toEqual({ status: "unavailable" });
 
-      getSession.mockResolvedValue({ data: { session: null }, error: new Error("no session") });
+      getClaims.mockResolvedValue({ data: null, error: new Error("no session") });
       expect(await getAuthState()).toEqual({ status: "unavailable" });
     });
 
     it("lets a deactivated profile win over a recovery session", async () => {
       signedInAs({
-        ...recovering(new Date()),
+        ...backofficeProfile,
         isActive: false,
         deactivatedAt: new Date("2026-11-25T08:00:00Z"),
       });
+      recoveryRows(own(new Date()));
       sessionIs(SESSION_ID);
       expect(await getAuthState()).toEqual({ status: "inactive" });
     });
 
-    it("lets a pending invitation win over a recovery marker", async () => {
-      signedInAs({
-        ...recovering(new Date(), technicianProfile),
-        invitePending: true,
-        inviteVerifiedAt: new Date(),
-      });
+    it("lets a pending invitation win over a recovery session", async () => {
+      signedInAs({ ...technicianProfile, invitePending: true, inviteVerifiedAt: new Date() });
+      recoveryRows(own(new Date()));
       sessionIs(SESSION_ID);
       expect(await getAuthState()).toMatchObject({ status: "password-pending" });
     });
 
     it("makes requireRole refuse the recovery session for every role", async () => {
-      signedInAs(recovering(new Date()));
+      signedInAs(backofficeProfile);
+      recoveryRows(own(new Date()));
       sessionIs(SESSION_ID);
       expect(await codeOf(requireRole("backoffice"))).toBe("reset-pending");
       expect(await codeOf(requireRole("technician", "backoffice"))).toBe("reset-pending");
       expect(await getCurrentUser()).toBeNull();
 
-      signedInAs(recovering(new Date(Date.now() - 25 * HOUR)));
-      sessionIs(SESSION_ID);
+      recoveryRows(own(new Date(Date.now() - 25 * HOUR)));
       expect(await codeOf(requireRole("backoffice"))).toBe("reset-expired");
     });
   });

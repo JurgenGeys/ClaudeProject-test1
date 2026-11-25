@@ -20,8 +20,9 @@ export const LOGIN_REASON_DISABLED = "disabled";
 export const CLEAR_SESSION_PATH = "/auth/clear-session";
 
 /**
- * Route handler that the link in the invitation mail points to. It checks the token and
- * sends the visitor on to "set password" (design chapter 6).
+ * Page that the link in the invitation mail and in the "wachtwoord vergeten" mail points to
+ * (`?token_hash=…&type=invite|recovery`). It only shows a button; pressing it checks the token
+ * (`confirmLink`) and sends the visitor on to "set password" (design chapter 6).
  */
 export const CONFIRM_PATH = "/auth/confirm";
 

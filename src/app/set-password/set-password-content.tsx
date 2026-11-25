@@ -66,7 +66,7 @@ export async function SetPasswordContent({
         <p className="mt-2 text-center text-muted-foreground">
           Kies een nieuw wachtwoord voor {state.user.email}.
         </p>
-        <SetPasswordForm />
+        <SetPasswordForm mode="reset" />
         {/* Leaves without choosing a password: ends the recovery session (design G2). */}
         <form action={cancelPasswordReset} className="mt-3">
           <Button type="submit" variant="outline" className="h-11 w-full text-base">
@@ -86,7 +86,7 @@ export async function SetPasswordContent({
         <p className="mt-2 text-center text-muted-foreground">
           Kies een wachtwoord om de planning te gebruiken.
         </p>
-        <SetPasswordForm />
+        <SetPasswordForm mode="invite" />
         {/* Leaves without choosing a password: ends the temporary session (decision Jurgen, 25/11/2026). */}
         <form action={signOut} className="mt-3">
           <Button type="submit" variant="outline" className="h-11 w-full text-base">

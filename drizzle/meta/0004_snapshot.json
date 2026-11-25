@@ -1,5 +1,5 @@
 {
-  "id": "43c479c4-3958-4e0a-9c69-71175916311d",
+  "id": "1fcd1fb9-21f6-4f6f-84b2-734886ecfd83",
   "prevId": "f6a3917e-cf50-4c4d-a1e0-753d5694d717",
   "version": "7",
   "dialect": "postgresql",
@@ -53,18 +53,6 @@
           "primaryKey": false,
           "notNull": false
         },
-        "recovery_session_id": {
-          "name": "recovery_session_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "recovery_verified_at": {
-          "name": "recovery_verified_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp with time zone",
@@ -111,10 +99,6 @@
         "profiles_active_matches_deactivated_at": {
           "name": "profiles_active_matches_deactivated_at",
           "value": "\"profiles\".\"is_active\" = (\"profiles\".\"deactivated_at\" is null)"
-        },
-        "profiles_recovery_session_complete": {
-          "name": "profiles_recovery_session_complete",
-          "value": "(\"profiles\".\"recovery_session_id\" is null) = (\"profiles\".\"recovery_verified_at\" is null)"
         }
       },
       "isRLSEnabled": true
@@ -748,6 +732,68 @@
           "value": "\"tasks\".\"estimated_minutes\" is null or (\"tasks\".\"estimated_minutes\" > 0 and \"tasks\".\"estimated_minutes\" % 15 = 0)"
         }
       },
+      "isRLSEnabled": true
+    },
+    "public.recovery_sessions": {
+      "name": "recovery_sessions",
+      "schema": "",
+      "columns": {
+        "session_id": {
+          "name": "session_id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "verified_at": {
+          "name": "verified_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "recovery_sessions_user_id_idx": {
+          "name": "recovery_sessions_user_id_idx",
+          "columns": [
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "recovery_sessions_user_id_profiles_id_fk": {
+          "name": "recovery_sessions_user_id_profiles_id_fk",
+          "tableFrom": "recovery_sessions",
+          "tableTo": "profiles",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
       "isRLSEnabled": true
     }
   },
