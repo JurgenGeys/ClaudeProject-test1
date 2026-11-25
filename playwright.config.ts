@@ -24,11 +24,15 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
-  // In CI also an HTML report, which the workflow uploads when a test fails.
+  // In CI also an HTML report, which the workflow uploads when a test fails (screenshots, no traces).
   reporter: process.env.CI ? [["github"], ["html", { open: "never" }]] : "list",
   use: {
     baseURL,
-    trace: "on-first-retry",
+    // Traces contain the test tokens and this repository is public, so in CI they are not
+    // recorded (the HTML report embeds them). Locally they are kept for failed tests only.
+    trace: process.env.CI ? "off" : "retain-on-failure",
+    // Screenshots of failed tests are safe to share and end up in the HTML report.
+    screenshot: "only-on-failure",
   },
   projects: [
     { name: "desktop", use: { ...devices["Desktop Chrome"] } },

@@ -1,7 +1,6 @@
-import { cookies } from "next/headers";
 import { NextResponse, type NextRequest } from "next/server";
 
-import { isSessionCookieName } from "@/lib/auth/login-redirect";
+import { endLocalSession } from "@/lib/auth/login-redirect";
 import { LOGIN_PATH } from "@/lib/auth/routes";
 import { getAuthState } from "@/lib/auth/session";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -20,17 +19,6 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(new URL(target, request.url));
   }
 
-  const supabase = await createSupabaseServerClient();
-  try {
-    await supabase.auth.signOut({ scope: "local" });
-  } catch {
-    // The cookies are removed below either way.
-  }
-  const cookieStore = await cookies();
-  for (const { name } of cookieStore.getAll()) {
-    if (isSessionCookieName(name)) {
-      cookieStore.delete(name);
-    }
-  }
+  await endLocalSession(await createSupabaseServerClient());
   return NextResponse.redirect(new URL(LOGIN_PATH, request.url));
 }

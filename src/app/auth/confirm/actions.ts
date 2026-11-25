@@ -6,6 +6,7 @@ import { z } from "zod";
 
 import { getDb } from "@/db/client";
 import { profiles } from "@/db/schema";
+import { endLocalSession } from "@/lib/auth/login-redirect";
 import {
   SET_PASSWORD_ERROR_LINK,
   SET_PASSWORD_ERROR_UNAVAILABLE,
@@ -86,7 +87,9 @@ export async function confirmInvite(formData: FormData): Promise<void> {
         !profile.invitePending ||
         profile.role !== "technician"
       ) {
-        await supabase.auth.signOut({ scope: "local" });
+        // A refused user must not keep the session that verifying just created, also not when
+        // Auth cannot be reached for the sign-out.
+        await endLocalSession(supabase);
         destination = invalidLinkPath(SET_PASSWORD_ERROR_LINK);
       } else {
         // Database time, so the 24 hours run on a clock that the visitor cannot touch.
@@ -103,11 +106,7 @@ export async function confirmInvite(formData: FormData): Promise<void> {
       "Confirming an invitation failed:",
       error instanceof Error ? error.name : typeof error,
     );
-    try {
-      await supabase.auth.signOut({ scope: "local" });
-    } catch {
-      // Nothing more to do; the page shows the message either way.
-    }
+    await endLocalSession(supabase);
     destination = invalidLinkPath(SET_PASSWORD_ERROR_UNAVAILABLE);
   }
   redirect(destination);

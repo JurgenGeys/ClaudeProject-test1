@@ -3,7 +3,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 
-const { verifyOtp, signOut, findProfile, set } = vi.hoisted(() => ({
+const { verifyOtp, signOut, findProfile, set, cookieStore } = vi.hoisted(() => ({
+  cookieStore: { getAll: vi.fn(), delete: vi.fn() },
   verifyOtp: vi.fn(),
   signOut: vi.fn(),
   findProfile: vi.fn(),
@@ -23,6 +24,7 @@ vi.mock("@/db/client", () => ({
     }),
   }),
 }));
+vi.mock("next/headers", () => ({ cookies: async () => cookieStore }));
 vi.mock("next/navigation", () => ({
   redirect: (path: string) => {
     throw new Error(`NEXT_REDIRECT:${path}`);
@@ -56,6 +58,7 @@ beforeEach(() => {
   vi.resetAllMocks();
   consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
   signOut.mockResolvedValue({ error: null });
+  cookieStore.getAll.mockReturnValue([{ name: "sb-local-auth-token", value: "a" }]);
   verifyOtp.mockResolvedValue({ data: { user: { id: "u1" } }, error: null });
   findProfile.mockResolvedValue(pendingTechnician);
 });
@@ -117,7 +120,15 @@ describe("confirmInvite: an invalid link", () => {
     findProfile.mockResolvedValue(profile);
     await expect(press()).rejects.toThrow(INVALID);
     expect(signOut).toHaveBeenCalledWith({ scope: "local" });
+    expect(cookieStore.delete).toHaveBeenCalledWith("sb-local-auth-token");
     expect(set).not.toHaveBeenCalled();
+  });
+
+  it("removes the session cookies even when the sign-out call fails", async () => {
+    findProfile.mockResolvedValue(undefined);
+    signOut.mockResolvedValue({ error: new Error("auth unreachable") });
+    await expect(press()).rejects.toThrow(INVALID);
+    expect(cookieStore.delete).toHaveBeenCalledWith("sb-local-auth-token");
   });
 });
 
@@ -135,6 +146,7 @@ describe("confirmInvite: when something is unreachable", () => {
     findProfile.mockRejectedValue(new Error(`db down while handling ${TOKEN}`));
     await expect(press()).rejects.toThrow(UNAVAILABLE);
     expect(signOut).toHaveBeenCalledWith({ scope: "local" });
+    expect(cookieStore.delete).toHaveBeenCalledWith("sb-local-auth-token");
     expect(JSON.stringify(consoleError.mock.calls)).not.toContain(TOKEN);
   });
 });

@@ -154,12 +154,31 @@ mails per uur en het aantal tokencontroles (`email_sent`, `token_verifications`,
 5. _Mail versturen_: de ingebouwde mailserver van Supabase is enkel om te testen (zeer weinig mails per uur, en enkel
    naar teamleden van het project). Voor echt gebruik is een eigen SMTP-dienst nodig (keuze K6, nog open).
 6. De omgevingsvariabele `SITE_URL` op de hosting van de applicatie, met hetzelfde adres als de Site URL.
+7. _Databaserol_: de rol in `DATABASE_URL` moet `auth.users` kunnen lezen (`SELECT`); het uitnodigen zoekt daar het
+   adres op (`findAuthUserByEmail`). Controleer het met dezelfde verbinding:
+   `select id from auth.users limit 1;`. Krijg je "permission denied for table users", gebruik dan een verbinding met de
+   rol `postgres` (de connection string van het project, ook via de pooler), of geef de gebruikte rol leesrecht met
+   `grant usage on schema auth to <rol>; grant select on auth.users to <rol>;` (eenmalig, in de SQL-editor van het
+   project; geen schemawijziging van de applicatie). Zonder leesrecht mislukt het opzoeken en geeft uitnodigen de
+   technische foutmelding.
 
 **Opnieuw versturen na openen.** Supabase stuurt geen uitnodiging meer naar een adres dat het al bevestigd heeft (na de
 klik op de knop). Heeft de technieker toen geen wachtwoord gekozen, dan stuurt **Uitnodiging opnieuw versturen** de mail
 "Reset password" (type `recovery`, via `resetPasswordForEmail`) met een nieuwe link naar dezelfde tussenpagina. Daarom
 moet dat sjabloon ook ingesteld zijn. Zolang `invite_pending` waar is accepteert `/auth/confirm` dat type enkel voor een
 technieker die nog geen wachtwoord koos; de uitbreiding voor "Wachtwoord vergeten" volgt in BT-06b.
+
+**Auth-account zonder profiel (uitnodigen zegt "Er bestaat al een gebruiker met dit e-mailadres.").** Dit gebeurt als
+er een account in Supabase Auth staat dat de applicatie niet zelf aanmaakte (geen `invited_by_app` in `app_metadata`) en
+er geen profiel bij hoort, bv. een handmatig aangemaakte gebruiker of een mislukte eerdere poging. Oplossing:
+
+1. Zoek het adres op in _Authentication, Users_ van het Supabase-dashboard en bepaal of het account bedoeld is.
+2. Ongewenst of een restant: verwijder het account in het dashboard (_Delete user_) en nodig de technieker opnieuw uit.
+3. Wel bedoeld: laat de applicatie het hergebruiken door het merkteken te zetten met de admin-API (server-side, met de
+   geheime sleutel; die komt nooit in de browser of in de repository):
+   `PUT <project-url>/auth/v1/admin/users/<id>` met header `apikey` en `Authorization: Bearer <geheime sleutel>` en body
+   `{"app_metadata": {"invited_by_app": true}}`. Nodig daarna opnieuw uit; de applicatie maakt dan het profiel aan en
+   stuurt de mail.
 
 ### End-to-end tests
 

@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 
+import { endLocalSession } from "@/lib/auth/login-redirect";
 import {
   SET_PASSWORD_ERROR_EXPIRED,
   SET_PASSWORD_MODE_INVITE,
@@ -22,8 +23,9 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(new URL("/", request.url));
   }
 
-  const supabase = await createSupabaseServerClient();
-  await supabase.auth.signOut({ scope: "local" });
+  // Also removes the cookies when Auth cannot be reached; otherwise the session would stay and
+  // this page could send the visitor round in circles.
+  await endLocalSession(await createSupabaseServerClient());
 
   return NextResponse.redirect(
     new URL(
