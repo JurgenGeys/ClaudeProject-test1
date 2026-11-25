@@ -2,9 +2,10 @@ import { sql } from "drizzle-orm";
 import { boolean, check, pgEnum, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
 import { authUsers } from "drizzle-orm/supabase";
 
-/** Roles of the application. The managing director uses `backoffice` too (assumption A15). */
-export const userRoles = ["backoffice", "technician"] as const;
-export type UserRole = (typeof userRoles)[number];
+import { userRoles } from "../../lib/auth/roles";
+
+// Re-exported so existing imports from the schema keep working; the list lives in `roles.ts`.
+export { userRoles, type UserRole } from "../../lib/auth/roles";
 
 export const userRoleEnum = pgEnum("user_role", userRoles);
 
