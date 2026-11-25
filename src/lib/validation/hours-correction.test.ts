@@ -45,7 +45,7 @@ describe("hoursCorrectionSchema", () => {
         correctedMinutes: MAX_CORRECTED_MINUTES + 15,
         reason: "x",
       }),
-    ).toHaveProperty("correctedMinutes");
+    ).toEqual({ correctedMinutes: ["Deze waarde is te groot."] });
   });
 
   it("refuses an absurdly long reason", () => {

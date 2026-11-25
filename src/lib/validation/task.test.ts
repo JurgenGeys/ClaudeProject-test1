@@ -117,9 +117,10 @@ describe("taskSchema", () => {
       expect(
         taskSchema.parse({ ...valid, estimatedMinutes: MAX_ESTIMATED_MINUTES }).estimatedMinutes,
       ).toBe(MAX_ESTIMATED_MINUTES);
+      // A neutral message: the maximum is not a decided product rule.
       expect(
         fieldErrors(taskSchema, { ...valid, estimatedMinutes: MAX_ESTIMATED_MINUTES + 15 }),
-      ).toBeTruthy();
+      ).toEqual({ estimatedMinutes: ["Deze waarde is te groot."] });
     });
   });
 

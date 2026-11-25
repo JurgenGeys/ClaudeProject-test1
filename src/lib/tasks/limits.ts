@@ -4,11 +4,12 @@
  *
  * There are two kinds, and the difference matters:
  *
- * 1. Limits from the design (chapter 3 and 5). Decided, so they are also enforced by a check
- *    constraint in the database.
+ * 1. Limits from the design (chapter 3 and 5). Decided. The lengths of the notes and of the
+ *    cancellation reason are also check constraints in the database. The 16u00 maximum is
+ *    deliberately only in the Zod schema, so it can change without a migration.
  * 2. Technical safety limits. Nobody decided these: they only refuse absurd input (a pasted
  *    book, a duration of ten years). They are NOT product rules and are NOT in the database.
- *    Jurgen still has to decide the first three (the TODO constants).
+ *    Jurgen still has to decide the three TODO constants.
  */
 
 // ---- 1. Decided in the design ------------------------------------------------------------
@@ -25,14 +26,14 @@ export const MAX_WORKED_MINUTES = 16 * 60;
 // ---- 2. Not decided yet: technical safety limits only ------------------------------------
 
 /**
- * TODO: nog te beslissen door Jurgen.
+ * TODO: still to be decided by Jurgen.
  * Maximum estimated duration of a task (B2). The design only says "per quarter of an hour".
- * Until Jurgen decides, 7 days only refuses absurd values.
+ * Until Jurgen decides, 7 days only refuses absurd values. Users see a neutral message for it.
  */
 export const MAX_ESTIMATED_MINUTES = 7 * 24 * 60;
 
 /**
- * TODO: nog te beslissen door Jurgen.
+ * TODO: still to be decided by Jurgen.
  * Maximum of the hours the back office enters in "Uren corrigeren" (B3). The design does not
  * say whether this is 16u00 like the technician's limit. Until Jurgen decides, 7 days only
  * refuses absurd values.
@@ -40,7 +41,7 @@ export const MAX_ESTIMATED_MINUTES = 7 * 24 * 60;
 export const MAX_CORRECTED_MINUTES = 7 * 24 * 60;
 
 /**
- * TODO: nog te beslissen door Jurgen.
+ * TODO: still to be decided by Jurgen.
  * Maximum length of the reason of an hours correction (B3). The design only makes it required.
  */
 export const CORRECTION_REASON_MAX_LENGTH = 1000;

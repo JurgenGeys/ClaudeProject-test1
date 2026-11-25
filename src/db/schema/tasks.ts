@@ -63,8 +63,11 @@ export const tasks = pgTable(
     createdBy: uuid("created_by")
       .notNull()
       .references(() => profiles.id, { onDelete: "restrict" }),
-    // Not maintained by the database: the Server Action sets both on every update.
-    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    // `updated_at` is set by Drizzle on every update (`$onUpdate`); `updated_by` by the Server Action.
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
     updatedBy: uuid("updated_by")
       .notNull()
       .references(() => profiles.id, { onDelete: "restrict" }),

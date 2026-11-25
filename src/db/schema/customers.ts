@@ -23,8 +23,11 @@ export const customers = pgTable(
     createdBy: uuid("created_by")
       .notNull()
       .references(() => profiles.id, { onDelete: "restrict" }),
-    // Not maintained by the database: the Server Action sets it on every update.
-    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    // Drizzle sets it on every update made through Drizzle (`$onUpdate`); no trigger in the database.
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
   },
   (table) => [
     // Customer search by name (B2, B5), case insensitive.

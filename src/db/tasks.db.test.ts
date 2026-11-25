@@ -28,11 +28,39 @@ async function inRolledBackTransaction(work: (tx: Tx) => Promise<void>): Promise
   ).rejects.toBeInstanceOf(Rollback);
 }
 
-/** Runs one statement that must fail, without poisoning the surrounding transaction. */
-async function expectSqlError(tx: Tx, statement: () => PromiseLike<unknown>, code: string) {
+/**
+ * Runs one statement that must fail, without poisoning the surrounding transaction. The
+ * constraint that refuses it is checked too (one name, or a list when PostgreSQL may report
+ * any of several), so a test cannot pass because of another rule.
+ */
+async function expectSqlError(
+  tx: Tx,
+  statement: () => PromiseLike<unknown>,
+  code: string,
+  constraint?: string | string[],
+) {
   await tx`savepoint before_error`;
-  await expect(statement()).rejects.toMatchObject({ code });
+  const error: unknown = await Promise.resolve(statement()).then(
+    () => null,
+    (caught: unknown) => caught,
+  );
+  expect(error, "the statement should have failed").not.toBeNull();
+  expect(error).toMatchObject({ code });
+  if (constraint !== undefined) {
+    const name = (error as { constraint_name?: string }).constraint_name;
+    expect(Array.isArray(constraint) ? constraint : [constraint]).toContain(name);
+  }
   await tx`rollback to savepoint before_error`;
+}
+
+/** A NOT NULL violation names the column that refused the value. */
+async function expectNotNull(tx: Tx, column: string, statement: () => PromiseLike<unknown>) {
+  await tx`savepoint before_not_null`;
+  await expect(Promise.resolve(statement())).rejects.toMatchObject({
+    code: "23502",
+    column_name: column,
+  });
+  await tx`rollback to savepoint before_not_null`;
 }
 
 const CHECK_VIOLATION = "23514";
@@ -291,21 +319,54 @@ describe("Row Level Security and the public API", () => {
     }
   });
 
-  it("cannot be written by the anon and authenticated API roles", async (context) => {
+  it("cannot be written by the anon and authenticated API roles (insert, update, delete)", async (context) => {
     if (apiRoles.length === 0) {
       context.skip("anon/authenticated roles only exist on Supabase");
     }
 
     for (const role of apiRoles) {
       await inRolledBackTransaction(async (tx) => {
-        const world = await createWorld(tx);
+        const w = await createWorld(tx);
+        const task = await insertTask(tx, w, {
+          status: "completed",
+          assignee_id: w.kevin,
+          picked_up_at: NOW,
+        });
+        await insertCompletion(tx, task.id, w.kevin);
         await tx.unsafe(`set local role ${role}`);
-        await tx`savepoint write_table`;
-        // No grant (42501) or RLS without a policy (also 42501 for an insert): either way refused.
-        await expect(
-          tx`insert into public.customers (name, created_by) values ('x', ${world.office})`,
-        ).rejects.toMatchObject({ code: "42501" });
-        await tx`rollback to savepoint write_table`;
+
+        // Inserts: refused with 42501 (no grant, or RLS without a policy).
+        const inserts: Record<string, () => PromiseLike<unknown>> = {
+          customers: () =>
+            tx`insert into public.customers (name, created_by) values ('x', ${w.office})`,
+          tasks: () => insertTask(tx, w),
+          task_completions: () => insertCompletion(tx, task.id, w.kevin),
+        };
+        for (const statement of Object.values(inserts)) {
+          await expectSqlError(tx, statement, "42501");
+        }
+
+        // Updates and deletes: either refused (42501) or RLS hides every row, so 0 rows change.
+        const changes = [
+          `update public.customers set name = 'changed'`,
+          `update public.tasks set instructions = 'changed'`,
+          `update public.task_completions set notes = 'changed'`,
+          `delete from public.customers`,
+          `delete from public.tasks`,
+          `delete from public.task_completions`,
+        ];
+        for (const change of changes) {
+          await tx`savepoint change_table`;
+          const result = await tx.unsafe(change).then(
+            (rows) => rows.count,
+            (error: unknown) => {
+              expect(error, change).toMatchObject({ code: "42501" });
+              return 0;
+            },
+          );
+          expect(result, `${role}: ${change}`).toBe(0);
+          await tx`rollback to savepoint change_table`;
+        }
       });
     }
   });
@@ -403,7 +464,7 @@ describe("tasks: defaults and required fields", () => {
   it("requires the kind of work and refuses an unknown one", async () => {
     await inRolledBackTransaction(async (tx) => {
       const world = await createWorld(tx);
-      await expectSqlError(tx, () => insertTask(tx, world, { work_type: null }), "23502");
+      await expectNotNull(tx, "work_type", () => insertTask(tx, world, { work_type: null }));
       await expectSqlError(tx, () => insertTask(tx, world, { work_type: "installation" }), "22P02");
     });
   });
@@ -422,7 +483,7 @@ describe("tasks: defaults and required fields", () => {
         "created_by",
         "updated_by",
       ]) {
-        await expectSqlError(tx, () => insertTask(tx, world, { [column]: null }), "23502");
+        await expectNotNull(tx, column, () => insertTask(tx, world, { [column]: null }));
       }
     });
   });
@@ -462,17 +523,25 @@ describe("tasks: check constraints per status", () => {
         tx,
         () => insertTask(tx, w, { status: "open", assignee_id: w.kevin }),
         CHECK_VIOLATION,
+        "tasks_assignee_matches_status",
       );
-      await expectSqlError(tx, () => insertTask(tx, w, { status: "assigned" }), CHECK_VIOLATION);
+      await expectSqlError(
+        tx,
+        () => insertTask(tx, w, { status: "assigned" }),
+        CHECK_VIOLATION,
+        "tasks_assignee_matches_status",
+      );
       await expectSqlError(
         tx,
         () => insertTask(tx, w, { status: "picked_up", picked_up_at: NOW }),
         CHECK_VIOLATION,
+        "tasks_assignee_matches_status",
       );
       await expectSqlError(
         tx,
         () => insertTask(tx, w, { status: "completed", picked_up_at: NOW }),
         CHECK_VIOLATION,
+        "tasks_assignee_matches_status",
       );
       await expectSqlError(
         tx,
@@ -484,6 +553,7 @@ describe("tasks: check constraints per status", () => {
             invoiced_by: w.office,
           }),
         CHECK_VIOLATION,
+        "tasks_assignee_matches_status",
       );
     });
   });
@@ -496,11 +566,13 @@ describe("tasks: check constraints per status", () => {
         tx,
         () => tx`update public.tasks set assignee_id = null where id = ${task.id}`,
         CHECK_VIOLATION,
+        "tasks_assignee_matches_status",
       );
       await expectSqlError(
         tx,
         () => tx`update public.tasks set status = 'open' where id = ${task.id}`,
         CHECK_VIOLATION,
+        "tasks_assignee_matches_status",
       );
       await tx`update public.tasks set status = 'open', assignee_id = null where id = ${task.id}`;
     });
@@ -513,21 +585,25 @@ describe("tasks: check constraints per status", () => {
         tx,
         () => insertTask(tx, w, { status: "picked_up", assignee_id: w.kevin }),
         CHECK_VIOLATION,
+        "tasks_picked_up_at_matches_status",
       );
       await expectSqlError(
         tx,
         () => insertTask(tx, w, { status: "completed", assignee_id: w.kevin }),
         CHECK_VIOLATION,
+        "tasks_picked_up_at_matches_status",
       );
       await expectSqlError(
         tx,
         () => insertTask(tx, w, { status: "assigned", assignee_id: w.kevin, picked_up_at: NOW }),
         CHECK_VIOLATION,
+        "tasks_picked_up_at_matches_status",
       );
       await expectSqlError(
         tx,
         () => insertTask(tx, w, { status: "open", picked_up_at: NOW }),
         CHECK_VIOLATION,
+        "tasks_picked_up_at_matches_status",
       );
       await expectSqlError(
         tx,
@@ -539,6 +615,7 @@ describe("tasks: check constraints per status", () => {
             cancelled_by: w.office,
           }),
         CHECK_VIOLATION,
+        "tasks_picked_up_at_matches_status",
       );
     });
   });
@@ -555,6 +632,7 @@ describe("tasks: check constraints per status", () => {
         tx,
         () => tx`update public.tasks set status = 'assigned' where id = ${task.id}`,
         CHECK_VIOLATION,
+        "tasks_picked_up_at_matches_status",
       );
       await tx`update public.tasks set status = 'assigned', picked_up_at = null where id = ${task.id}`;
     });
@@ -568,26 +646,31 @@ describe("tasks: check constraints per status", () => {
         tx,
         () => insertTask(tx, w, { ...completed, status: "invoiced" }),
         CHECK_VIOLATION,
+        "tasks_invoiced_matches_status",
       );
       await expectSqlError(
         tx,
         () => insertTask(tx, w, { ...completed, status: "invoiced", invoiced_at: NOW }),
         CHECK_VIOLATION,
+        "tasks_invoiced_matches_status",
       );
       await expectSqlError(
         tx,
         () => insertTask(tx, w, { ...completed, status: "invoiced", invoiced_by: w.office }),
         CHECK_VIOLATION,
+        "tasks_invoiced_matches_status",
       );
       await expectSqlError(
         tx,
         () => insertTask(tx, w, { ...completed, invoiced_at: NOW, invoiced_by: w.office }),
         CHECK_VIOLATION,
+        "tasks_invoiced_matches_status",
       );
       await expectSqlError(
         tx,
         () => insertTask(tx, w, { ...completed, invoiced_at: NOW }),
         CHECK_VIOLATION,
+        "tasks_invoiced_matches_status",
       );
     });
   });
@@ -606,6 +689,7 @@ describe("tasks: check constraints per status", () => {
         tx,
         () => tx`update public.tasks set status = 'completed' where id = ${task.id}`,
         CHECK_VIOLATION,
+        "tasks_invoiced_matches_status",
       );
       await tx`
         update public.tasks set status = 'completed', invoiced_at = null, invoiced_by = null
@@ -617,21 +701,29 @@ describe("tasks: check constraints per status", () => {
   it("cancelled_at and cancelled_by are filled if and only if the status is Geannuleerd", async () => {
     await inRolledBackTransaction(async (tx) => {
       const w = await createWorld(tx);
-      await expectSqlError(tx, () => insertTask(tx, w, { status: "cancelled" }), CHECK_VIOLATION);
+      await expectSqlError(
+        tx,
+        () => insertTask(tx, w, { status: "cancelled" }),
+        CHECK_VIOLATION,
+        "tasks_cancelled_matches_status",
+      );
       await expectSqlError(
         tx,
         () => insertTask(tx, w, { status: "cancelled", cancelled_at: NOW }),
         CHECK_VIOLATION,
+        "tasks_cancelled_matches_status",
       );
       await expectSqlError(
         tx,
         () => insertTask(tx, w, { status: "cancelled", cancelled_by: w.office }),
         CHECK_VIOLATION,
+        "tasks_cancelled_matches_status",
       );
       await expectSqlError(
         tx,
         () => insertTask(tx, w, { cancelled_at: NOW, cancelled_by: w.office }),
         CHECK_VIOLATION,
+        "tasks_cancelled_matches_status",
       );
       await expectSqlError(
         tx,
@@ -643,6 +735,7 @@ describe("tasks: check constraints per status", () => {
             cancelled_by: w.office,
           }),
         CHECK_VIOLATION,
+        "tasks_cancelled_matches_status",
       );
     });
   });
@@ -671,6 +764,7 @@ describe("tasks: check constraints per status", () => {
         tx,
         () => insertTask(tx, w, { cancellation_reason: "Zomaar" }),
         CHECK_VIOLATION,
+        "tasks_cancellation_reason_valid",
       );
       const cancelled = { status: "cancelled", cancelled_at: NOW, cancelled_by: w.office };
       await insertTask(tx, w, { ...cancelled, cancellation_reason: "x".repeat(500) });
@@ -678,6 +772,7 @@ describe("tasks: check constraints per status", () => {
         tx,
         () => insertTask(tx, w, { ...cancelled, cancellation_reason: "x".repeat(501) }),
         CHECK_VIOLATION,
+        "tasks_cancellation_reason_valid",
       );
     });
   });
@@ -695,6 +790,7 @@ describe("tasks: estimated duration", () => {
           tx,
           () => insertTask(tx, w, { estimated_minutes: minutes }),
           CHECK_VIOLATION,
+          "tasks_estimated_minutes_valid",
         );
       }
     });
@@ -734,7 +830,12 @@ describe("task_completions", () => {
       const w = await createWorld(tx);
       const task = await completedTask(tx, w);
       await insertCompletion(tx, task.id, w.kevin);
-      await expectSqlError(tx, () => insertCompletion(tx, task.id, w.kevin), UNIQUE_VIOLATION);
+      await expectSqlError(
+        tx,
+        () => insertCompletion(tx, task.id, w.kevin),
+        UNIQUE_VIOLATION,
+        "task_completions_task_id_unique",
+      );
     });
   });
 
@@ -747,12 +848,11 @@ describe("task_completions", () => {
           tx,
           () => insertCompletion(tx, task.id, w.kevin, { worked_minutes: minutes }),
           CHECK_VIOLATION,
+          "task_completions_worked_minutes_valid",
         );
       }
-      await expectSqlError(
-        tx,
-        () => insertCompletion(tx, task.id, w.kevin, { worked_minutes: null }),
-        "23502",
+      await expectNotNull(tx, "worked_minutes", () =>
+        insertCompletion(tx, task.id, w.kevin, { worked_minutes: null }),
       );
     });
   });
@@ -775,6 +875,7 @@ describe("task_completions", () => {
         tx,
         () => insertCompletion(tx, second.id, w.kevin, { notes: "x".repeat(2001) }),
         CHECK_VIOLATION,
+        "task_completions_notes_length",
       );
     });
   });
@@ -814,7 +915,12 @@ describe("task_completions", () => {
       ];
       // Each statement is built above but only sent when awaited, so run them one by one.
       for (const attempt of attempts) {
-        await expectSqlError(tx, () => attempt, CHECK_VIOLATION);
+        await expectSqlError(
+          tx,
+          () => attempt,
+          CHECK_VIOLATION,
+          "task_completions_correction_complete",
+        );
       }
     });
   });
@@ -834,6 +940,7 @@ describe("task_completions", () => {
             where task_id = ${task.id}
           `,
           CHECK_VIOLATION,
+          "task_completions_correction_reason_not_blank",
         );
       }
     });
@@ -854,6 +961,7 @@ describe("task_completions", () => {
             where task_id = ${task.id}
           `,
           CHECK_VIOLATION,
+          "task_completions_corrected_minutes_valid",
         );
       }
     });
@@ -883,6 +991,7 @@ describe("ON DELETE RESTRICT: nothing is deleted", () => {
         tx,
         () => tx`delete from public.customers where id = ${w.customer}`,
         FOREIGN_KEY_VIOLATION,
+        "tasks_customer_id_customers_id_fk",
       );
     });
   });
@@ -902,6 +1011,13 @@ describe("ON DELETE RESTRICT: nothing is deleted", () => {
           tx,
           () => tx`delete from public.profiles where id = ${profile}`,
           FOREIGN_KEY_VIOLATION,
+          [
+            "tasks_assignee_id_profiles_id_fk",
+            "tasks_created_by_profiles_id_fk",
+            "tasks_updated_by_profiles_id_fk",
+            "tasks_cancelled_by_profiles_id_fk",
+            "customers_created_by_profiles_id_fk",
+          ],
         );
       }
     });
@@ -920,11 +1036,13 @@ describe("ON DELETE RESTRICT: nothing is deleted", () => {
         tx,
         () => tx`delete from public.tasks where id = ${task.id}`,
         FOREIGN_KEY_VIOLATION,
+        "task_completions_task_id_tasks_id_fk",
       );
       await expectSqlError(
         tx,
         () => tx`delete from public.profiles where id = ${w.kevin}`,
         FOREIGN_KEY_VIOLATION,
+        ["task_completions_completed_by_profiles_id_fk", "tasks_assignee_id_profiles_id_fk"],
       );
     });
   });
@@ -936,6 +1054,7 @@ describe("ON DELETE RESTRICT: nothing is deleted", () => {
         tx,
         () => insertTask(tx, w, { customer_id: "00000000-0000-4000-8000-000000000000" }),
         FOREIGN_KEY_VIOLATION,
+        "tasks_customer_id_customers_id_fk",
       );
       await expectSqlError(
         tx,
@@ -945,6 +1064,7 @@ describe("ON DELETE RESTRICT: nothing is deleted", () => {
             assignee_id: "00000000-0000-4000-8000-000000000000",
           }),
         FOREIGN_KEY_VIOLATION,
+        "tasks_assignee_id_profiles_id_fk",
       );
     });
   });
