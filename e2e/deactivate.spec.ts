@@ -139,7 +139,7 @@ test.describe("switching off a technician", () => {
         "Bram Uitschakel heeft nog taken die niet afgewerkt zijn (2). Wijs die eerst aan een andere technieker toe.",
       );
       await expect(refusal.getByRole("link", { name: "Toon zijn taken" })).toBeVisible();
-      await refusal.getByRole("button", { name: "Sluiten" }).last().click();
+      await refusal.getByRole("button", { name: "Sluiten" }).click();
       await expect(refusal).toBeHidden();
     });
 

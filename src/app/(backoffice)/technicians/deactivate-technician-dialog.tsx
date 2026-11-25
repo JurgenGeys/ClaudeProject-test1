@@ -56,7 +56,8 @@ export function DeactivateTechnicianDialog({ technicianId, fullName, openTasks }
           Uitschakelen
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-md">
+      {/* The refusal has its own "Sluiten" button: no corner cross, or there are two of them. */}
+      <DialogContent className="sm:max-w-md" showCloseButton={blockingTasks === 0}>
         {blockingTasks > 0 ? (
           <>
             <DialogHeader>

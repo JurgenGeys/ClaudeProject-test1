@@ -65,6 +65,7 @@ const revalidatePath = vi.fn();
 vi.mock("next/cache", () => ({ revalidatePath: (...args: unknown[]) => revalidatePath(...args) }));
 
 import { AuthError } from "@/lib/auth/session";
+import { AUTH_BAN_TIMEOUT_MS } from "@/lib/technicians/ban";
 
 import {
   deactivateTechnician,
@@ -605,10 +606,6 @@ describe("deactivateTechnician", () => {
   it.each([
     [{ kind: "not-found" }, "Deze technieker bestaat niet (meer). Laad de pagina opnieuw."],
     [
-      { kind: "already-disabled", fullName: "Bram Claes" },
-      "Bram Claes is al uitgeschakeld. Laad de pagina opnieuw.",
-    ],
-    [
       { kind: "invited", fullName: "Yana Willems" },
       "Yana Willems heeft de uitnodiging nog niet aanvaard en kan daarom niet uitgeschakeld worden.",
     ],
@@ -657,6 +654,69 @@ describe("deactivateTechnician", () => {
       formError: "Dat is niet gelukt. Controleer je internetverbinding en probeer opnieuw.",
     });
     expect(JSON.stringify(consoleError.mock.calls)).not.toContain("kevin@frisair.be");
+  });
+
+  it("logs the technician id (no name or e-mail) when the block cannot be lifted again", async () => {
+    deactivateTechnicianProfile.mockResolvedValue({ kind: "deactivated", fullName: "Bram Claes" });
+    transaction.mockImplementation(async (callback: (tx: unknown) => Promise<unknown>) => {
+      await callback(tx);
+      throw new Error("commit failed");
+    });
+    updateUserById
+      .mockResolvedValueOnce({ error: null })
+      .mockResolvedValueOnce({ error: new AuthApiError("boom", 500, "unexpected_failure") });
+    expect(await deactivateTechnician(null, form({ id }))).toMatchObject({ ok: false });
+    const logged = JSON.stringify(consoleError.mock.calls);
+    expect(logged).toContain(id);
+    expect(logged).not.toContain("Bram");
+  });
+
+  it("sets the block again when the technician turns out to be switched off already (ambiguous commit)", async () => {
+    deactivateTechnicianProfile.mockResolvedValue({
+      kind: "already-disabled",
+      fullName: "Bram Claes",
+    });
+    expect(await deactivateTechnician(null, form({ id }))).toEqual({
+      ok: false,
+      fieldErrors: {},
+      formError: "Bram Claes is al uitgeschakeld. Laad de pagina opnieuw.",
+    });
+    expect(updateUserById).toHaveBeenCalledExactlyOnceWith(id, { ban_duration: "87600h" });
+  });
+
+  it("gives the same message and logs the id when repairing the block fails", async () => {
+    deactivateTechnicianProfile.mockResolvedValue({
+      kind: "already-disabled",
+      fullName: "Bram Claes",
+    });
+    updateUserById.mockResolvedValue({
+      error: new AuthApiError("boom", 500, "unexpected_failure"),
+    });
+    expect(await deactivateTechnician(null, form({ id }))).toEqual({
+      ok: false,
+      fieldErrors: {},
+      formError: "Bram Claes is al uitgeschakeld. Laad de pagina opnieuw.",
+    });
+    expect(JSON.stringify(consoleError.mock.calls)).toContain(id);
+  });
+
+  it("rolls back and undoes a possibly applied block when Auth does not answer in time", async () => {
+    deactivateTechnicianProfile.mockResolvedValue({ kind: "deactivated", fullName: "Bram Claes" });
+    vi.useFakeTimers();
+    try {
+      updateUserById.mockReturnValueOnce(new Promise(() => {}));
+      updateUserById.mockResolvedValueOnce({ error: null });
+      const result = deactivateTechnician(null, form({ id }));
+      await vi.advanceTimersByTimeAsync(AUTH_BAN_TIMEOUT_MS);
+      expect(await result).toMatchObject({
+        ok: false,
+        formError: "Dat is niet gelukt. Controleer je internetverbinding en probeer opnieuw.",
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+    expect(updateUserById).toHaveBeenNthCalledWith(2, id, { ban_duration: "none" });
+    expect(revalidatePath).not.toHaveBeenCalled();
   });
 });
 
@@ -736,10 +796,6 @@ describe("reactivateTechnician", () => {
   it.each([
     [{ kind: "not-found" }, "Deze technieker bestaat niet (meer). Laad de pagina opnieuw."],
     [
-      { kind: "already-active", fullName: "Tom Hendrickx" },
-      "Tom Hendrickx is al actief. Laad de pagina opnieuw.",
-    ],
-    [
       { kind: "invited", fullName: "Yana Willems" },
       "Yana Willems heeft de uitnodiging nog niet aanvaard en is niet uitgeschakeld.",
     ],
@@ -817,5 +873,71 @@ describe("reactivateTechnician", () => {
     });
     expect(updateUserById).not.toHaveBeenCalled();
     expect(JSON.stringify(consoleError.mock.calls)).not.toContain("tom@frisair.be");
+  });
+
+  it("logs the technician id when the account cannot be blocked again", async () => {
+    reactivateTechnicianProfile.mockResolvedValue({
+      kind: "reactivated",
+      fullName: "Tom Hendrickx",
+    });
+    transaction.mockImplementation(async (callback: (tx: unknown) => Promise<unknown>) => {
+      await callback(tx);
+      throw new Error("commit failed");
+    });
+    updateUserById
+      .mockResolvedValueOnce({ error: null })
+      .mockResolvedValueOnce({ error: new AuthApiError("boom", 500, "unexpected_failure") });
+    await reactivateTechnician(null, form({ id }));
+    const logged = JSON.stringify(consoleError.mock.calls);
+    expect(logged).toContain(id);
+    expect(logged).not.toContain("Tom");
+  });
+
+  it("lifts the block when the technician turns out to be active already (ambiguous commit)", async () => {
+    reactivateTechnicianProfile.mockResolvedValue({
+      kind: "already-active",
+      fullName: "Tom Hendrickx",
+    });
+    expect(await reactivateTechnician(null, form({ id }))).toEqual({
+      ok: false,
+      fieldErrors: {},
+      formError: "Tom Hendrickx is al actief. Laad de pagina opnieuw.",
+    });
+    expect(updateUserById).toHaveBeenCalledExactlyOnceWith(id, { ban_duration: "none" });
+  });
+
+  it("gives the same message and logs the id when repairing the block fails", async () => {
+    reactivateTechnicianProfile.mockResolvedValue({
+      kind: "already-active",
+      fullName: "Tom Hendrickx",
+    });
+    updateUserById.mockResolvedValue({
+      error: new AuthApiError("boom", 500, "unexpected_failure"),
+    });
+    expect(await reactivateTechnician(null, form({ id }))).toEqual({
+      ok: false,
+      fieldErrors: {},
+      formError: "Tom Hendrickx is al actief. Laad de pagina opnieuw.",
+    });
+    expect(JSON.stringify(consoleError.mock.calls)).toContain(id);
+  });
+
+  it("rolls back and blocks again when Auth does not answer in time", async () => {
+    reactivateTechnicianProfile.mockResolvedValue({
+      kind: "reactivated",
+      fullName: "Tom Hendrickx",
+    });
+    vi.useFakeTimers();
+    try {
+      updateUserById.mockReturnValueOnce(new Promise(() => {}));
+      updateUserById.mockResolvedValueOnce({ error: null });
+      const result = reactivateTechnician(null, form({ id }));
+      await vi.advanceTimersByTimeAsync(AUTH_BAN_TIMEOUT_MS);
+      expect(await result).toMatchObject({ ok: false, formError: technical });
+    } finally {
+      vi.useRealTimers();
+    }
+    expect(updateUserById).toHaveBeenNthCalledWith(2, id, { ban_duration: "87600h" });
+    expect(revalidatePath).not.toHaveBeenCalled();
   });
 });
