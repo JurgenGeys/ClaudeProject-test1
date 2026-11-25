@@ -32,7 +32,12 @@ export function RevokeInvitationDialog({ technicianId, fullName }: Props) {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button type="button" variant="outline" className="h-9">
+        <Button
+          type="button"
+          variant="outline"
+          className="h-9"
+          aria-label={`Uitnodiging van ${fullName} intrekken`}
+        >
           Uitnodiging intrekken
         </Button>
       </DialogTrigger>

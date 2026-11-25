@@ -210,7 +210,7 @@ describe("revokeInvitationProfile", () => {
     });
   });
 
-  it("the row lock makes a task that is assigned at the same moment wait, and then see the refusal", async () => {
+  it("the row lock makes a task that is assigned at the same moment wait, and the foreign key then refuses it", async () => {
     const other = connect();
     const suffix = Math.random().toString(36).slice(2, 8);
     const created: { office?: string; yana?: string; customer?: string } = {};

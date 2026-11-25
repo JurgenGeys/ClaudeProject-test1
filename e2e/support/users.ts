@@ -278,3 +278,28 @@ export async function authAccountExists(email: string): Promise<boolean> {
     return rows.length > 0;
   });
 }
+
+/**
+ * Creates what a revoked invitation leaves behind when deleting the Auth account failed: an
+ * invited (not yet confirmed) Auth account with the `invited_by_app` marker, blocked, and no
+ * profile. Sends one invitation mail, like the real invitation did.
+ */
+export async function createRevokedLeftover(email: string): Promise<void> {
+  assertLocalSupabase(process.env);
+  const admin = createClient(
+    requireEnv("NEXT_PUBLIC_SUPABASE_URL"),
+    requireEnv("SUPABASE_SECRET_KEY"),
+    { auth: { autoRefreshToken: false, persistSession: false } },
+  );
+  const invited = await admin.auth.admin.inviteUserByEmail(email);
+  if (invited.error || !invited.data.user) {
+    throw new Error(`Inviting test user ${email} failed: ${invited.error?.message}`);
+  }
+  const updated = await admin.auth.admin.updateUserById(invited.data.user.id, {
+    app_metadata: { invited_by_app: true },
+    ban_duration: "87600h",
+  });
+  if (updated.error) {
+    throw new Error(`Blocking test user ${email} failed: ${updated.error.message}`);
+  }
+}

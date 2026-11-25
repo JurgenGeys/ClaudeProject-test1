@@ -25,6 +25,7 @@ export const TECHNICIAN_ACTION_MESSAGES = {
   // Revoking an invitation (BT-07c).
   revoked: (name: string) =>
     `De uitnodiging van ${name} is ingetrokken. De link in de mail werkt niet meer.`,
+  revokedGeneric: "De uitnodiging is ingetrokken. De link in de mail werkt niet meer.",
   notPending: (name: string) =>
     `${name} heeft al een wachtwoord gekozen en kan niet meer ingetrokken worden. Laad de pagina opnieuw.`,
   hasRecords: (name: string) =>

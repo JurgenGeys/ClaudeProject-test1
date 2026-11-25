@@ -12,12 +12,14 @@
       body[data-state~="leeg"] .when-leeg,
       body[data-state~="verstuurd"] .when-verstuurd,
       body[data-state~="uitgeschakeld"] .when-uitgeschakeld,
-      body[data-state~="geactiveerd"] .when-geactiveerd {
+      body[data-state~="geactiveerd"] .when-geactiveerd,
+      body[data-state~="ingetrokken"] .when-ingetrokken {
         display: revert;
       }
       body[data-state~="leeg"] .unless-leeg,
       body[data-state~="uitgeschakeld"] .unless-uitgeschakeld,
-      body[data-state~="geactiveerd"] .unless-geactiveerd {
+      body[data-state~="geactiveerd"] .unless-geactiveerd,
+      body[data-state~="ingetrokken"] .unless-ingetrokken {
         display: none;
       }
       [hidden] {
@@ -37,11 +39,12 @@
       <span class="flex flex-wrap gap-x-3"
         >Variant: <a href="?" class="underline">met gegevens</a>
         <a href="?state=geactiveerd" class="underline">na opnieuw activeren</a>
+        <a href="?state=ingetrokken" class="underline">na uitnodiging intrekken</a>
         <a href="?state=leeg" class="underline">nog geen techniekers</a></span
       >
       <span class="text-amber-800"
         >Probeer "Uitschakelen" bij Kevin (heeft open taken) en bij Bram (geen open taken), en
-        "Opnieuw activeren" bij Tom.</span
+        "Opnieuw activeren" bij Tom en "Uitnodiging intrekken" bij Yana.</span
       >
     </div>
 
@@ -86,6 +89,14 @@
           class="mb-4 rounded-md border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-900"
         >
           Bram Claes is uitgeschakeld. Zijn afgewerkte taken en uren blijven bewaard.
+        </div>
+      </div>
+      <div class="when-ingetrokken">
+        <div
+          role="status"
+          class="mb-4 rounded-md border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-900"
+        >
+          De uitnodiging van Yana Willems is ingetrokken. De link in de mail werkt niet meer.
         </div>
       </div>
       <div class="when-geactiveerd">
@@ -218,7 +229,7 @@
                 </button>
               </td>
             </tr>
-            <tr>
+            <tr class="unless-ingetrokken">
               <td class="px-4 py-3 font-medium whitespace-nowrap">Yana Willems</td>
               <td class="px-4 py-3">yana@frisair.be</td>
               <td class="px-4 py-3">
@@ -234,6 +245,14 @@
                   class="inline-flex h-9 items-center rounded-md border border-slate-300 bg-white px-3 text-sm font-medium hover:bg-slate-50"
                   >Uitnodiging opnieuw versturen</a
                 >
+                <button
+                  type="button"
+                  onclick="openIntrekken('Yana Willems')"
+                  aria-label="Uitnodiging van Yana Willems intrekken"
+                  class="ml-2 h-9 rounded-md border border-slate-300 bg-white px-3 text-sm font-medium hover:bg-slate-50"
+                >
+                  Uitnodiging intrekken
+                </button>
               </td>
             </tr>
             <tr class="when-uitgeschakeld">
@@ -420,6 +439,36 @@
       </form>
     </dialog>
 
+    <!-- Dialoog: uitnodiging intrekken -->
+    <dialog
+      id="dlg-intrekken"
+      aria-labelledby="intrekken-t"
+      class="w-[calc(100%-2rem)] max-w-md rounded-lg border border-slate-200 p-0 shadow-xl"
+    >
+      <form method="dialog" class="p-6">
+        <h2 id="intrekken-t" class="text-lg font-semibold">
+          De uitnodiging van <span id="intrekken-naam">Yana Willems</span> intrekken?
+        </h2>
+        <p class="mt-2 text-sm text-slate-700">
+          De link in de mail werkt dan niet meer en hij verdwijnt uit de lijst. Je kan hem later
+          opnieuw uitnodigen.
+        </p>
+        <div class="mt-6 flex justify-end gap-2">
+          <button
+            value="cancel"
+            class="h-10 rounded-md border border-slate-300 bg-white px-4 text-sm font-medium hover:bg-slate-50"
+          >
+            Annuleren
+          </button>
+          <a
+            href="?state=ingetrokken"
+            class="inline-flex h-10 items-center rounded-md bg-red-700 px-4 text-sm font-medium text-white hover:bg-red-800"
+            >Uitnodiging intrekken</a
+          >
+        </div>
+      </form>
+    </dialog>
+
     <!-- Dialoog: uitschakelen kan niet -->
     <dialog
       id="dlg-nee"
@@ -465,6 +514,10 @@
       function openActiveer(naam) {
         $("actief-naam").textContent = naam;
         $("dlg-actief").showModal();
+      }
+      function openIntrekken(naam) {
+        $("intrekken-naam").textContent = naam;
+        $("dlg-intrekken").showModal();
       }
       function openAdd() {
         ["a-naam-fout", "a-mail-fout"].forEach((i) => ($(i).hidden = true));

@@ -158,6 +158,17 @@ export async function inviteTechnician(
 
     const admin = createSupabaseAdminClient();
     if (existingAuth) {
+      // `auth.users.email` and `profiles.email` can differ (a user can change his own Auth
+      // address), so look at the account id: an account that has a profile is somebody's
+      // account (maybe a switched-off technician, whose block must stay) and is a duplicate.
+      const [owner] = await db
+        .select({ id: profiles.id })
+        .from(profiles)
+        .where(eq(profiles.id, existingAuth.id))
+        .limit(1);
+      if (owner) {
+        return duplicate;
+      }
       // A revoked invitation (BT-07c) leaves the account blocked when deleting it failed: lift
       // that block, or the new link would not work.
       await changeAuthBan(admin, existingAuth.id, "none");
@@ -497,6 +508,21 @@ export async function reactivateTechnician(
   }
 }
 
+/** Deletes the Auth account of a revoked invitation; a failure is only logged, with the id. */
+async function deleteAccountQuietly(
+  admin: ReturnType<typeof createSupabaseAdminClient>,
+  technicianId: string,
+) {
+  try {
+    await deleteAuthAccount(admin, technicianId);
+  } catch (error) {
+    console.error(
+      `Deleting the Auth account of revoked technician ${technicianId} failed (it stays blocked):`,
+      describeError(error instanceof AuthDeleteFailedError ? error.cause : error),
+    );
+  }
+}
+
 /**
  * Revokes the invitation of a technician who has not accepted it (design B7, "Uitnodiging
  * intrekken"; BT-07c). The technician comes from a hidden field (id only). Afterwards the link in
@@ -509,9 +535,11 @@ export async function reactivateTechnician(
  *    but a technician with `invite_pending`, refuses when rows refer to him, and deletes the
  *    profile.
  * 2. Still inside the transaction the Auth account is blocked (`ban_duration`, with a time-out).
- *    That is what makes the link unusable, also when step 4 fails. If it fails, the transaction
- *    rolls back: the invitation is either revoked or not. If the commit fails after the block was
- *    set (or Auth timed out), the block is lifted again (best effort).
+ *    That is what makes the link unusable, also when step 3 fails. If it fails, the transaction
+ *    rolls back: the invitation is either revoked or not. If an error comes after the block was
+ *    set (commit failure, Auth time-out), the profile is read again: still there means rolled
+ *    back, so the block is lifted (best effort); gone means the commit did succeed, so the block
+ *    stays and the Auth account is deleted as in step 3. If that read fails, the block stays.
  * 3. After the commit the Auth account is deleted (with time-out). If that fails it is only
  *    logged, with the id: the account stays blocked and has no profile, so the link and any
  *    session are useless, and inviting the same address again reuses and unblocks it
@@ -537,8 +565,9 @@ export async function revokeInvitation(
 
   let banned = false;
   let outcome: RevokeOutcome;
-  const admin = createSupabaseAdminClient();
+  let admin: ReturnType<typeof createSupabaseAdminClient>;
   try {
+    admin = createSupabaseAdminClient();
     outcome = await getDb().transaction(async (tx) => {
       const result = await revokeInvitationProfile(tx, id.data);
       if (result.kind === "revoked") {
@@ -548,14 +577,37 @@ export async function revokeInvitation(
       return result;
     });
   } catch (error) {
-    if (banned || error instanceof AuthTimeoutError) {
-      await tryChangeBan(id.data, "none", "Lifting the block after a failed revoke failed");
-    }
     console.error(
       `Revoking the invitation of technician ${id.data} failed:`,
       describeError(error instanceof BanFailedError ? error.cause : error),
     );
-    return refused(LOGIN_MESSAGES.technicalProblem);
+    if (!banned && !(error instanceof AuthTimeoutError)) {
+      return refused(LOGIN_MESSAGES.technicalProblem);
+    }
+    // The block may be set, and the commit may have succeeded even though we got an error
+    // (ambiguous commit). Look at the profile before deciding what to do with the block.
+    let profileStillThere: boolean;
+    try {
+      profileStillThere = Boolean(
+        await getDb().query.profiles.findFirst({ where: eq(profiles.id, id.data) }),
+      );
+    } catch (readError) {
+      // Unknown state: leave the block (the link stays dead, and revoking again repairs it).
+      console.error(
+        `Reading the profile of technician ${id.data} after a failed revoke failed:`,
+        describeError(readError),
+      );
+      return refused(LOGIN_MESSAGES.technicalProblem);
+    }
+    if (profileStillThere) {
+      // Rolled back: the invitation stays, so the account must work again.
+      await tryChangeBan(id.data, "none", "Lifting the block after a failed revoke failed");
+      return refused(LOGIN_MESSAGES.technicalProblem);
+    }
+    // The profile is gone: the revoke happened. Keep the block and finish the job.
+    await deleteAccountQuietly(createSupabaseAdminClient(), id.data);
+    revalidatePath(PATH);
+    return { ok: true, message: TECHNICIAN_ACTION_MESSAGES.revokedGeneric };
   }
 
   switch (outcome.kind) {
@@ -566,14 +618,7 @@ export async function revokeInvitation(
     case "has-records":
       return refused(TECHNICIAN_ACTION_MESSAGES.hasRecords(outcome.fullName));
     case "revoked":
-      try {
-        await deleteAuthAccount(admin, id.data);
-      } catch (error) {
-        console.error(
-          `Deleting the Auth account of revoked technician ${id.data} failed (it stays blocked):`,
-          describeError(error instanceof AuthDeleteFailedError ? error.cause : error),
-        );
-      }
+      await deleteAccountQuietly(admin, id.data);
       revalidatePath(PATH);
       return { ok: true, message: TECHNICIAN_ACTION_MESSAGES.revoked(outcome.fullName) };
   }

@@ -5,6 +5,8 @@ import { signIn } from "./support/sign-in";
 import { BACKOFFICE } from "./support/test-users";
 import {
   authAccountExists,
+  createRevokedLeftover,
+  isAuthBlocked,
   markInviteAccepted,
   readProfileState,
   removeUser,
@@ -55,7 +57,9 @@ async function inviteViaDialog(page: Page, email: string): Promise<void> {
 /** Clicks "Uitnodiging intrekken" in the row until the dialog is open (no effect before hydration). */
 async function openRevokeDialog(page: Page, email: string): Promise<Locator> {
   const dialog = page.getByRole("dialog", { name: "De uitnodiging van Yana Intrekken intrekken?" });
-  const trigger = rowOf(page, email).getByRole("button", { name: "Uitnodiging intrekken" });
+  const trigger = rowOf(page, email).getByRole("button", {
+    name: "Uitnodiging van Yana Intrekken intrekken",
+  });
   await expect(async () => {
     if (!(await dialog.isVisible())) {
       await trigger.click();
@@ -76,7 +80,9 @@ test.describe("revoking an invitation", () => {
       await inviteViaDialog(page, email);
       link = (await waitForConfirmLinks(email, 1))[0];
       await expect(
-        rowOf(page, email).getByRole("button", { name: "Uitnodiging intrekken" }),
+        rowOf(page, email).getByRole("button", {
+          name: "Uitnodiging van Yana Intrekken intrekken",
+        }),
       ).toBeVisible();
     });
 
@@ -147,7 +153,30 @@ test.describe("revoking an invitation", () => {
     await page.reload();
     await expect(rowOf(page, email).getByText("Actief", { exact: true })).toBeVisible();
     await expect(
-      rowOf(page, email).getByRole("button", { name: "Uitnodiging intrekken" }),
+      rowOf(page, email).getByRole("button", { name: "Uitnodiging van Yana Intrekken intrekken" }),
     ).toHaveCount(0);
+  });
+
+  test("a blocked Auth account without a profile (left by a failed delete) gets a working link after a new invitation", async ({
+    page,
+    inviteeEmail: email,
+  }) => {
+    await createRevokedLeftover(email);
+    expect(await isAuthBlocked(email)).toBe(true);
+    expect(await readProfileState(email)).toBeUndefined();
+
+    await signInAsBackoffice(page);
+    await inviteViaDialog(page, email);
+    expect(await isAuthBlocked(email)).toBe(false);
+    await page.getByRole("button", { name: "Uitloggen" }).click();
+    await expect(page).toHaveURL("/login");
+
+    // The newest mail is the one of the new invitation.
+    const link = (await waitForConfirmLinks(email, 2))[0];
+    await page.goto(link);
+    await page.getByRole("button", { name: "Wachtwoord instellen" }).click();
+    await expect(page).toHaveURL(/\/set-password\?mode=invite$/);
+    await expect(page.getByRole("heading", { level: 1, name: "Welkom, Yana" })).toBeVisible();
+    await expect(page.getByLabel("Nieuw wachtwoord", { exact: true })).toBeVisible();
   });
 });

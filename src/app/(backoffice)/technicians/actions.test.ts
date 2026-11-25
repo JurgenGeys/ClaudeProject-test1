@@ -287,6 +287,21 @@ describe("inviteTechnician: an Auth account without a profile", () => {
     expect(values).toHaveBeenCalledWith(expect.objectContaining({ id: authUserId }));
   });
 
+  it("refuses as a duplicate when the account has a profile under another address, and keeps its block", async () => {
+    // The e-mail address of the Auth account was changed by the user: no profile with this
+    // address, but the account itself belongs to a (maybe switched-off) technician.
+    execute.mockResolvedValue([{ id: authUserId, invited_by_app: "true" }]);
+    existingProfiles.mockResolvedValueOnce([]).mockResolvedValueOnce([{ id: authUserId }]);
+    expect(await inviteTechnician(null, form(valid))).toMatchObject({
+      ok: false,
+      fieldErrors: { email: "Er bestaat al een gebruiker met dit e-mailadres." },
+    });
+    expect(updateUserById).not.toHaveBeenCalled();
+    expect(inviteUserByEmail).not.toHaveBeenCalled();
+    expect(values).not.toHaveBeenCalled();
+    expect(deleteUser).not.toHaveBeenCalled();
+  });
+
   it("adds nothing when Auth answers with another account than the one that was found", async () => {
     execute.mockResolvedValue([
       { id: "99999999-9999-4999-8999-999999999999", invited_by_app: "true" },
@@ -1137,18 +1152,44 @@ describe("revokeInvitation", () => {
     expect(revalidatePath).not.toHaveBeenCalled();
   });
 
-  it("lifts the block again, and deletes nothing, when the commit fails after the block was set", async () => {
-    revokeInvitationProfile.mockResolvedValue(revoked);
+  const failingCommit = () =>
     transaction.mockImplementation(async (callback: (tx: unknown) => Promise<unknown>) => {
       await callback(tx);
       throw new Error("commit failed");
     });
+
+  it("lifts the block again, and deletes nothing, when the commit failed and the profile is still there", async () => {
+    revokeInvitationProfile.mockResolvedValue(revoked);
+    failingCommit();
+    findFirst.mockResolvedValue({ id });
     expect(await revokeInvitation(null, form({ id }))).toMatchObject({
       ok: false,
       formError: technical,
     });
     expect(updateUserById).toHaveBeenNthCalledWith(1, id, { ban_duration: "87600h" });
     expect(updateUserById).toHaveBeenNthCalledWith(2, id, { ban_duration: "none" });
+    expect(deleteUser).not.toHaveBeenCalled();
+  });
+
+  it("keeps the block and deletes the account when the commit did succeed (profile gone)", async () => {
+    revokeInvitationProfile.mockResolvedValue(revoked);
+    failingCommit();
+    findFirst.mockResolvedValue(undefined);
+    expect(await revokeInvitation(null, form({ id }))).toMatchObject({ ok: true });
+    expect(updateUserById).toHaveBeenCalledExactlyOnceWith(id, { ban_duration: "87600h" });
+    expect(deleteUser).toHaveBeenCalledExactlyOnceWith(id);
+    expect(revalidatePath).toHaveBeenCalledWith("/technicians");
+  });
+
+  it("leaves the block alone when the profile cannot be read again", async () => {
+    revokeInvitationProfile.mockResolvedValue(revoked);
+    failingCommit();
+    findFirst.mockRejectedValue(new Error("connection lost"));
+    expect(await revokeInvitation(null, form({ id }))).toMatchObject({
+      ok: false,
+      formError: technical,
+    });
+    expect(updateUserById).toHaveBeenCalledExactlyOnceWith(id, { ban_duration: "87600h" });
     expect(deleteUser).not.toHaveBeenCalled();
   });
 
@@ -1189,6 +1230,7 @@ describe("revokeInvitation", () => {
 
   it("rolls back and lifts a possibly applied block when Auth does not answer in time", async () => {
     revokeInvitationProfile.mockResolvedValue(revoked);
+    findFirst.mockResolvedValue({ id });
     vi.useFakeTimers();
     try {
       updateUserById.mockReturnValueOnce(new Promise(() => {}));
