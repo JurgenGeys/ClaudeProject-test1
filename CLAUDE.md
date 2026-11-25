@@ -48,3 +48,16 @@ Sla geen stap over. Begint een taak zonder goedgekeurde analyse of ontwerp, meld
 
 Architectuurbeslissingen staan in `docs/adr/`. Vereist een taak een nieuwe structurele
 keuze, stel dan een nieuwe ADR voor (volgens `docs/adr/template.md`) in plaats van zelf te beslissen.
+
+## Backlog
+
+De volledige backlog staat als GitHub Issues in de repository, op het projectbord van Jurgen.
+Niets wat nog moet gebeuren, blijft enkel in een chat, een PR-beschrijving of een review staan.
+
+- Labels: `bouwtaak` (bouwtaak uit het ontwerp), `opvolgpunt` (uit een review of tijdens het bouwen,
+  niet in deze PR opgelost), `beslissing` (open keuze voor Jurgen), `klantvraag` (navragen bij de klant),
+  `later` (bewust niet in deze versie). Bouwtaken krijgen ook `prio: must`, `prio: should` of `prio: could`.
+- Een nieuw opvolgpunt, een nieuwe open beslissing of een nieuwe klantvraag wordt meteen een issue.
+- Een pull request verwijst naar zijn issue met `Closes #<nummer>` in de beschrijving.
+- Beslist Jurgen iets, dan komt de beslissing als commentaar op het issue en wordt het issue gesloten
+  (of omgezet in een bouwtaak).
