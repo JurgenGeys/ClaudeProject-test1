@@ -32,6 +32,13 @@ enabled = true
 site_url = "http://127.0.0.1:3000"
 additional_redirect_urls = ["http://127.0.0.1:3000", "http://localhost:3000"]
 
+# Rate limits of the LOCAL Auth server only (local development and the CI runner), approved by
+# Jurgen on 24/11/2026. The end-to-end tests sign in many times from one IP address (the runner),
+# which the default of 30 per 5 minutes does not allow. This file does not apply to real
+# Supabase projects: their limits are set in their own dashboard and stay at the defaults.
+[auth.rate_limit]
+sign_in_sign_ups = 300
+
 # Not used; switched off to keep `supabase start` fast.
 [studio]
 enabled = false

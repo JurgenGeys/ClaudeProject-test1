@@ -2,6 +2,7 @@ import "server-only";
 
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import { connection } from "next/server";
 
 import { getSupabasePublicEnv } from "./env";
 
@@ -12,6 +13,11 @@ import { getSupabasePublicEnv } from "./env";
  */
 export async function createSupabaseServerClient() {
   const cookieStore = await cookies();
+  // The Auth client reads the clock (`Date.now()`) as soon as it is created, to check whether
+  // the session has expired. Next.js also renders pages ahead of the request (runtime
+  // prerender for prefetching), where cookies are known but the clock is not allowed.
+  // `connection()` stops that prerender here; at a real request it resolves immediately.
+  await connection();
   const { url, publishableKey } = getSupabasePublicEnv();
 
   return createServerClient(url, publishableKey, {
@@ -19,6 +25,10 @@ export async function createSupabaseServerClient() {
       getAll() {
         return cookieStore.getAll();
       },
+      // The second argument (no-cache headers for responses that set session cookies) is not
+      // used on purpose: Next.js cannot set response headers from here, and it already marks
+      // every dynamic response that sets cookies as not cacheable. The proxy, which does
+      // control its response, does set those headers (`src/lib/supabase/proxy.ts`).
       setAll(cookiesToSet) {
         try {
           for (const { name, value, options } of cookiesToSet) {

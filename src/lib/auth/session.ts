@@ -1,5 +1,6 @@
 import "server-only";
 
+import { isAuthRetryableFetchError } from "@supabase/supabase-js";
 import { eq } from "drizzle-orm";
 import { cache } from "react";
 
@@ -22,19 +23,24 @@ export type CurrentUser = {
  * - `inactive`: valid session, but the profile is missing or deactivated. This user is
  *   treated as refused. Whoever calls this should sign the session out and show the
  *   message "Je account is uitgeschakeld" on the login page (design G1).
+ * - `unavailable`: Supabase Auth could not be reached (network, server error, rate limit).
+ *   This is NOT "signed out": the caller shows a technical message and must not redirect
+ *   to the login page, otherwise a short outage would send everybody around in circles.
  */
 export type AuthState =
   | { status: "authenticated"; user: CurrentUser }
   | { status: "unauthenticated" }
-  | { status: "inactive" };
+  | { status: "inactive" }
+  | { status: "unavailable" };
 
-export type AuthErrorCode = "unauthenticated" | "inactive" | "forbidden";
+export type AuthErrorCode = "unauthenticated" | "inactive" | "forbidden" | "unavailable";
 
 /**
  * Thrown by `requireRole`. Callers decide what it means (BT-03 and later):
  * - `unauthenticated`: redirect to `/login`.
  * - `inactive`: sign out and redirect to `/login` with the "account uitgeschakeld" message.
  * - `forbidden`: signed in with the wrong role: show "Deze pagina is niet voor jou bedoeld".
+ * - `unavailable`: Auth could not be reached: show a technical message, do not redirect.
  * In a Server Action, turn it into a `{ ok: false, formError }` result instead.
  */
 export class AuthError extends Error {
@@ -45,6 +51,11 @@ export class AuthError extends Error {
     this.name = "AuthError";
     this.code = code;
   }
+}
+
+/** Network problems, server errors and rate limiting: not an answer about the session. */
+function isTemporaryAuthError(error: { status?: number }): boolean {
+  return isAuthRetryableFetchError(error) || (error.status ?? 0) >= 500 || error.status === 429;
 }
 
 /**
@@ -58,6 +69,9 @@ export class AuthError extends Error {
 export const getAuthState = cache(async (): Promise<AuthState> => {
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase.auth.getUser();
+  if (error && isTemporaryAuthError(error)) {
+    return { status: "unavailable" };
+  }
   if (error || !data.user) {
     return { status: "unauthenticated" };
   }

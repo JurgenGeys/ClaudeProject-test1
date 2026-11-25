@@ -119,12 +119,14 @@ Algemene regels voor alle schermen:
 
 ### G1 Aanmelden
 
-- **Inhoud**: naam van het bedrijf, velden **E-mailadres** en **Wachtwoord**, knop **Aanmelden**. Link **Wachtwoord vergeten?** naast het label Wachtwoord → G3 (P1).
+- **Inhoud**: naam van het bedrijf (instelbaar per klant via `NEXT_PUBLIC_COMPANY_NAME`; leeg = geen naam tonen), velden **E-mailadres** en **Wachtwoord**, knop **Aanmelden**. Link **Wachtwoord vergeten?** naast het label Wachtwoord → G3 (P1).
 - **Acties**: aanmelden; daarna naar T1 (technieker) of B1 (backoffice).
 - **Foutmeldingen**:
   - Leeg veld: "Vul je e-mailadres in." / "Vul je wachtwoord in."
   - Verkeerde combinatie: "Dit e-mailadres en wachtwoord passen niet bij elkaar. Probeer opnieuw." (Nooit zeggen welk van de twee fout is.)
-  - Uitgeschakelde gebruiker: "Je account is uitgeschakeld. Neem contact op met kantoor."
+  - Uitgeschakelde of geblokkeerde gebruiker die probeert **aan te melden**: dezelfde melding als bij een verkeerde combinatie ("Dit e-mailadres en wachtwoord passen niet bij elkaar. Probeer opnieuw."), ook met het juiste wachtwoord. Het scherm verraadt zo niet dat een account bestaat of uitgeschakeld is. Beslist door Jurgen, 24/11/2026.
+  - Gebruiker die **tijdens een lopende sessie** wordt uitgeschakeld: bij het volgende verzoek afgemeld en naar G1 gestuurd met "Je account is uitgeschakeld. Neem contact op met kantoor." (die gebruiker was al aangemeld, dus er lekt niets uit).
+  - Te veel pogingen (rate limit van Supabase Auth): "Te veel pogingen, probeer het over enkele minuten opnieuw."
 - **Lege toestand**: n.v.t.
 - **Rechten**: iedereen; aangemelde gebruikers worden doorgestuurd naar hun startscherm.
 
@@ -520,7 +522,10 @@ Wil Jurgen Nederlandse URL's (`/mijn-taken`), dan is dat enkel een hernoeming.
 ### Authenticatie en rollen
 
 - **Aanmelden** met e-mail en wachtwoord via Supabase Auth (`@supabase/ssr`, cookies). Sessies blijven lang geldig, zodat een technieker niet elke dag opnieuw moet aanmelden.
-- **Rol en actief/uitgeschakeld** staan in `profiles`. `requireRole()` haalt bij elk verzoek de gebruiker op (`supabase.auth.getUser()`, niet enkel de cookie vertrouwen) en daarna het profiel via Drizzle. Geen profiel of `is_active = false` → uitloggen en melding op G1.
+- **Autorisatie zit overal waar data of acties zijn, niet in de layout** (ADR-0002, regel 3). Elke `page.tsx`, elke Server Action, elke route handler én elke leesfunctie (bv. `lib/tasks/queries.ts`) controleert zelf de rol met `requireRole()` of `checkRoleAccess()`. De controle in de layout van `(technician)` en `(backoffice)` bepaalt enkel wat er rond de pagina getoond wordt (naam, "Uitloggen", de pagina "niet voor jou bedoeld"): een layout wordt bij navigatie binnen de groep niet opnieuw uitgevoerd en houdt de rendering van de pagina zelf niet tegen. De lookup is per verzoek gecachet (`getAuthState`), dus dubbel controleren kost niets extra. Een unit test controleert dat elke `page.tsx` en `route.ts` onder de twee route groups een van beide aanroept.
+- **Proxy**: `proxy.ts` ververst enkel de sessie en stuurt bezoekers zonder (geldige) sessie van een beschermde pagina naar `/login`. Hij beslist niet over rollen of over aangemelde gebruikers op `/login`: dat doet de loginpagina met de server-geverifieerde `getAuthState` (anders kunnen `/` en `/login` elkaar blijven doorsturen).
+- **Auth niet bereikbaar**: een netwerkfout, serverfout of rate limit van Supabase Auth is geen "niet aangemeld". `getAuthState` geeft dan `unavailable`, de pagina toont "Dat is niet gelukt. Controleer je internetverbinding en probeer opnieuw." en er is geen redirect. Verlopen of ingetrokken sessiecookies worden via de route handler `/auth/clear-session` gewist voor de bezoeker naar `/login` gaat.
+- **Rol en actief/uitgeschakeld** staan in `profiles`. `requireRole()` haalt bij elk verzoek de gebruiker op (`supabase.auth.getUser()`, niet enkel de cookie vertrouwen) en daarna het profiel via Drizzle. Geen profiel of `is_active = false` → uitloggen en melding op G1 (bij een lopende sessie: "Je account is uitgeschakeld"; bij het aanmelden zelf: de algemene melding, zie G1).
 - **Uitnodigen**: `inviteTechnician` gebruikt server-side `auth.admin.inviteUserByEmail` (service role key) en maakt in dezelfde stap het profiel aan. De link in de mail gaat naar `/auth/confirm` → `/set-password?mode=invite`.
 - **Wachtwoord vergeten (P1)**: `requestPasswordReset` valideert het e-mailadres met Zod en roept `auth.resetPasswordForEmail` aan met als terugkeeradres `/auth/confirm`. De Server Action geeft altijd hetzelfde resultaat terug, of het adres nu bestaat of niet. `/auth/confirm` herkent het type `recovery` en stuurt door naar `/set-password?mode=reset`. Supabase beperkt zelf het aantal mails per uur; zolang K6 (eigen mailserver) open is, geldt de lage limiet van de ingebouwde testmailserver.
 - **Uitschakelen**: `is_active = false` en `deactivated_at` gevuld (werkt onmiddellijk door de controle in `requireRole`) en daarnaast de gebruiker in Supabase Auth blokkeren (`ban_duration`), zodat hij ook geen nieuwe sessie krijgt, ook niet via een wachtwoordlink.
