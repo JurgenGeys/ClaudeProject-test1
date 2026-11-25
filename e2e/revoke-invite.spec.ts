@@ -58,7 +58,7 @@ async function inviteViaDialog(page: Page, email: string): Promise<void> {
 async function openRevokeDialog(page: Page, email: string): Promise<Locator> {
   const dialog = page.getByRole("dialog", { name: "De uitnodiging van Yana Intrekken intrekken?" });
   const trigger = rowOf(page, email).getByRole("button", {
-    name: "Uitnodiging van Yana Intrekken intrekken",
+    name: "Uitnodiging intrekken: Yana Intrekken",
   });
   await expect(async () => {
     if (!(await dialog.isVisible())) {
@@ -81,7 +81,7 @@ test.describe("revoking an invitation", () => {
       link = (await waitForConfirmLinks(email, 1))[0];
       await expect(
         rowOf(page, email).getByRole("button", {
-          name: "Uitnodiging van Yana Intrekken intrekken",
+          name: "Uitnodiging intrekken: Yana Intrekken",
         }),
       ).toBeVisible();
     });
@@ -153,7 +153,7 @@ test.describe("revoking an invitation", () => {
     await page.reload();
     await expect(rowOf(page, email).getByText("Actief", { exact: true })).toBeVisible();
     await expect(
-      rowOf(page, email).getByRole("button", { name: "Uitnodiging van Yana Intrekken intrekken" }),
+      rowOf(page, email).getByRole("button", { name: "Uitnodiging intrekken: Yana Intrekken" }),
     ).toHaveCount(0);
   });
 

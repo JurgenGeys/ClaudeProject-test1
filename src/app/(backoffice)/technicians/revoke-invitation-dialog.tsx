@@ -36,7 +36,8 @@ export function RevokeInvitationDialog({ technicianId, fullName }: Props) {
           type="button"
           variant="outline"
           className="h-9"
-          aria-label={`Uitnodiging van ${fullName} intrekken`}
+          // Starts with the visible text (WCAG 2.5.3 Label in Name) and tells which technician.
+          aria-label={`Uitnodiging intrekken: ${fullName}`}
         >
           Uitnodiging intrekken
         </Button>

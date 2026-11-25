@@ -564,6 +564,7 @@ export async function revokeInvitation(
   }
 
   let banned = false;
+  let revokedName: string | undefined;
   let outcome: RevokeOutcome;
   let admin: ReturnType<typeof createSupabaseAdminClient>;
   try {
@@ -571,6 +572,7 @@ export async function revokeInvitation(
     outcome = await getDb().transaction(async (tx) => {
       const result = await revokeInvitationProfile(tx, id.data);
       if (result.kind === "revoked") {
+        revokedName = result.fullName;
         await changeAuthBan(admin, id.data, AUTH_BAN_DURATION);
         banned = true;
       }
@@ -607,7 +609,12 @@ export async function revokeInvitation(
     // The profile is gone: the revoke happened. Keep the block and finish the job.
     await deleteAccountQuietly(createSupabaseAdminClient(), id.data);
     revalidatePath(PATH);
-    return { ok: true, message: TECHNICIAN_ACTION_MESSAGES.revokedGeneric };
+    return {
+      ok: true,
+      message: revokedName
+        ? TECHNICIAN_ACTION_MESSAGES.revoked(revokedName)
+        : TECHNICIAN_ACTION_MESSAGES.revokedGeneric,
+    };
   }
 
   switch (outcome.kind) {

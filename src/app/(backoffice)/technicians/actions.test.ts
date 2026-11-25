@@ -1175,7 +1175,11 @@ describe("revokeInvitation", () => {
     revokeInvitationProfile.mockResolvedValue(revoked);
     failingCommit();
     findFirst.mockResolvedValue(undefined);
-    expect(await revokeInvitation(null, form({ id }))).toMatchObject({ ok: true });
+    expect(await revokeInvitation(null, form({ id }))).toEqual({
+      ok: true,
+      message:
+        "De uitnodiging van Yana Willems is ingetrokken. De link in de mail werkt niet meer.",
+    });
     expect(updateUserById).toHaveBeenCalledExactlyOnceWith(id, { ban_duration: "87600h" });
     expect(deleteUser).toHaveBeenCalledExactlyOnceWith(id);
     expect(revalidatePath).toHaveBeenCalledWith("/technicians");

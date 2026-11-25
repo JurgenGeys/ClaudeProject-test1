@@ -386,7 +386,10 @@ export async function createRevokedLeftover(email: string): Promise<void> {
     requireEnv("SUPABASE_SECRET_KEY"),
     { auth: { autoRefreshToken: false, persistSession: false } },
   );
-  const invited = await admin.auth.admin.inviteUserByEmail(email);
+  // Same redirect as the application (`getInviteRedirectUrl`): without it the mail has no
+  // /auth/confirm link. That helper is server-only, so the address is built here.
+  const redirectTo = new URL("/auth/confirm", process.env.SITE_URL || "http://localhost:3000");
+  const invited = await admin.auth.admin.inviteUserByEmail(email, { redirectTo: redirectTo.href });
   if (invited.error || !invited.data.user) {
     throw new Error(`Inviting test user ${email} failed: ${invited.error?.message}`);
   }

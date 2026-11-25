@@ -98,7 +98,7 @@ describe("B7 Techniekers: the list", () => {
 
   it("offers 'Uitnodiging intrekken' only for an invited technician", async () => {
     await renderPage();
-    const buttons = screen.getAllByRole("button", { name: /^Uitnodiging van .* intrekken$/ });
+    const buttons = screen.getAllByRole("button", { name: /^Uitnodiging intrekken: / });
     expect(buttons).toHaveLength(1);
     expect(screen.getByRole("row", { name: /Yana/ })).toContainElement(buttons[0]);
   });
@@ -110,7 +110,7 @@ describe("B7 Techniekers: the list", () => {
         "De uitnodiging van Yana Willems is ingetrokken. De link in de mail werkt niet meer.",
     });
     await renderPage();
-    fireEvent.click(screen.getByRole("button", { name: "Uitnodiging van Yana Willems intrekken" }));
+    fireEvent.click(screen.getByRole("button", { name: "Uitnodiging intrekken: Yana Willems" }));
 
     const dialog = await screen.findByRole("dialog", {
       name: "De uitnodiging van Yana Willems intrekken?",
@@ -133,7 +133,7 @@ describe("B7 Techniekers: the list", () => {
       formError: "Yana Willems heeft al een wachtwoord gekozen. Laad de pagina opnieuw.",
     });
     await renderPage();
-    fireEvent.click(screen.getByRole("button", { name: "Uitnodiging van Yana Willems intrekken" }));
+    fireEvent.click(screen.getByRole("button", { name: "Uitnodiging intrekken: Yana Willems" }));
     const dialog = await screen.findByRole("dialog", {
       name: "De uitnodiging van Yana Willems intrekken?",
     });
