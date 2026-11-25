@@ -111,7 +111,7 @@ test.describe("the task page (B3)", () => {
     await expect(
       page.getByRole("heading", { level: 1 }).locator("xpath=following-sibling::p"),
     ).toContainText("Herstelling");
-    await expect(page.getByText("di 10/03/2031 om 09:00")).toBeVisible();
+    await expect(page.getByText("ma 10/03/2031 om 09:00")).toBeVisible();
 
     const instructions = page.getByRole("region", { name: "Instructies" });
     await expect(instructions).toContainText("Lek aan de binnenunit");

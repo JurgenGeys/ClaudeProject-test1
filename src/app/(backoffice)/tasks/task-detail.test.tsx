@@ -265,4 +265,11 @@ describe("TaskDetailView (B3)", () => {
       "vr 01/01/2027 om 00:30",
     );
   });
+
+  it("writes the planning of another year exactly as the e2e test expects (2031-03-10 is a Monday)", () => {
+    render(
+      <TaskDetailView task={{ ...task, scheduledDate: "2031-03-10", startTime: "09:00:00" }} />,
+    );
+    expect(screen.getByText(/ma 10\/03\/2031 om 09:00/)).toBeInTheDocument();
+  });
 });
