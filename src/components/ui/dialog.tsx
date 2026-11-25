@@ -58,6 +58,9 @@ function DialogContent({
         {...props}
       >
         {children}
+        {/* The close button is small (16 px icon). On technician screens (phone) give it a touch
+            target of at least 44 px (`className` on the dialog is not enough: change the button
+            to `p-3.5 -m-3.5`) or keep it off with `showCloseButton={false}` and use a footer button. */}
         {showCloseButton && (
           <DialogPrimitive.Close
             data-slot="dialog-close"

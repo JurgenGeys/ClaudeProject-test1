@@ -23,7 +23,8 @@ const FALLBACK_NAME = "Planning";
  * Header of every signed-in page (design chapter 2 and the mockups).
  * - technician (phone first): company name, own name and "Uitloggen"; no menu;
  * - backoffice (laptop first): company name, the main menu, own name and "Uitloggen". On a
- *   narrow screen the menu moves to a second line.
+ *   narrow screen the three parts get a line each. The order in the page is the same as the
+ *   visual order on every screen size (no CSS `order`), so the tab order follows what you see.
  */
 export function AppHeader({
   role,

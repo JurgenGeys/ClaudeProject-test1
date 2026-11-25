@@ -7,7 +7,7 @@ export function LoginFormSkeleton() {
   return (
     <div
       aria-hidden="true"
-      className="mt-6 animate-pulse space-y-4 rounded-lg border border-border bg-card p-6 shadow-sm"
+      className="mt-6 animate-pulse space-y-4 rounded-xl border border-border bg-card p-6 shadow-sm"
     >
       <div className="h-11 rounded-md bg-muted" />
       <div className="h-11 rounded-md bg-muted" />

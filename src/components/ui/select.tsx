@@ -18,6 +18,8 @@ function SelectValue({ ...props }: React.ComponentProps<typeof SelectPrimitive.V
   return <SelectPrimitive.Value data-slot="select-value" {...props} />;
 }
 
+// Note: the trigger is 36 px high (shadcn default). On technician screens (phone) use
+// `className="h-11"` (also on `SelectItem`, with `py-3`) for a touch target of at least 44 px.
 function SelectTrigger({
   className,
   size = "default",

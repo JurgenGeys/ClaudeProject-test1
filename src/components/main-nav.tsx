@@ -16,7 +16,7 @@ function isActive(pathname: string, href: string): boolean {
 export function MainNav({ items }: { items: readonly NavItem[] }) {
   const pathname = usePathname();
   return (
-    <nav aria-label="Hoofdmenu" className="order-last flex w-full gap-1 sm:order-none sm:w-auto">
+    <nav aria-label="Hoofdmenu" className="flex w-full gap-1 sm:w-auto">
       {items.map((item) => {
         const active = isActive(pathname, item.href);
         return (

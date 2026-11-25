@@ -8,7 +8,10 @@ import {
   formatHoursDecimal,
   formatTime,
   hoursToMinutes,
-  isQuarterHourMinutes,
+  formatHoursSpoken,
+  formatTimeOfDay,
+  isValidWorkedMinutes,
+  MAX_WORKED_MINUTES,
   minutesToHours,
 } from "./format";
 
@@ -55,9 +58,12 @@ describe("formatHoursDecimal", () => {
     expect(formatHoursDecimal(minutes)).toBe(expected);
   });
 
-  it.each([-15, 0.5, Number.NaN])("refuses %s", (value) => {
-    expect(() => formatHoursDecimal(value)).toThrow(RangeError);
-  });
+  it.each([-15, 0.5, 1, 5, 20, 100, Number.NaN, Number.POSITIVE_INFINITY])(
+    "refuses %s: not a whole number of quarters",
+    (value) => {
+      expect(() => formatHoursDecimal(value)).toThrow(RangeError);
+    },
+  );
 });
 
 describe("minutes and hours", () => {
@@ -88,23 +94,67 @@ describe("minutes and hours", () => {
     },
   );
 
+  it("never returns -0", () => {
+    expect(Object.is(hoursToMinutes(-0), 0)).toBe(true);
+    expect(Object.is(minutesToHours(-0), 0)).toBe(true);
+  });
+
+  it("accepts 24 hours but not more", () => {
+    expect(hoursToMinutes(24)).toBe(1440);
+    expect(() => hoursToMinutes(24.25)).toThrow(RangeError);
+    expect(() => hoursToMinutes(100)).toThrow(RangeError);
+  });
+
   it("refuses minutes it cannot convert", () => {
     expect(() => minutesToHours(-1)).toThrow(RangeError);
     expect(() => minutesToHours(0.5)).toThrow(RangeError);
   });
 });
 
-describe("isQuarterHourMinutes", () => {
-  it.each([15, 30, 45, 60, 90, 600])("accepts %i", (value) => {
-    expect(isQuarterHourMinutes(value)).toBe(true);
+describe("formatHoursSpoken", () => {
+  it.each([
+    [0, "0 minuten"],
+    [1, "1 minuut"],
+    [15, "15 minuten"],
+    [45, "45 minuten"],
+    [60, "1 uur"],
+    [61, "1 uur 1 minuut"],
+    [75, "1 uur 15 minuten"],
+    [90, "1 uur 30 minuten"],
+    [120, "2 uur"],
+    [600, "10 uur"],
+  ])("says %i minutes as %s", (minutes, expected) => {
+    expect(formatHoursSpoken(minutes)).toBe(expected);
   });
 
-  it.each([0, -15, 10, 20, 1.5, 7.5, Number.NaN, Number.POSITIVE_INFINITY])(
-    "refuses %s",
-    (value) => {
-      expect(isQuarterHourMinutes(value)).toBe(false);
-    },
-  );
+  it.each([-15, 1.5, Number.NaN])("refuses %s", (value) => {
+    expect(() => formatHoursSpoken(value)).toThrow(RangeError);
+  });
+});
+
+describe("isValidWorkedMinutes", () => {
+  it.each([15, 30, 45, 60, 90, 600, MAX_WORKED_MINUTES])("accepts %i", (value) => {
+    expect(isValidWorkedMinutes(value)).toBe(true);
+  });
+
+  it.each([
+    0,
+    -0,
+    -15,
+    10,
+    20,
+    1.5,
+    7.5,
+    MAX_WORKED_MINUTES + 15,
+    Number.NaN,
+    Number.POSITIVE_INFINITY,
+  ])("refuses %s", (value) => {
+    expect(isValidWorkedMinutes(value)).toBe(false);
+  });
+
+  it("allows at most 24 hours", () => {
+    expect(MAX_WORKED_MINUTES).toBe(1440);
+  });
 });
 
 describe("dates and times in Belgian time", () => {
@@ -179,6 +229,74 @@ describe("dates and times in Belgian time", () => {
     expect(() => formatTime(value)).toThrow(RangeError);
     expect(() => brusselsDayKey(value)).toThrow(RangeError);
   });
+});
+
+describe("a Postgres date (without time)", () => {
+  it("stays that calendar day in Belgium, summer and winter", () => {
+    expect(formatDate("2026-11-24")).toBe("di 24/11/2026");
+    expect(formatDate("2026-07-14")).toBe("di 14/07/2026");
+    expect(formatDate("2026-03-29")).toBe("zo 29/03/2026");
+    expect(formatDate("2026-10-25")).toBe("zo 25/10/2026");
+    expect(formatDate("2026-01-01")).toBe("do 01/01/2026");
+    expect(formatDate("2026-12-31")).toBe("do 31/12/2026");
+    expect(brusselsDayKey("2026-11-24")).toBe("2026-11-24");
+    expect(brusselsDayKey("2026-03-29")).toBe("2026-03-29");
+  });
+
+  it("refuses a day that does not exist", () => {
+    expect(() => formatDate("2026-02-30")).toThrow(RangeError);
+    expect(() => formatDate("2026-13-01")).toThrow(RangeError);
+    expect(() => formatDate("2026-00-10")).toThrow(RangeError);
+  });
+
+  it("has no time to show", () => {
+    expect(() => formatTime("2026-11-24")).toThrow(RangeError);
+    expect(() => formatDateTime("2026-11-24")).toThrow(RangeError);
+  });
+});
+
+describe("strings without a time zone", () => {
+  it.each(["2026-11-24T14:00:00", "2026-11-24T14:00", "2026-11-24 14:00:00", "14:00"])(
+    "refuses %s: it would depend on the time zone of the server",
+    (value) => {
+      expect(() => formatDate(value)).toThrow(RangeError);
+      expect(() => formatTime(value)).toThrow(RangeError);
+      expect(() => formatDateTime(value)).toThrow(RangeError);
+      expect(() => brusselsDayKey(value)).toThrow(RangeError);
+    },
+  );
+
+  it("accepts every way to write the time zone", () => {
+    expect(formatTime("2026-11-24T14:00:00+01:00")).toBe("14:00");
+    expect(formatTime("2026-11-24T14:00:00+0100")).toBe("14:00");
+    expect(formatTime("2026-11-24 14:00:00+01")).toBe("14:00");
+    expect(formatTime("2026-11-24 13:00:00.123+00")).toBe("14:00");
+    expect(formatTime("2026-07-24T14:00:00-02:00")).toBe("18:00");
+    expect(formatTime("2026-11-24T13:00Z")).toBe("14:00");
+  });
+
+  it("refuses a day that does not exist, also with a time zone", () => {
+    expect(() => formatTime("2026-02-30T10:00:00Z")).toThrow(RangeError);
+  });
+});
+
+describe("formatTimeOfDay (Postgres time)", () => {
+  it.each([
+    ["14:00:00", "14:00"],
+    ["14:00", "14:00"],
+    ["00:00:00", "00:00"],
+    ["23:59:59", "23:59"],
+    ["09:05:00.5", "09:05"],
+  ])("shows %s as %s without converting it", (value, expected) => {
+    expect(formatTimeOfDay(value)).toBe(expected);
+  });
+
+  it.each(["24:00:00", "2:00", "14:60", "14:00:61", "", "14", "14:00:00+01", "abc"])(
+    "refuses %s",
+    (value) => {
+      expect(() => formatTimeOfDay(value)).toThrow(RangeError);
+    },
+  );
 });
 
 describe("brusselsDayKey", () => {

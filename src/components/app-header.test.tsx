@@ -29,6 +29,14 @@ describe("AppHeader for the backoffice", () => {
     expect(screen.getByRole("button", { name: "Uitloggen" })).toBeInTheDocument();
   });
 
+  it("keeps the tab order equal to the visual order: name, menu, then Uitloggen", () => {
+    render(<AppHeader role="backoffice" userName="Sofie Peeters" companyName="FrisAir" />);
+    const names = [...screen.getByRole("banner").querySelectorAll("a, button")].map(
+      (element) => element.textContent,
+    );
+    expect(names).toEqual(["FrisAir", "Taken", "Klanten", "Techniekers", "Uitloggen"]);
+  });
+
   it("marks the current page, also on a sub page", () => {
     pathname.current = "/tasks/1042";
     render(<AppHeader role="backoffice" userName="Sofie Peeters" />);

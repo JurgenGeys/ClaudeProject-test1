@@ -6,6 +6,8 @@ import { CheckIcon } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
+// Note: the box is 16 px (shadcn default). On technician screens (phone) a checkbox needs a
+// touch target of at least 44 px: wrap it with its label in a row that is `min-h-11`.
 function Checkbox({ className, ...props }: React.ComponentProps<typeof CheckboxPrimitive.Root>) {
   return (
     <CheckboxPrimitive.Root

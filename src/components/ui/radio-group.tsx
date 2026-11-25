@@ -19,6 +19,8 @@ function RadioGroup({
   );
 }
 
+// Note: the circle is 16 px (shadcn default). On technician screens (phone) every option needs
+// a touch target of at least 44 px: put the item and its label in a row that is `min-h-11`.
 function RadioGroupItem({
   className,
   ...props

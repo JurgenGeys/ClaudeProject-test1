@@ -6,9 +6,9 @@ import { cn } from "@/lib/utils";
 /**
  * Colors per status (design chapter 3 and the mockups). The status is always also written
  * out, so color is never the only way to tell the statuses apart. Contrast of text on
- * background is at least 6.5 : 1 for every pair (WCAG AA asks for 4.5 : 1).
+ * background is at least 6.4 : 1 for every pair (WCAG AA asks for 4.5 : 1).
  */
-const STATUS_CLASSES: Record<TaskStatus, string> = {
+export const STATUS_CLASSES: Record<TaskStatus, string> = {
   open: "bg-slate-100 text-slate-700",
   assigned: "bg-blue-100 text-blue-800",
   picked_up: "bg-amber-100 text-amber-900",
