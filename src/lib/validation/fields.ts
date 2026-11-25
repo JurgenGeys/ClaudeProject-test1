@@ -8,23 +8,38 @@ import { QUARTER_MINUTES } from "@/lib/time/format";
  * never gets an empty string where it means "nothing".
  */
 
+/**
+ * Line endings as `\n`. A browser sends the line breaks of a textarea as `\r\n`; the database
+ * and the lists (first line of the instructions) must see one kind.
+ */
+export function normalizeNewlines(value: unknown): unknown {
+  return typeof value === "string" ? value.replace(/\r\n?/g, "\n") : value;
+}
+
 /** Required text: trimmed, not empty, with a technical maximum. */
 export function requiredText(requiredMessage: string, max: number, tooLongMessage: string) {
-  return z
-    .string({ error: requiredMessage })
-    .trim()
-    .min(1, { error: requiredMessage })
-    .max(max, { error: tooLongMessage });
+  return z.preprocess(
+    normalizeNewlines,
+    z
+      .string({ error: requiredMessage })
+      .trim()
+      .min(1, { error: requiredMessage })
+      .max(max, { error: tooLongMessage }),
+  );
 }
 
 /** Optional text: trimmed; missing, `null` and empty all become `null`. */
 export function optionalText(max: number, tooLongMessage: string) {
   return z
-    .string()
-    .trim()
-    .max(max, { error: tooLongMessage })
-    .transform((value) => (value === "" ? null : value))
-    .nullish()
+    .preprocess(
+      normalizeNewlines,
+      z
+        .string()
+        .trim()
+        .max(max, { error: tooLongMessage })
+        .transform((value) => (value === "" ? null : value))
+        .nullish(),
+    )
     .transform((value) => value ?? null);
 }
 

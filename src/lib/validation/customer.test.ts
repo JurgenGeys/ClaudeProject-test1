@@ -69,3 +69,9 @@ describe("customerSchema", () => {
     );
   });
 });
+
+describe("customerSchema: line endings", () => {
+  it("turns CRLF in the remarks into \\n", () => {
+    expect(customerSchema.parse({ name: "Klant", notes: "a\r\nb\rc" }).notes).toBe("a\nb\nc");
+  });
+});

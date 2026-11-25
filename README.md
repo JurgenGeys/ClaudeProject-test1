@@ -187,6 +187,18 @@ klik op de knop). Heeft de technieker toen geen wachtwoord gekozen, dan stuurt *
 moet dat sjabloon ook ingesteld zijn. Voor een technieker die nog geen wachtwoord koos (`invite_pending`) geeft zo'n link de
 uitnodigingssessie; voor iedere andere actieve gebruiker is het de herstelsessie van "Wachtwoord vergeten" (hieronder).
 
+### Taken aanmaken
+
+Backoffice klikt op `/tasks` op **Nieuwe taak** (`/tasks/new`, scherm B2). Het formulier heeft drie blokken: **Klant**
+(zoeken op naam, telefoon of gemeente, of **+ Nieuwe klant**), **Locatie** (ingevuld met het adres van de klant en
+aanpasbaar voor deze taak) en **Taak** (soort werk, instructies, datum, startuur per kwartier, geschatte duur tot 8u00,
+technieker). Zonder technieker ("Nog niet toewijzen") wordt de taak **Open**, met een technieker **Toegewezen**. In de
+keuzelijst staan enkel actieve techniekers die hun wachtwoord kozen. De server valideert alles met Zod en bewaart de
+taak (en een nieuwe klant) in één transactie; de technieker wordt daarin met `FOR SHARE` gelezen en op `is_active`
+gecontroleerd, zodat een technieker die op hetzelfde moment wordt uitgeschakeld nooit een taak krijgt. Het taaknummer
+komt van de database. Na het bewaren toont `/tasks` "Taak #1051 bewaard." (het taakdetail komt in BT-10). Details:
+ontwerp, scherm B2 en hoofdstuk 6.
+
 ### Wachtwoord vergeten
 
 Op de aanmeldpagina staat naast het veld Wachtwoord de link **Wachtwoord vergeten?** naar `/forgot-password`. Daar vult
@@ -257,8 +269,8 @@ aanvaard) en openen de link daaruit. Daarvoor moet `SITE_URL` het adres zijn waa
 (`http://localhost:3000`; `playwright.config.ts` zet die waarde als hij niet ingesteld is).
 
 Een Playwright global setup (`e2e/global-setup.ts`) maakt vóór de tests de testgebruikers aan (backoffice,
-technieker, een uitgeschakelde en een geblokkeerde technieker); de tests van `e2e/deactivate.spec.ts` en `e2e/reactivate.spec.ts` maken een eigen technieker aan en ruimen hem (en zijn taken) op: in Supabase Auth via de admin-API en hun profiel
-via Drizzle. Het testwachtwoord staat in `e2e/support/test-users.ts` (of in `E2E_TEST_PASSWORD`); het is enkel een
+technieker, een uitgeschakelde en een geblokkeerde technieker); de tests van `e2e/deactivate.spec.ts`, `e2e/reactivate.spec.ts` en `e2e/create-task.spec.ts` maken een eigen technieker aan en ruimen hem (en zijn taken) op: in Supabase Auth via de admin-API en hun profiel
+via Drizzle. `create-task.spec.ts` ruimt ook de klanten en taken op die het formulier aanmaakte. Het testwachtwoord staat in `e2e/support/test-users.ts` (of in `E2E_TEST_PASSWORD`); het is enkel een
 testwaarde voor de lokale Supabase, geen geheim. Gebruik de tests nooit tegen een echt Supabase-project: ze maken
 gebruikers aan.
 

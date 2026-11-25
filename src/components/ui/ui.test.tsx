@@ -8,6 +8,7 @@ import { Checkbox } from "./checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogTrigger } from "./dialog";
 import { Input } from "./input";
 import { Label } from "./label";
+import { NativeSelect } from "./native-select";
 import { RadioGroup, RadioGroupItem } from "./radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "./table";
@@ -152,5 +153,22 @@ describe("shadcn/ui components", () => {
     expect(screen.getByRole("dialog", { name: "Taak annuleren" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Sluiten" }));
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("links a Label to a NativeSelect, which takes part in the form data and shows an error state", () => {
+    render(
+      <form aria-label="test">
+        <Label htmlFor="tech">Technieker</Label>
+        <NativeSelect id="tech" name="assigneeId" defaultValue="t1" aria-invalid>
+          <option value="">Nog niet toewijzen</option>
+          <option value="t1">Kevin Wouters</option>
+        </NativeSelect>
+      </form>,
+    );
+    const select = screen.getByLabelText("Technieker") as HTMLSelectElement;
+    expect(select).toHaveAttribute("aria-invalid", "true");
+    expect(new FormData(screen.getByRole("form") as HTMLFormElement).get("assigneeId")).toBe("t1");
+    fireEvent.change(select, { target: { value: "" } });
+    expect(new FormData(screen.getByRole("form") as HTMLFormElement).get("assigneeId")).toBe("");
   });
 });

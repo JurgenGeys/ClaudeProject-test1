@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { eq, sql } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { authUsers } from "drizzle-orm/supabase";
 import postgres from "postgres";
@@ -251,5 +252,99 @@ export async function readProfileState(
       .from(profiles)
       .where(eq(profiles.email, email.toLowerCase()));
     return row;
+  });
+}
+
+/** A customer for a test that looks one up in the task form. Returns the id. */
+export async function createCustomer(
+  name: string,
+  createdByEmail: string,
+  address: { street: string; postalCode: string; city: string; phone?: string },
+): Promise<string> {
+  assertLocalSupabase(process.env);
+  return withDb(async (db) => {
+    const [office] = await db
+      .select({ id: profiles.id })
+      .from(profiles)
+      .where(eq(profiles.email, createdByEmail.toLowerCase()));
+    if (!office) {
+      throw new Error("createCustomer: backoffice user not found");
+    }
+    const [customer] = await db
+      .insert(customers)
+      .values({ name, ...address, createdBy: office.id })
+      .returning({ id: customers.id });
+    return customer.id;
+  });
+}
+
+/**
+ * Removes the customers whose name starts with `prefix` and their tasks, whoever made them (the
+ * task form of a test makes tasks and customers of its own). Tasks first: a customer cannot be
+ * removed while tasks refer to it.
+ */
+export async function removeCustomersNamed(prefix: string): Promise<void> {
+  assertLocalSupabase(process.env);
+  await withDb(async (db) => {
+    const found = await db
+      .select({ id: customers.id })
+      .from(customers)
+      .where(sql`${customers.name} like ${prefix + "%"}`);
+    for (const { id } of found) {
+      await db.delete(tasks).where(eq(tasks.customerId, id));
+      await db.delete(customers).where(eq(customers.id, id));
+    }
+  });
+}
+
+/** A saved task with the customer, technician and creator as e-mail addresses, to check what the form saved. */
+export async function readTaskByNumber(number: number) {
+  assertLocalSupabase(process.env);
+  return withDb(async (db) => {
+    const assignee = alias(profiles, "assignee");
+    const creator = alias(profiles, "creator");
+    const [row] = await db
+      .select({
+        number: tasks.number,
+        status: tasks.status,
+        workType: tasks.workType,
+        instructions: tasks.instructions,
+        scheduledDate: tasks.scheduledDate,
+        startTime: tasks.startTime,
+        estimatedMinutes: tasks.estimatedMinutes,
+        locationStreet: tasks.locationStreet,
+        locationPostalCode: tasks.locationPostalCode,
+        locationCity: tasks.locationCity,
+        assigneeEmail: assignee.email,
+        createdByEmail: creator.email,
+        updatedBy: tasks.updatedBy,
+        createdBy: tasks.createdBy,
+        customerName: customers.name,
+        customerStreet: customers.street,
+        customerPostalCode: customers.postalCode,
+        customerCity: customers.city,
+        customerPhone: customers.phone,
+        customerEmail: customers.email,
+        customerNotes: customers.notes,
+      })
+      .from(tasks)
+      .innerJoin(customers, eq(customers.id, tasks.customerId))
+      .innerJoin(creator, eq(creator.id, tasks.createdBy))
+      .leftJoin(assignee, eq(assignee.id, tasks.assigneeId))
+      .where(eq(tasks.number, number));
+    return row;
+  });
+}
+
+/** How many tasks belong to customers whose name starts with `prefix`. */
+export async function countTasksOfCustomersNamed(prefix: string): Promise<number> {
+  assertLocalSupabase(process.env);
+  return withDb(async (db) => {
+    const [row] = await db
+      .select({ total: sql<number>`count(${tasks.id})::int` })
+      .from(tasks)
+      .innerJoin(customers, eq(customers.id, tasks.customerId))
+      .where(sql`${customers.name} like ${prefix + "%"}`);
+    return row.total;
   });
 }
