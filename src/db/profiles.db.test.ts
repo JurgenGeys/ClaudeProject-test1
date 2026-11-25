@@ -80,6 +80,8 @@ describe("profiles table", () => {
       invite_pending: ["boolean", "NO"],
       invite_verified_at: ["timestamp with time zone", "YES"],
       is_active: ["boolean", "NO"],
+      recovery_session_id: ["uuid", "YES"],
+      recovery_verified_at: ["timestamp with time zone", "YES"],
       role: ["USER-DEFINED", "NO"],
     });
   });
@@ -91,6 +93,19 @@ describe("profiles table", () => {
         select invite_pending from public.profiles where id = ${id}
       `;
       expect(row.invite_pending).toBe(false);
+    });
+  });
+
+  it("starts every profile without a recovery session", async () => {
+    await inRolledBackTransaction(async (tx) => {
+      const id = await createProfile(tx, "no-recovery@example.be");
+      const [row] = await tx<
+        { recovery_session_id: string | null; recovery_verified_at: Date | null }[]
+      >`
+        select recovery_session_id, recovery_verified_at from public.profiles where id = ${id}
+      `;
+      expect(row.recovery_session_id).toBeNull();
+      expect(row.recovery_verified_at).toBeNull();
     });
   });
 
@@ -233,6 +248,39 @@ describe("profiles constraints", () => {
         tx`update public.profiles set deactivated_at = now() where id = ${id}`,
         "23514",
       );
+    });
+  });
+
+  it("refuses a recovery session without its moment, and a moment without its session", async () => {
+    await inRolledBackTransaction(async (tx) => {
+      const id = await createProfile(tx, "recovery-a@example.be");
+      await expectSqlError(
+        tx`update public.profiles set recovery_session_id = gen_random_uuid() where id = ${id}`,
+        "23514",
+      );
+    });
+    await inRolledBackTransaction(async (tx) => {
+      const id = await createProfile(tx, "recovery-b@example.be");
+      await expectSqlError(
+        tx`update public.profiles set recovery_verified_at = now() where id = ${id}`,
+        "23514",
+      );
+    });
+  });
+
+  it("allows setting and clearing a recovery session with both fields together", async () => {
+    await inRolledBackTransaction(async (tx) => {
+      const id = await createProfile(tx, "recovery-c@example.be");
+      await tx`
+        update public.profiles
+        set recovery_session_id = gen_random_uuid(), recovery_verified_at = now()
+        where id = ${id}
+      `;
+      await tx`
+        update public.profiles
+        set recovery_session_id = null, recovery_verified_at = null
+        where id = ${id}
+      `;
     });
   });
 

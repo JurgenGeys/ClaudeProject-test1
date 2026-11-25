@@ -5,7 +5,9 @@ import { pathForSignedOutVisitor } from "@/lib/auth/login-redirect";
 import {
   INACTIVE_PATH,
   INVITE_EXPIRED_PATH,
+  RESET_EXPIRED_PATH,
   SET_PASSWORD_INVITE_PATH,
+  SET_PASSWORD_RESET_PATH,
   homePathForRole,
 } from "@/lib/auth/routes";
 import { getAuthState } from "@/lib/auth/session";
@@ -27,6 +29,12 @@ export async function RoleRedirect() {
   }
   if (state.status === "password-pending") {
     redirect(SET_PASSWORD_INVITE_PATH);
+  }
+  if (state.status === "reset-expired") {
+    redirect(RESET_EXPIRED_PATH);
+  }
+  if (state.status === "reset-pending") {
+    redirect(SET_PASSWORD_RESET_PATH);
   }
   redirect(homePathForRole(state.user.role));
 }

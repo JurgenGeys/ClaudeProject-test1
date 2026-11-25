@@ -82,3 +82,10 @@ export async function waitForConfirmLinks(
     await new Promise((resolve) => setTimeout(resolve, 500));
   }
 }
+
+/** How many mails the mailbox holds for this address right now (does not wait). */
+export async function countMails(email: string): Promise<number> {
+  const query = encodeURIComponent(`to:"${email}"`);
+  const found = await getJson<MailpitSearch>(`${mailUrl()}/api/v1/search?query=${query}`);
+  return (found.messages ?? []).length;
+}

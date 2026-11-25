@@ -261,7 +261,7 @@ test.describe("inviting a technician", () => {
       "/auth/confirm",
       "/auth/confirm?type=invite",
       "/auth/confirm?token_hash=geen-geldig-token",
-      // Only invitations (and their resend) are accepted until BT-06b adds password reset.
+      // Only the types `invite` and `recovery` are accepted.
       "/auth/confirm?token_hash=geen-geldig-token&type=signup",
     ]) {
       await page.goto(path);

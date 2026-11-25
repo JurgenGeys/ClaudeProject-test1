@@ -3,15 +3,20 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 
-const { getAuthState, updateUser, returning, findProfile } = vi.hoisted(() => ({
-  getAuthState: vi.fn(),
-  updateUser: vi.fn(),
-  returning: vi.fn(),
-  findProfile: vi.fn(),
-}));
+const { getAuthState, updateUser, signOut, returning, findProfile, cookieStore } = vi.hoisted(
+  () => ({
+    getAuthState: vi.fn(),
+    updateUser: vi.fn(),
+    signOut: vi.fn(),
+    returning: vi.fn(),
+    findProfile: vi.fn(),
+    cookieStore: { getAll: vi.fn(), delete: vi.fn() },
+  }),
+);
+vi.mock("next/headers", () => ({ cookies: async () => cookieStore }));
 vi.mock("@/lib/auth/session", () => ({ getAuthState }));
 vi.mock("@/lib/supabase/server", () => ({
-  createSupabaseServerClient: async () => ({ auth: { updateUser } }),
+  createSupabaseServerClient: async () => ({ auth: { updateUser, signOut } }),
 }));
 const set = vi.fn();
 vi.mock("@/db/client", () => ({
@@ -31,7 +36,7 @@ vi.mock("next/navigation", () => ({
   },
 }));
 
-import { setPassword } from "./actions";
+import { cancelPasswordReset, setPassword } from "./actions";
 
 function form(values: Record<string, string>): FormData {
   const data = new FormData();
@@ -55,6 +60,8 @@ beforeEach(() => {
   vi.resetAllMocks();
   consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
   getAuthState.mockResolvedValue(pending);
+  signOut.mockResolvedValue({ error: null });
+  cookieStore.getAll.mockReturnValue([{ name: "sb-local-auth-token", value: "a" }]);
   updateUser.mockResolvedValue({ data: { user: {} }, error: null });
   returning.mockResolvedValue([{ role: "technician" }]);
 });
@@ -201,5 +208,131 @@ describe("setPassword: when something fails", () => {
     returning.mockRejectedValue(new Error("db down for een-goed-wachtwoord"));
     expect(await setPassword(null, form(good))).toEqual({ fieldErrors: {}, formError: technical });
     expect(JSON.stringify(consoleError.mock.calls)).not.toContain("een-goed-wachtwoord");
+  });
+});
+
+describe("setPassword: after a 'wachtwoord vergeten' link (reset-pending)", () => {
+  const resetting = (role: "backoffice" | "technician") => ({
+    status: "reset-pending" as const,
+    user: { id: "u1", email: "sofie@frisair.be", fullName: "Sofie Peeters", role },
+  });
+  const resetLinkExpired = "De link is verlopen. Vraag een nieuwe link aan.";
+
+  it.each([
+    ["backoffice", "/tasks"],
+    ["technician", "/my-tasks"],
+  ] as const)(
+    "sets the password for %s, ends the other sessions, clears the marker and goes home",
+    async (role, path) => {
+      getAuthState.mockResolvedValue(resetting(role));
+      await expect(setPassword(null, form(good))).rejects.toThrow(`NEXT_REDIRECT:${path}`);
+      expect(updateUser).toHaveBeenCalledWith({ password: "een-goed-wachtwoord" });
+      expect(signOut).toHaveBeenCalledWith({ scope: "others" });
+      expect(set).toHaveBeenCalledWith({ recoverySessionId: null, recoveryVerifiedAt: null });
+      // The invitation fields are not touched by a reset of somebody who has a password.
+      expect(set).not.toHaveBeenCalledWith(expect.objectContaining({ invitePending: false }));
+      // Password first, the other sessions second, the marker last: a failure in between
+      // leaves the user restricted, so a retry does everything again.
+      const [update, others, marker] = [
+        updateUser.mock.invocationCallOrder[0],
+        signOut.mock.invocationCallOrder[0],
+        set.mock.invocationCallOrder[0],
+      ];
+      expect(update).toBeLessThan(others);
+      expect(others).toBeLessThan(marker);
+    },
+  );
+
+  it("accepts `same_password` so a retry after a failed later step works", async () => {
+    getAuthState.mockResolvedValue(resetting("backoffice"));
+    updateUser.mockResolvedValue({
+      data: { user: null },
+      error: new AuthApiError("same password", 422, "same_password"),
+    });
+    await expect(setPassword(null, form(good))).rejects.toThrow("NEXT_REDIRECT:/tasks");
+    expect(signOut).toHaveBeenCalledWith({ scope: "others" });
+  });
+
+  it("keeps the user restricted when the other sessions cannot be ended", async () => {
+    getAuthState.mockResolvedValue(resetting("backoffice"));
+    signOut.mockResolvedValue({ error: new AuthRetryableFetchError("fetch failed", 0) });
+    expect(await setPassword(null, form(good))).toEqual({ fieldErrors: {}, formError: technical });
+    expect(set).not.toHaveBeenCalled();
+  });
+
+  it("keeps the user restricted when the marker cannot be cleared, and logs no password", async () => {
+    getAuthState.mockResolvedValue(resetting("backoffice"));
+    set.mockImplementationOnce(() => {
+      throw new Error("db down for een-goed-wachtwoord");
+    });
+    expect(await setPassword(null, form(good))).toEqual({ fieldErrors: {}, formError: technical });
+    expect(JSON.stringify(consoleError.mock.calls)).not.toContain("een-goed-wachtwoord");
+  });
+
+  it("does not end any session when the password is refused", async () => {
+    getAuthState.mockResolvedValue(resetting("backoffice"));
+    expect(await setPassword(null, form({ password: "kort", confirmPassword: "kort" }))).toEqual({
+      fieldErrors: { password: "Je wachtwoord moet minstens 8 tekens hebben." },
+    });
+    updateUser.mockResolvedValue({
+      data: { user: null },
+      error: new AuthApiError("weak", 422, "weak_password"),
+    });
+    await setPassword(null, form(good));
+    expect(signOut).not.toHaveBeenCalled();
+    expect(set).not.toHaveBeenCalled();
+  });
+
+  it("refuses an expired recovery session with the reset expiry message", async () => {
+    getAuthState.mockResolvedValue({ status: "reset-expired" });
+    expect(await setPassword(null, form(good))).toEqual({
+      fieldErrors: {},
+      formError: resetLinkExpired,
+    });
+    expect(updateUser).not.toHaveBeenCalled();
+    expect(signOut).not.toHaveBeenCalled();
+    expect(set).not.toHaveBeenCalled();
+  });
+
+  it("leaves an invitation session alone: it ends no other sessions", async () => {
+    await expect(setPassword(null, form(good))).rejects.toThrow("NEXT_REDIRECT:/my-tasks");
+    expect(signOut).not.toHaveBeenCalled();
+  });
+});
+
+describe("cancelPasswordReset", () => {
+  const resetting = {
+    status: "reset-pending" as const,
+    user: { id: "u1", email: "sofie@frisair.be", fullName: "Sofie Peeters", role: "backoffice" },
+  };
+
+  it("clears the marker, ends the session and goes to the login page", async () => {
+    getAuthState.mockResolvedValue(resetting);
+    await expect(cancelPasswordReset()).rejects.toThrow("NEXT_REDIRECT:/login");
+    expect(set).toHaveBeenCalledWith({ recoverySessionId: null, recoveryVerifiedAt: null });
+    expect(signOut).toHaveBeenCalledWith({ scope: "local" });
+    expect(cookieStore.delete).toHaveBeenCalledWith("sb-local-auth-token");
+  });
+
+  it.each([
+    ["a normal session", { status: "authenticated", user: { id: "u1", role: "backoffice" } }],
+    ["no session", { status: "unauthenticated" }],
+    ["an expired recovery session", { status: "reset-expired" }],
+  ])("clears no marker for %s, but still signs this browser out", async (_name, state) => {
+    getAuthState.mockResolvedValue(state);
+    await expect(cancelPasswordReset()).rejects.toThrow("NEXT_REDIRECT:/login");
+    expect(set).not.toHaveBeenCalled();
+    expect(signOut).toHaveBeenCalledWith({ scope: "local" });
+  });
+
+  it("always signs out, also when the database or Auth fail", async () => {
+    getAuthState.mockResolvedValue(resetting);
+    returning.mockRejectedValue(new Error("db down"));
+    set.mockImplementationOnce(() => {
+      throw new Error("db down");
+    });
+    signOut.mockRejectedValue(new Error("auth down"));
+    await expect(cancelPasswordReset()).rejects.toThrow("NEXT_REDIRECT:/login");
+    expect(cookieStore.delete).toHaveBeenCalledWith("sb-local-auth-token");
   });
 });

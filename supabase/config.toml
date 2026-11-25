@@ -52,7 +52,7 @@ content_path = "./supabase/templates/invite.html"
 # "Uitnodiging opnieuw versturen" for someone who already opened the first link: Supabase only
 # sends an invitation to an address it has not confirmed yet, so that technician gets this mail.
 [auth.email.template.recovery]
-subject = "Kies een wachtwoord voor de planning"
+subject = "Kies een nieuw wachtwoord voor de planning"
 content_path = "./supabase/templates/recovery.html"
 
 # Rate limits of the LOCAL Auth server only (local development and the CI runner), approved by

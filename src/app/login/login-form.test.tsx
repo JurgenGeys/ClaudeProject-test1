@@ -15,13 +15,15 @@ function submit() {
 }
 
 describe("LoginForm", () => {
-  it("has labelled fields, a submit button and no password reminder link yet", () => {
+  it("has labelled fields, a submit button and the link 'Wachtwoord vergeten?'", () => {
     render(<LoginForm />);
     expect(screen.getByLabelText("E-mailadres")).toHaveAttribute("type", "email");
     expect(screen.getByLabelText("Wachtwoord")).toHaveAttribute("type", "password");
     expect(screen.getByRole("button", { name: "Aanmelden" })).toBeInTheDocument();
-    // The link "Wachtwoord vergeten?" is built in BT-06b.
-    expect(screen.queryByRole("link")).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Wachtwoord vergeten?" })).toHaveAttribute(
+      "href",
+      "/forgot-password",
+    );
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 

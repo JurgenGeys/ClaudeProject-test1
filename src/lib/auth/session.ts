@@ -8,6 +8,8 @@ import { profiles, type UserRole } from "@/db/schema";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 import { isInviteSessionExpired } from "./invite";
+import { isResetSessionExpired } from "./recovery";
+import { sessionIdFromAccessToken } from "./session-id";
 import { isTemporaryAuthError } from "./temporary-error";
 
 /** The signed-in user as the application sees them: Supabase Auth user plus profile. */
@@ -30,6 +32,12 @@ export type CurrentUser = {
  *   for that (design G2); everywhere else this user is treated as not allowed in.
  * - `invite-expired`: as `password-pending`, but the link was verified more than 24 hours ago.
  *   The session is treated as not signed in: the caller ends it and shows "De link is verlopen".
+ * - `reset-pending`: valid session and an active profile, but this very session is the temporary
+ *   one that a "wachtwoord vergeten" link created (`profiles.recovery_session_id`). It may only
+ *   be used to choose a new password (design G2, mode reset); other sessions of the same user
+ *   are not affected. The user is complete (with role) so the action can send them home.
+ * - `reset-expired`: as `reset-pending`, but the link was confirmed more than 24 hours ago.
+ *   The caller ends the session and shows "De link is verlopen. Vraag een nieuwe link aan."
  * - `unavailable`: Supabase Auth could not be reached (network, server error, rate limit).
  *   This is NOT "signed out": the caller shows a technical message and must not redirect
  *   to the login page, otherwise a short outage would send everybody around in circles.
@@ -40,6 +48,8 @@ export type AuthState =
   | { status: "inactive" }
   | { status: "password-pending"; user: PendingUser }
   | { status: "invite-expired" }
+  | { status: "reset-pending"; user: CurrentUser }
+  | { status: "reset-expired" }
   | { status: "unavailable" };
 
 /** An invited user who still has to choose a password. */
@@ -50,6 +60,8 @@ export type AuthErrorCode =
   | "inactive"
   | "password-pending"
   | "invite-expired"
+  | "reset-pending"
+  | "reset-expired"
   | "forbidden"
   | "unavailable";
 
@@ -59,6 +71,8 @@ export type AuthErrorCode =
  * - `inactive`: sign out and redirect to `/login` with the "account uitgeschakeld" message.
  * - `password-pending`: invited, no password chosen yet: redirect to the "set password" page.
  * - `invite-expired`: the temporary session of the invitation ran out: end it, show the message.
+ * - `reset-pending`: a recovery session, only good for choosing a new password: redirect to G2.
+ * - `reset-expired`: the recovery session ran out: end it, show the message.
  * - `forbidden`: signed in with the wrong role: show "Deze pagina is niet voor jou bedoeld".
  * - `unavailable`: Auth could not be reached: show a technical message, do not redirect.
  * In a Server Action, turn it into a `{ ok: false, formError }` result instead.
@@ -108,15 +122,32 @@ export const getAuthState = cache(async (): Promise<AuthState> => {
     };
   }
 
-  return {
-    status: "authenticated",
-    user: {
-      id: profile.id,
-      email: profile.email,
-      fullName: profile.fullName,
-      role: profile.role,
-    },
+  const user: CurrentUser = {
+    id: profile.id,
+    email: profile.email,
+    fullName: profile.fullName,
+    role: profile.role,
   };
+
+  if (profile.recoverySessionId) {
+    // Somebody confirmed a "wachtwoord vergeten" link. That one session is restricted; any other
+    // session of the same user (signed in earlier, on another device) is a normal session. The
+    // access token was just verified by `getUser`, so its `session_id` can be trusted.
+    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+    const sessionId = sessionIdFromAccessToken(sessionData.session?.access_token);
+    if (sessionError || !sessionId) {
+      // Cannot tell which session this is: do not hand out a normal session by accident.
+      return { status: "unavailable" };
+    }
+    if (sessionId === profile.recoverySessionId) {
+      if (isResetSessionExpired(profile.recoveryVerifiedAt, new Date())) {
+        return { status: "reset-expired" };
+      }
+      return { status: "reset-pending", user };
+    }
+  }
+
+  return { status: "authenticated", user };
 });
 
 /** The signed-in, active user, or `null` for everyone else (also deactivated users). */

@@ -66,6 +66,19 @@ describe("RoleRedirect", () => {
     await expect(RoleRedirect()).rejects.toThrow("NEXT_REDIRECT:/auth/invite-expired");
   });
 
+  it("sends a recovery session to the set password page in mode reset", async () => {
+    getAuthState.mockResolvedValue({
+      status: "reset-pending",
+      user: { id: "u1", email: "x@y.be", fullName: "X", role: "backoffice" },
+    });
+    await expect(RoleRedirect()).rejects.toThrow("NEXT_REDIRECT:/set-password?mode=reset");
+  });
+
+  it("sends an expired recovery session to the route that ends it", async () => {
+    getAuthState.mockResolvedValue({ status: "reset-expired" });
+    await expect(RoleRedirect()).rejects.toThrow("NEXT_REDIRECT:/auth/reset-expired");
+  });
+
   it("sends a deactivated user to the route that signs them out", async () => {
     getAuthState.mockResolvedValue({ status: "inactive" });
     await expect(RoleRedirect()).rejects.toThrow("NEXT_REDIRECT:/auth/inactive");

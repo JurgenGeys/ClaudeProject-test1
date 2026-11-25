@@ -57,13 +57,17 @@ const OTHER_ACTIONS: Record<string, { check: RegExp; why: string }> = {
     check: /signOut\(/,
     why: "everybody, also a deactivated or pending user, must be able to sign out",
   },
+  "app/forgot-password/actions.ts": {
+    check: /resetPasswordForEmail\(/,
+    why: "public by design: anybody may ask for a mail; the answer never depends on the address, and the mail only goes to an active profile",
+  },
   "app/auth/confirm/actions.ts": {
     check: /verifyOtp\(/,
     why: "the one-time token of the invitation link is the credential",
   },
   "app/set-password/actions.ts": {
     check: /getAuthState\(/,
-    why: "only a session in the state `password-pending` may choose a password",
+    why: "only a session in the state `password-pending` or `reset-pending` may choose a password; cancelling a reset reads the same state",
   },
 };
 
@@ -101,6 +105,7 @@ describe("authorization per Server Action", () => {
     expect(names).toContain("app/(backoffice)/technicians/actions.ts");
     expect(names).toContain("app/set-password/actions.ts");
     expect(names).toContain("app/auth/confirm/actions.ts");
+    expect(names).toContain("app/forgot-password/actions.ts");
   });
 
   it.each(actionFiles.map(({ file, name }) => [name, file]))(

@@ -29,6 +29,13 @@
       "when": 1795598023178,
       "tag": "0003_profiles_invite_verified_at",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1795601090985,
+      "tag": "0004_profiles_recovery_session",
+      "breakpoints": true
     }
   ]
 }

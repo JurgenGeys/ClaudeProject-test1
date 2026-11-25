@@ -37,6 +37,14 @@ export const profiles = pgTable(
     // temporary session of a pending user ends 24 hours after this moment (`isInviteSessionExpired`).
     // Cleared when the password is chosen.
     inviteVerifiedAt: timestamp("invite_verified_at", { withTimezone: true }),
+    // The temporary session that a "wachtwoord vergeten" link creates for an active user (BT-06b).
+    // `recovery_session_id` is the Auth session (`session_id` claim) that may only be used to
+    // choose a new password, `recovery_verified_at` the server time of the click. Per session,
+    // not per user: the other sessions of this user (a phone that is already signed in) keep
+    // working until the password is chosen. Both are cleared when the password is chosen or the
+    // reset is cancelled; they are always set together.
+    recoverySessionId: uuid("recovery_session_id"),
+    recoveryVerifiedAt: timestamp("recovery_verified_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     // Set when the user is deactivated, cleared again on reactivation.
     deactivatedAt: timestamp("deactivated_at", { withTimezone: true }),
@@ -46,6 +54,11 @@ export const profiles = pgTable(
     check(
       "profiles_active_matches_deactivated_at",
       sql`${table.isActive} = (${table.deactivatedAt} is null)`,
+    ),
+    // A recovery session always has its moment, and the other way around.
+    check(
+      "profiles_recovery_session_complete",
+      sql`(${table.recoverySessionId} is null) = (${table.recoveryVerifiedAt} is null)`,
     ),
   ],
   // Row Level Security without policies: the public Supabase API can do nothing with this table.

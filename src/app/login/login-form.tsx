@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useActionState, useEffect, useRef } from "react";
 
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -7,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FORGOT_PASSWORD_PATH } from "@/lib/auth/routes";
 import { fieldSummary } from "@/lib/validation/field-summary";
 
 import { login } from "./actions";
@@ -80,9 +82,17 @@ export function LoginForm({ notice }: { notice?: string }) {
           </div>
 
           <div>
-            <Label htmlFor="password" className="block">
-              Wachtwoord
-            </Label>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="password" className="block">
+                Wachtwoord
+              </Label>
+              <Link
+                href={FORGOT_PASSWORD_PATH}
+                className="text-sm text-muted-foreground underline underline-offset-4"
+              >
+                Wachtwoord vergeten?
+              </Link>
+            </div>
             <Input
               id="password"
               name="password"

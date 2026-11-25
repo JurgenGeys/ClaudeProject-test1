@@ -138,9 +138,9 @@ mails per uur en het aantal tokencontroles (`email_sent`, `token_verifications`,
    `<SITE_URL>/auth/confirm` (exact dat adres). Staat het adres niet in de lijst, dan valt Supabase terug op de Site
    URL en werkt de link niet.
 2. _Authentication, Email Templates_: bij **Invite user** onderwerp "Je uitnodiging voor de planning" en als inhoud de
-   tekst uit `supabase/templates/invite.html`; bij **Reset password** onderwerp "Kies een wachtwoord voor de
-   planning" en de tekst uit `supabase/templates/recovery.html` (die mail gaat naar een technieker die de eerste link al
-   opende, zie hieronder). De sjablonen gebruiken `{{ .RedirectTo }}?token_hash={{ .TokenHash }}&type=…`; het
+   tekst uit `supabase/templates/invite.html`; bij **Reset password** onderwerp "Kies een nieuw wachtwoord voor
+   de planning" en de tekst uit `supabase/templates/recovery.html` (die mail dient voor "Wachtwoord vergeten" en voor het
+   opnieuw versturen aan een technieker die de eerste link al opende, zie hieronder). De sjablonen gebruiken `{{ .RedirectTo }}?token_hash={{ .TokenHash }}&type=…`; het
    standaardsjabloon met `{{ .ConfirmationURL }}` werkt niet met deze stroom.
 3. _Authentication, Sign In / Providers_: laat de e-mailprovider aan, en zet **Allow new users to sign up** uit
    (beslist door Jurgen, 25/11/2026). Gebruikers komen enkel via een uitnodiging (of het seed-script); de admin-API
@@ -165,8 +165,43 @@ mails per uur en het aantal tokencontroles (`email_sent`, `token_verifications`,
 **Opnieuw versturen na openen.** Supabase stuurt geen uitnodiging meer naar een adres dat het al bevestigd heeft (na de
 klik op de knop). Heeft de technieker toen geen wachtwoord gekozen, dan stuurt **Uitnodiging opnieuw versturen** de mail
 "Reset password" (type `recovery`, via `resetPasswordForEmail`) met een nieuwe link naar dezelfde tussenpagina. Daarom
-moet dat sjabloon ook ingesteld zijn. Zolang `invite_pending` waar is accepteert `/auth/confirm` dat type enkel voor een
-technieker die nog geen wachtwoord koos; de uitbreiding voor "Wachtwoord vergeten" volgt in BT-06b.
+moet dat sjabloon ook ingesteld zijn. Voor een technieker die nog geen wachtwoord koos (`invite_pending`) geeft zo'n link de
+uitnodigingssessie; voor iedere andere actieve gebruiker is het de herstelsessie van "Wachtwoord vergeten" (hieronder).
+
+### Wachtwoord vergeten
+
+Op de aanmeldpagina staat naast het veld Wachtwoord de link **Wachtwoord vergeten?** naar `/forgot-password`. Daar vult
+iemand zijn e-mailadres in en krijgt hij **altijd** dezelfde melding ("Als dit e-mailadres bij ons gekend is, krijg je
+binnen enkele minuten een mail ..."), ook voor een onbekend of uitgeschakeld adres en ook als Supabase geen nieuwe mail
+meer wil sturen (limiet). Het scherm verraadt dus niet welke adressen bestaan. De mail wordt pas na het antwoord
+verstuurd (`after`), zodat ook het tijdsverschil niets verraadt; mislukt het versturen, dan staat dat enkel in de
+serverlog. Alleen een bestaand, actief profiel krijgt een mail.
+
+De stroom daarna:
+
+1. De mail (Supabase "Reset password", sjabloon `supabase/templates/recovery.html`) bevat een link
+   `<SITE_URL>/auth/confirm?token_hash=…&type=recovery`. Zoals bij een uitnodiging toont die pagina eerst een knop;
+   pas de klik verbruikt het token.
+2. De klik maakt een **herstelsessie**: de server bewaart het id van die ene sessie en het tijdstip in
+   `profiles.recovery_session_id` en `profiles.recovery_verified_at`. Die sessie mag enkel `/set-password?mode=reset`
+   gebruiken (pagina's, Server Actions en `/` sturen ernaartoe; aanmelden met die sessie opent niets). Ze duurt 24 uur
+   (daarna: afgemeld met "De link is verlopen. Vraag een nieuwe link aan.") en heeft een knop **Annuleren**. Andere
+   sessies van dezelfde gebruiker (bv. een gsm die al aangemeld is) blijven gewoon werken tot het wachtwoord gekozen is.
+3. Na het kiezen van een nieuw wachtwoord worden **alle andere sessies** van die gebruiker beëindigd
+   (`signOut` met scope `others`) en gaat hij naar het startscherm van zijn rol. Het oude wachtwoord werkt niet meer.
+4. Een uitgeschakelde gebruiker, een gebruiker zonder profiel en een ongeldige, verlopen of gebruikte link krijgen
+   dezelfde melding: "Deze link is niet meer geldig. Vraag een nieuwe link aan." met een knop naar `/forgot-password`.
+
+Instellingen voor een echt Supabase-project (naast de punten hierboven):
+
+- _Authentication, Email Templates, Reset password_: het sjabloon uit `supabase/templates/recovery.html` (het gebruikt
+  `{{ .RedirectTo }}?token_hash={{ .TokenHash }}&type=recovery`; `{{ .ConfirmationURL }}` werkt niet met deze stroom).
+- _Authentication, URL Configuration, Redirect URLs_: `<SITE_URL>/auth/confirm`. Dat is dezelfde URL als voor de
+  uitnodiging; er komt geen extra adres bij. Staat hij er niet in, dan valt Supabase terug op de Site URL en werkt de
+  link niet.
+- De geldigheid van de link is de **Email OTP Expiration** (standaard 1 uur); de herstelsessie zelf duurt daarna nog 24
+  uur. Supabase laat per adres maximaal één mail per minuut toe en kent een limiet per uur voor het hele project (zie K6
+  voor een eigen SMTP-dienst); de gebruiker merkt dat niet aan het scherm.
 
 **Auth-account zonder profiel (uitnodigen zegt "Er bestaat al een gebruiker met dit e-mailadres.").** Dit gebeurt als
 er een account in Supabase Auth staat dat de applicatie niet zelf aanmaakte (geen `invited_by_app` in `app_metadata`) en
@@ -194,9 +229,9 @@ pnpm exec playwright install chromium   # eenmalig
 pnpm test:e2e
 ```
 
-De test voor het uitnodigen (`e2e/invite.spec.ts`) leest de uitnodigingsmail uit de testmailbox van de lokale Supabase
+De tests voor het uitnodigen (`e2e/invite.spec.ts`) en voor wachtwoord vergeten (`e2e/forgot-password.spec.ts`) lezen de mail uit de testmailbox van de lokale Supabase
 (Mailpit, standaard `http://127.0.0.1:54324`, aan te passen met `E2E_MAIL_URL`; enkel een adres op deze machine wordt
-aanvaard) en opent de link daaruit. Daarvoor moet `SITE_URL` het adres zijn waarop de tests de app openen
+aanvaard) en openen de link daaruit. Daarvoor moet `SITE_URL` het adres zijn waarop de tests de app openen
 (`http://localhost:3000`; `playwright.config.ts` zet die waarde als hij niet ingesteld is).
 
 Een Playwright global setup (`e2e/global-setup.ts`) maakt vóór de tests de testgebruikers aan (backoffice,

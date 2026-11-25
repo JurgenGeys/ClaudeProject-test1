@@ -28,8 +28,14 @@ export const CONFIRM_PATH = "/auth/confirm";
 /** G2: choose a password. The only page an invited user may use before the password is set. */
 export const SET_PASSWORD_PATH = "/set-password";
 
-/** Query value of `?mode=` on G2 for the invitation (BT-06b adds `reset`). */
+/** Query value of `?mode=` on G2 for the invitation. */
 export const SET_PASSWORD_MODE_INVITE = "invite";
+
+/** Query value of `?mode=` on G2 after "wachtwoord vergeten" (BT-06b). */
+export const SET_PASSWORD_MODE_RESET = "reset";
+
+/** G3: ask for a link to choose a new password. Public. */
+export const FORGOT_PASSWORD_PATH = "/forgot-password";
 
 /** Query value of `?error=` on G2: the link is invalid, expired or already used. */
 export const SET_PASSWORD_ERROR_LINK = "link";
@@ -46,17 +52,32 @@ export const SET_PASSWORD_ERROR_EXPIRED = "expired";
  */
 export const INVITE_EXPIRED_PATH = "/auth/invite-expired";
 
+/**
+ * Same as `INVITE_EXPIRED_PATH`, for the temporary session of a "wachtwoord vergeten" link:
+ * ends it and shows G2 with "De link is verlopen. Vraag een nieuwe link aan."
+ */
+export const RESET_EXPIRED_PATH = "/auth/reset-expired";
+
 /** Where an invited user without a password goes (and where the confirm route sends them). */
 export const SET_PASSWORD_INVITE_PATH = `${SET_PASSWORD_PATH}?mode=${SET_PASSWORD_MODE_INVITE}`;
+
+/** Where a user in a recovery session goes: the one page that session may use. */
+export const SET_PASSWORD_RESET_PATH = `${SET_PASSWORD_PATH}?mode=${SET_PASSWORD_MODE_RESET}`;
 
 /**
  * Pages that work without a session. `/auth/clear-session` must be reachable without one:
  * it is where stale session cookies are removed. `/auth/confirm` is where the link in the
  * invitation mail arrives (the visitor has no session yet) and `/set-password` shows the
  * "link is no longer valid" message to visitors without one; the page decides for itself
- * what a visitor may see. `/forgot-password` is added in BT-06b.
+ * what a visitor may see. `/forgot-password` is where somebody who cannot sign in asks for a link.
  */
-const PUBLIC_PATHS = [LOGIN_PATH, CLEAR_SESSION_PATH, CONFIRM_PATH, SET_PASSWORD_PATH];
+const PUBLIC_PATHS = [
+  LOGIN_PATH,
+  FORGOT_PASSWORD_PATH,
+  CLEAR_SESSION_PATH,
+  CONFIRM_PATH,
+  SET_PASSWORD_PATH,
+];
 
 export function homePathForRole(role: UserRole): string {
   return HOME_PATHS[role];

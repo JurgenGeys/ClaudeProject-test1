@@ -141,3 +141,14 @@ export async function setInviteVerifiedAt(email: string, verifiedAt: Date): Prom
       .where(eq(profiles.email, email.toLowerCase()));
   });
 }
+
+/** Moves the moment the "wachtwoord vergeten" link was confirmed, to test the 24 hour limit. */
+export async function setRecoveryVerifiedAt(email: string, verifiedAt: Date): Promise<void> {
+  assertLocalSupabase(process.env);
+  await withDb(async (db) => {
+    await db
+      .update(profiles)
+      .set({ recoveryVerifiedAt: verifiedAt })
+      .where(eq(profiles.email, email.toLowerCase()));
+  });
+}
