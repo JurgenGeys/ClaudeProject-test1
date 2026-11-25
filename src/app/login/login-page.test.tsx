@@ -81,6 +81,11 @@ describe("LoginPage", () => {
     await expect(renderContent()).rejects.toThrow("NEXT_REDIRECT:/set-password?mode=invite");
   });
 
+  it("sends an expired temporary invitation session to the route that ends it", async () => {
+    getAuthState.mockResolvedValue({ status: "invite-expired" });
+    await expect(renderContent()).rejects.toThrow("NEXT_REDIRECT:/auth/invite-expired");
+  });
+
   it("signs a deactivated user out", async () => {
     getAuthState.mockResolvedValue({ status: "inactive" });
     await expect(renderContent()).rejects.toThrow("NEXT_REDIRECT:/auth/inactive");

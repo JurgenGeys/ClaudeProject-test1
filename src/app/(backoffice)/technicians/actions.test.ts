@@ -19,8 +19,11 @@ const existingProfiles = vi.fn();
 const returning = vi.fn();
 const values = vi.fn();
 const findFirst = vi.fn();
+// `execute` reads `auth.users` (the account with this address, if any).
+const execute = vi.fn();
 vi.mock("@/db/client", () => ({
   getDb: () => ({
+    execute: (...args: unknown[]) => execute(...args),
     select: () => ({ from: () => ({ where: () => ({ limit: existingProfiles }) }) }),
     insert: () => ({
       values: (...args: unknown[]) => {
@@ -34,8 +37,15 @@ vi.mock("@/db/client", () => ({
 
 const inviteUserByEmail = vi.fn();
 const deleteUser = vi.fn();
+const updateUserById = vi.fn();
 vi.mock("@/lib/supabase/admin", () => ({
-  createSupabaseAdminClient: () => ({ auth: { admin: { inviteUserByEmail, deleteUser } } }),
+  createSupabaseAdminClient: () => ({
+    auth: { admin: { inviteUserByEmail, deleteUser, updateUserById } },
+  }),
+}));
+const resetPasswordForEmail = vi.fn();
+vi.mock("@/lib/supabase/credentials", () => ({
+  createSupabaseCredentialsClient: () => ({ auth: { resetPasswordForEmail } }),
 }));
 
 const revalidatePath = vi.fn();
@@ -72,6 +82,10 @@ beforeEach(() => {
   existingProfiles.mockResolvedValue([]);
   inviteUserByEmail.mockResolvedValue({ data: { user: { id: authUserId } }, error: null });
   deleteUser.mockResolvedValue({ error: null });
+  updateUserById.mockResolvedValue({ error: null });
+  resetPasswordForEmail.mockResolvedValue({ error: null });
+  // No Auth account with this address yet.
+  execute.mockResolvedValue([]);
   returning.mockResolvedValue([{ id: authUserId }]);
 });
 
@@ -153,6 +167,13 @@ describe("inviteTechnician: success", () => {
       role: "technician",
       invitePending: true,
     });
+    // The new Auth user is marked as created by this application (only the admin API can do that).
+    expect(updateUserById).toHaveBeenCalledWith(authUserId, {
+      app_metadata: { invited_by_app: true },
+    });
+    expect(updateUserById.mock.invocationCallOrder[0]).toBeLessThan(
+      values.mock.invocationCallOrder[0],
+    );
     expect(deleteUser).not.toHaveBeenCalled();
     expect(revalidatePath).toHaveBeenCalledWith("/technicians");
   });
@@ -214,6 +235,50 @@ describe("inviteTechnician: duplicate e-mail address", () => {
     expect(await inviteTechnician(null, form(valid))).toEqual(duplicate);
     expect(deleteUser).not.toHaveBeenCalled();
     expect(revalidatePath).not.toHaveBeenCalled();
+  });
+});
+
+describe("inviteTechnician: an Auth account without a profile", () => {
+  it("refuses an account that this application did not create, without a mail, a role or a removal", async () => {
+    // For example somebody who registered by themselves while sign-up was still open.
+    execute.mockResolvedValue([{ id: authUserId, invited_by_app: null }]);
+    expect(await inviteTechnician(null, form(valid))).toMatchObject({
+      ok: false,
+      fieldErrors: { email: "Er bestaat al een gebruiker met dit e-mailadres." },
+    });
+    expect(inviteUserByEmail).not.toHaveBeenCalled();
+    expect(updateUserById).not.toHaveBeenCalled();
+    expect(values).not.toHaveBeenCalled();
+    expect(deleteUser).not.toHaveBeenCalled();
+  });
+
+  it("reuses an account that this application created earlier (interrupted invitation) and heals it", async () => {
+    execute.mockResolvedValue([{ id: authUserId, invited_by_app: "true" }]);
+    expect(await inviteTechnician(null, form(valid))).toMatchObject({ ok: true });
+    expect(inviteUserByEmail).toHaveBeenCalled();
+    // Already marked: nothing to set again.
+    expect(updateUserById).not.toHaveBeenCalled();
+    expect(values).toHaveBeenCalledWith(expect.objectContaining({ id: authUserId }));
+  });
+
+  it("adds nothing when Auth answers with another account than the one that was found", async () => {
+    execute.mockResolvedValue([
+      { id: "99999999-9999-4999-8999-999999999999", invited_by_app: "true" },
+    ]);
+    expect(await inviteTechnician(null, form(valid))).toMatchObject({ ok: false });
+    expect(values).not.toHaveBeenCalled();
+  });
+
+  it("removes the new Auth user again when it cannot be marked", async () => {
+    updateUserById.mockResolvedValue({
+      error: new AuthApiError("boom", 500, "unexpected_failure"),
+    });
+    expect(await inviteTechnician(null, form(valid))).toMatchObject({
+      ok: false,
+      formError: "Dat is niet gelukt. Controleer je internetverbinding en probeer opnieuw.",
+    });
+    expect(deleteUser).toHaveBeenCalledWith(authUserId);
+    expect(values).not.toHaveBeenCalled();
   });
 });
 
@@ -368,14 +433,45 @@ describe("resendInvite", () => {
     expect(inviteUserByEmail).not.toHaveBeenCalled();
   });
 
-  it("explains that a link that was already opened cannot be sent again", async () => {
+  it("sends a recovery link when the first link was already opened (the address is confirmed)", async () => {
     inviteUserByEmail.mockResolvedValue({
       data: { user: null },
       error: new AuthApiError("already registered", 422, "email_exists"),
     });
     const state = await resendInvite(null, form({ id: authUserId }));
+    expect(state).toEqual({
+      ok: true,
+      message: "Uitnodiging opnieuw verstuurd naar yana@frisair.be.",
+    });
+    expect(resetPasswordForEmail).toHaveBeenCalledWith("yana@frisair.be", {
+      redirectTo: "http://localhost:3000/auth/confirm",
+    });
+    expect(revalidatePath).toHaveBeenCalledWith("/technicians");
+  });
+
+  it("does not use the recovery mail when the invitation could be sent", async () => {
+    await resendInvite(null, form({ id: authUserId }));
+    expect(resetPasswordForEmail).not.toHaveBeenCalled();
+  });
+
+  it("reports problems of the recovery mail too, and never mentions a password reminder", async () => {
+    inviteUserByEmail.mockResolvedValue({
+      data: { user: null },
+      error: new AuthApiError("already registered", 422, "email_exists"),
+    });
+    resetPasswordForEmail.mockResolvedValue({
+      error: new AuthApiError("slow down", 429, "over_email_send_rate_limit"),
+    });
+    expect(await resendInvite(null, form({ id: authUserId }))).toMatchObject({
+      ok: false,
+      formError: "Er zijn te veel mails verstuurd. Probeer het over enkele minuten opnieuw.",
+    });
+    resetPasswordForEmail.mockResolvedValue({
+      error: new AuthApiError("boom", 500, "unexpected_failure"),
+    });
+    const state = await resendInvite(null, form({ id: authUserId }));
     expect(state).toMatchObject({ ok: false });
-    expect(state && !state.ok && state.formError).toContain("heeft de link al geopend");
+    expect(JSON.stringify(state)).not.toMatch(/vergeten/i);
   });
 
   it("says so when too many mails were sent, and gives the technical message otherwise", async () => {

@@ -4,6 +4,7 @@ import postgres from "postgres";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 import * as schema from "@/db/schema";
+import { findAuthUserByEmail } from "@/lib/technicians/auth-users";
 import { queryTechnicians } from "@/lib/technicians/queries";
 
 import type { Database } from "./client";
@@ -131,6 +132,32 @@ describe("queryTechnicians", () => {
       expect(open["Kevin Wouters"]).toBe(3);
       // A technician without tasks is listed with 0, not dropped by the join.
       expect(open["Jens Maes"]).toBe(0);
+    });
+  });
+});
+
+describe("findAuthUserByEmail", () => {
+  it("finds an Auth account by address (any capitals) and tells whether this application created it", async () => {
+    await inRolledBackTransaction(async (tx) => {
+      await tx.execute(sql`
+        insert into auth.users (id, email, raw_app_meta_data) values
+          (gen_random_uuid(), 'marked@lookup-test.example', '{"invited_by_app": true}'::jsonb),
+          (gen_random_uuid(), 'plain@lookup-test.example', '{"provider": "email"}'::jsonb)
+      `);
+
+      const marked = await findAuthUserByEmail(
+        tx as unknown as Database,
+        "Marked@Lookup-Test.example",
+      );
+      expect(marked).toEqual({ id: expect.any(String), invitedByApp: true });
+      const plain = await findAuthUserByEmail(
+        tx as unknown as Database,
+        "plain@lookup-test.example",
+      );
+      expect(plain).toEqual({ id: expect.any(String), invitedByApp: false });
+      expect(
+        await findAuthUserByEmail(tx as unknown as Database, "none@lookup-test.example"),
+      ).toBeNull();
     });
   });
 });

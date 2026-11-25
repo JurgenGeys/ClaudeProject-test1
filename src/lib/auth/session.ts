@@ -7,6 +7,7 @@ import { getDb } from "@/db/client";
 import { profiles, type UserRole } from "@/db/schema";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
+import { isInviteSessionExpired } from "./invite";
 import { isTemporaryAuthError } from "./temporary-error";
 
 /** The signed-in user as the application sees them: Supabase Auth user plus profile. */
@@ -27,6 +28,8 @@ export type CurrentUser = {
  * - `password-pending`: valid session and an active profile, but the invited technician has
  *   not chosen a password yet. The session that the invitation link creates may only be used
  *   for that (design G2); everywhere else this user is treated as not allowed in.
+ * - `invite-expired`: as `password-pending`, but the link was verified more than 24 hours ago.
+ *   The session is treated as not signed in: the caller ends it and shows "De link is verlopen".
  * - `unavailable`: Supabase Auth could not be reached (network, server error, rate limit).
  *   This is NOT "signed out": the caller shows a technical message and must not redirect
  *   to the login page, otherwise a short outage would send everybody around in circles.
@@ -36,19 +39,26 @@ export type AuthState =
   | { status: "unauthenticated" }
   | { status: "inactive" }
   | { status: "password-pending"; user: PendingUser }
+  | { status: "invite-expired" }
   | { status: "unavailable" };
 
 /** An invited user who still has to choose a password. */
 export type PendingUser = Pick<CurrentUser, "id" | "email" | "fullName">;
 
 export type AuthErrorCode =
-  "unauthenticated" | "inactive" | "password-pending" | "forbidden" | "unavailable";
+  | "unauthenticated"
+  | "inactive"
+  | "password-pending"
+  | "invite-expired"
+  | "forbidden"
+  | "unavailable";
 
 /**
  * Thrown by `requireRole`. Callers decide what it means (BT-03 and later):
  * - `unauthenticated`: redirect to `/login`.
  * - `inactive`: sign out and redirect to `/login` with the "account uitgeschakeld" message.
  * - `password-pending`: invited, no password chosen yet: redirect to the "set password" page.
+ * - `invite-expired`: the temporary session of the invitation ran out: end it, show the message.
  * - `forbidden`: signed in with the wrong role: show "Deze pagina is niet voor jou bedoeld".
  * - `unavailable`: Auth could not be reached: show a technical message, do not redirect.
  * In a Server Action, turn it into a `{ ok: false, formError }` result instead.
@@ -89,6 +99,9 @@ export const getAuthState = cache(async (): Promise<AuthState> => {
   }
 
   if (profile.invitePending) {
+    if (isInviteSessionExpired(profile.inviteVerifiedAt, new Date())) {
+      return { status: "invite-expired" };
+    }
     return {
       status: "password-pending",
       user: { id: profile.id, email: profile.email, fullName: profile.fullName },

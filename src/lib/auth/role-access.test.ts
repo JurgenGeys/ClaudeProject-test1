@@ -74,6 +74,13 @@ describe("checkRoleAccess", () => {
     );
   });
 
+  it("redirects an expired temporary invitation session to the route that ends it", async () => {
+    requireRole.mockRejectedValue(new AuthError("invite-expired"));
+    await expect(checkRoleAccess("technician")).rejects.toThrow(
+      "NEXT_REDIRECT:/auth/invite-expired",
+    );
+  });
+
   it("reports the wrong role together with the user, so the page can point to their own start page", async () => {
     requireRole.mockRejectedValue(new AuthError("forbidden"));
     getCurrentUser.mockResolvedValue(technician);

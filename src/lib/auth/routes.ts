@@ -37,6 +37,15 @@ export const SET_PASSWORD_ERROR_LINK = "link";
 /** Query value of `?error=` on G2: the link could not be checked because Auth was unreachable. */
 export const SET_PASSWORD_ERROR_UNAVAILABLE = "unavailable";
 
+/** Query value of `?error=` on G2: the temporary session of the invitation ran out (24 hours). */
+export const SET_PASSWORD_ERROR_EXPIRED = "expired";
+
+/**
+ * Route handler that ends the temporary session of an invitation that is older than 24 hours
+ * and shows G2 with the message that the link has expired (like `/auth/inactive`).
+ */
+export const INVITE_EXPIRED_PATH = "/auth/invite-expired";
+
 /** Where an invited user without a password goes (and where the confirm route sends them). */
 export const SET_PASSWORD_INVITE_PATH = `${SET_PASSWORD_PATH}?mode=${SET_PASSWORD_MODE_INVITE}`;
 

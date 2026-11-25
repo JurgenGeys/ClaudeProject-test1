@@ -78,6 +78,7 @@ describe("profiles table", () => {
       full_name: ["text", "NO"],
       id: ["uuid", "NO"],
       invite_pending: ["boolean", "NO"],
+      invite_verified_at: ["timestamp with time zone", "YES"],
       is_active: ["boolean", "NO"],
       role: ["USER-DEFINED", "NO"],
     });

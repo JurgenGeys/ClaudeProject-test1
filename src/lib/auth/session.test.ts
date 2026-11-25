@@ -26,6 +26,7 @@ const technicianProfile: Profile = {
   role: "technician",
   isActive: true,
   invitePending: false,
+  inviteVerifiedAt: null,
   createdAt: new Date("2026-11-24T08:00:00Z"),
   deactivatedAt: null,
 };
@@ -106,7 +107,7 @@ describe("auth helpers", () => {
     });
 
     it("reports an invited user without a password as `password-pending`", async () => {
-      signedInAs({ ...technicianProfile, invitePending: true });
+      signedInAs({ ...technicianProfile, invitePending: true, inviteVerifiedAt: new Date() });
       expect(await getAuthState()).toEqual({
         status: "password-pending",
         user: {
@@ -115,6 +116,29 @@ describe("auth helpers", () => {
           fullName: technicianProfile.fullName,
         },
       });
+    });
+
+    it("treats a pending invitation verified more than 24 hours ago as expired", async () => {
+      signedInAs({
+        ...technicianProfile,
+        invitePending: true,
+        inviteVerifiedAt: new Date(Date.now() - 24 * 60 * 60 * 1000 - 60_000),
+      });
+      expect(await getAuthState()).toEqual({ status: "invite-expired" });
+    });
+
+    it("keeps a pending invitation valid just inside the 24 hours", async () => {
+      signedInAs({
+        ...technicianProfile,
+        invitePending: true,
+        inviteVerifiedAt: new Date(Date.now() - 24 * 60 * 60 * 1000 + 60_000),
+      });
+      expect(await getAuthState()).toMatchObject({ status: "password-pending" });
+    });
+
+    it("treats a pending profile without a recorded verification as expired", async () => {
+      signedInAs({ ...technicianProfile, invitePending: true, inviteVerifiedAt: null });
+      expect(await getAuthState()).toEqual({ status: "invite-expired" });
     });
 
     it("lets a deactivated profile win over a pending invitation", async () => {
@@ -199,13 +223,18 @@ describe("auth helpers", () => {
     });
 
     it("refuses an invited user who has not chosen a password yet, whatever the role", async () => {
-      signedInAs({ ...technicianProfile, invitePending: true });
+      signedInAs({ ...technicianProfile, invitePending: true, inviteVerifiedAt: new Date() });
       expect(await codeOf(requireRole("technician"))).toBe("password-pending");
       expect(await codeOf(requireRole("backoffice"))).toBe("password-pending");
     });
 
+    it("refuses an invited user whose temporary session has expired", async () => {
+      signedInAs({ ...technicianProfile, invitePending: true, inviteVerifiedAt: null });
+      expect(await codeOf(requireRole("technician"))).toBe("invite-expired");
+    });
+
     it("makes getCurrentUser return null for an invited user without a password", async () => {
-      signedInAs({ ...technicianProfile, invitePending: true });
+      signedInAs({ ...technicianProfile, invitePending: true, inviteVerifiedAt: new Date() });
       expect(await getCurrentUser()).toBeNull();
     });
   });

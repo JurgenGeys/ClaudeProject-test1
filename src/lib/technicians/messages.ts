@@ -8,8 +8,4 @@ export const TECHNICIAN_ACTION_MESSAGES = {
   alreadyAccepted: (name: string) =>
     `${name} heeft al een wachtwoord gekozen. Laad de pagina opnieuw.`,
   disabled: (name: string) => `${name} is uitgeschakeld. Een uitnodiging versturen kan niet.`,
-  // The link was opened (Supabase then no longer sends an invitation) but no password was chosen.
-  alreadyOpened: (name: string) =>
-    `Een nieuwe uitnodiging versturen kan niet meer: ${name} heeft de link al geopend. ` +
-    "Via 'Wachtwoord vergeten?' op het aanmeldscherm kan een nieuw wachtwoord gekozen worden.",
 } as const;

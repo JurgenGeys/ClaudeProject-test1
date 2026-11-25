@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { LOGIN_MESSAGES } from "@/lib/auth/messages";
 
 import { resendInvite, type TechnicianActionState } from "./actions";
 import { useSetTechnicianNotice } from "./technician-notice";
@@ -16,7 +17,7 @@ export function ResendInviteButton({ technicianId }: { technicianId: string }) {
       if (result?.ok) {
         setNotice({ kind: "success", message: result.message });
       } else if (result) {
-        setNotice({ kind: "error", message: result.formError ?? "" });
+        setNotice({ kind: "error", message: result.formError || LOGIN_MESSAGES.technicalProblem });
       }
       return result;
     },

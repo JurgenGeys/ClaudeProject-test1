@@ -1,7 +1,15 @@
 import { redirect } from "next/navigation";
 
+import { signOut } from "@/app/auth/actions";
+import { Button } from "@/components/ui/button";
 import { LOGIN_MESSAGES, SET_PASSWORD_MESSAGES } from "@/lib/auth/messages";
-import { INACTIVE_PATH, SET_PASSWORD_ERROR_UNAVAILABLE, homePathForRole } from "@/lib/auth/routes";
+import {
+  INACTIVE_PATH,
+  INVITE_EXPIRED_PATH,
+  SET_PASSWORD_ERROR_EXPIRED,
+  SET_PASSWORD_ERROR_UNAVAILABLE,
+  homePathForRole,
+} from "@/lib/auth/routes";
 import { getAuthState } from "@/lib/auth/session";
 import { firstName } from "@/lib/person-name";
 
@@ -29,6 +37,10 @@ export async function SetPasswordContent({
     redirect(INACTIVE_PATH);
   }
 
+  if (state.status === "invite-expired") {
+    redirect(INVITE_EXPIRED_PATH);
+  }
+
   if (state.status === "password-pending") {
     return (
       <>
@@ -39,11 +51,18 @@ export async function SetPasswordContent({
           Kies een wachtwoord om de planning te gebruiken.
         </p>
         <SetPasswordForm />
+        {/* Leaves without choosing a password: ends the temporary session (decision Jurgen, 25/11/2026). */}
+        <form action={signOut} className="mt-3">
+          <Button type="submit" variant="outline" className="h-11 w-full text-base">
+            Annuleren
+          </Button>
+        </form>
       </>
     );
   }
 
   const unavailable = state.status === "unavailable" || error === SET_PASSWORD_ERROR_UNAVAILABLE;
+  const expired = !unavailable && error === SET_PASSWORD_ERROR_EXPIRED;
   return (
     <>
       <h1 className="mt-1 text-center text-2xl font-semibold tracking-tight">
@@ -52,6 +71,8 @@ export async function SetPasswordContent({
       <div role="alert" className={alertClass}>
         {unavailable ? (
           <p className="font-medium">{LOGIN_MESSAGES.technicalProblem}</p>
+        ) : expired ? (
+          <p className="font-medium">{SET_PASSWORD_MESSAGES.inviteExpired}</p>
         ) : (
           <>
             <p className="font-medium">{SET_PASSWORD_MESSAGES.inviteLinkInvalid}</p>

@@ -62,8 +62,9 @@ export const TECHNICIAN_MESSAGES = {
 /** Messages of "Wachtwoord instellen" (design G2). */
 export const PASSWORD_MESSAGES = {
   tooShort: "Je wachtwoord moet minstens 8 tekens hebben.",
-  // Supabase (bcrypt) refuses passwords of more than 72 bytes.
-  tooLong: "Je wachtwoord is te lang. Gebruik hoogstens 72 tekens.",
+  // Supabase (bcrypt) refuses passwords of more than 72 bytes. Bytes, not characters, so the
+  // message does not give a number.
+  tooLong: "Gebruik een korter wachtwoord.",
   mismatch: "De twee wachtwoorden zijn niet gelijk.",
   tooWeak: "Dit wachtwoord is te zwak. Kies een ander wachtwoord.",
 } as const;

@@ -18,4 +18,6 @@ export const SET_PASSWORD_MESSAGES = {
   // An invitation that is expired, already used or otherwise invalid (design G2).
   inviteLinkInvalid: "Deze link is niet meer geldig.",
   inviteLinkAdvice: "Vraag kantoor om een nieuwe uitnodiging.",
+  // The temporary session after the link was used is older than 24 hours.
+  inviteExpired: "De link is verlopen. Vraag kantoor om een nieuwe uitnodiging.",
 } as const;

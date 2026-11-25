@@ -106,11 +106,14 @@ de lijst, met de knop **Uitnodiging opnieuw versturen**. Het scherm voor het uit
 De stroom:
 
 1. De mail bevat een link `<SITE_URL>/auth/confirm?token_hash=…&type=invite`.
-2. `/auth/confirm` (route handler) controleert het token en maakt een sessie; daarna gaat de technieker naar
-   `/set-password?mode=invite` (scherm "Wachtwoord instellen").
+2. `/auth/confirm` toont enkel een uitleg en de knop **Wachtwoord instellen**. Het openen van de link (ook door een
+   mailscanner of linkvoorbeeld) verbruikt het token niet. Pas de klik controleert het token en maakt een tijdelijke
+   sessie; daarna gaat de technieker naar `/set-password?mode=invite` (scherm "Wachtwoord instellen").
 3. Zolang `profiles.invite_pending` waar is, geldt die sessie nergens anders: elke pagina en elke Server Action
    behandelt de gebruiker als "nog zonder wachtwoord" en stuurt hem naar `/set-password`. Aanmelden met een
-   wachtwoord kan dan ook niet. Na het kiezen van een wachtwoord (minstens 8 tekens) is hij aangemeld en gaat hij
+   wachtwoord kan dan ook niet. De knop **Annuleren** op dat scherm meldt de sessie af. De sessie telt 24 uur vanaf de
+   klik (`profiles.invite_verified_at`, databaseklok); daarna wordt ze afgemeld met "De link is verlopen. Vraag kantoor
+   om een nieuwe uitnodiging." Na het kiezen van een wachtwoord (minstens 8 tekens) is hij aangemeld en gaat hij
    naar `/my-tasks`.
 4. Een ongeldige, verlopen of al gebruikte link toont "Deze link is niet meer geldig. Vraag kantoor om een nieuwe
    uitnodiging."
@@ -124,8 +127,8 @@ De stroom:
 backoffice-gebruiker en voeg een technieker toe. De mail komt niet in een echte mailbox maar in de testmailbox
 (Mailpit) van de lokale Supabase op <http://127.0.0.1:54324>; open daar de mail en klik op de link.
 `supabase/config.toml` bevat daarvoor het sjabloon (`supabase/templates/invite.html`), de toegelaten redirect-URL's
-(`http://localhost:3000/auth/confirm` en dezelfde met `127.0.0.1`) en een hogere limiet voor het aantal mails per uur
-(`email_sent`, enkel lokaal). Draai je de app op een andere poort of host, pas dan `SITE_URL` en
+(`http://localhost:3000/auth/confirm` en dezelfde met `127.0.0.1`) `enable_signup = false` en hogere limieten voor het aantal
+mails per uur en het aantal tokencontroles (`email_sent`, `token_verifications`, enkel lokaal). Draai je de app op een andere poort of host, pas dan `SITE_URL` en
 `additional_redirect_urls` aan.
 
 **Een echt Supabase-project** leest `supabase/config.toml` niet. Stel dit in het dashboard in
@@ -134,13 +137,16 @@ backoffice-gebruiker en voeg een technieker toe. De mail komt niet in een echte 
 1. _Authentication, URL Configuration_: **Site URL** = de waarde van `SITE_URL`; bij **Redirect URLs** komt
    `<SITE_URL>/auth/confirm` (exact dat adres). Staat het adres niet in de lijst, dan valt Supabase terug op de Site
    URL en werkt de link niet.
-2. _Authentication, Email Templates, Invite user_: onderwerp "Je uitnodiging voor de planning" en als inhoud de tekst
-   uit `supabase/templates/invite.html`. Die gebruikt `{{ .RedirectTo }}?token_hash={{ .TokenHash }}&type=invite`;
-   het standaardsjabloon met `{{ .ConfirmationURL }}` werkt niet met deze stroom.
-3. _Authentication, Sign In / Providers_: laat de e-mailprovider aan, en zet **Allow new users to sign up** uit.
-   Gebruikers komen enkel via een uitnodiging (of het seed-script); anders kan iedereen zich met een eigen
-   wachtwoord registreren in dit project. Een registratie zonder profiel krijgt in de applicatie geen toegang,
-   maar het is beter om het niet toe te laten.
+2. _Authentication, Email Templates_: bij **Invite user** onderwerp "Je uitnodiging voor de planning" en als inhoud de
+   tekst uit `supabase/templates/invite.html`; bij **Reset password** onderwerp "Kies een wachtwoord voor de
+   planning" en de tekst uit `supabase/templates/recovery.html` (die mail gaat naar een technieker die de eerste link al
+   opende, zie hieronder). De sjablonen gebruiken `{{ .RedirectTo }}?token_hash={{ .TokenHash }}&type=…`; het
+   standaardsjabloon met `{{ .ConfirmationURL }}` werkt niet met deze stroom.
+3. _Authentication, Sign In / Providers_: laat de e-mailprovider aan, en zet **Allow new users to sign up** uit
+   (beslist door Jurgen, 25/11/2026). Gebruikers komen enkel via een uitnodiging (of het seed-script); de admin-API
+   (uitnodigen) blijft werken. Als extra veiligheid hergebruikt de applicatie een Auth-account zonder profiel enkel als
+   ze het zelf aanmaakte (`invited_by_app` in `app_metadata`); een ander account geeft "Er bestaat al een gebruiker met
+   dit e-mailadres."
 4. _Authentication, Sign In / Providers, Email_: de geldigheid van de link is de **Email OTP Expiration** (standaard
    1 uur, maximaal 24 uur). Een technieker die te laat is, krijgt via **Uitnodiging opnieuw versturen** een nieuwe mail.
    Zorg dat de optie die het huidige wachtwoord vraagt bij een wachtwoordwijziging ("Secure password change" of
@@ -149,9 +155,11 @@ backoffice-gebruiker en voeg een technieker toe. De mail komt niet in een echte 
    naar teamleden van het project). Voor echt gebruik is een eigen SMTP-dienst nodig (keuze K6, nog open).
 6. De omgevingsvariabele `SITE_URL` op de hosting van de applicatie, met hetzelfde adres als de Site URL.
 
-Een uitnodiging die al geopend werd, kan niet opnieuw verstuurd worden (Supabase weigert dat voor een bevestigd
-adres). Heeft die technieker zijn wachtwoord toen niet gekozen, dan toont het scherm een uitleg; de oplossing is de
-functie "Wachtwoord vergeten" (bouwtaak BT-06b).
+**Opnieuw versturen na openen.** Supabase stuurt geen uitnodiging meer naar een adres dat het al bevestigd heeft (na de
+klik op de knop). Heeft de technieker toen geen wachtwoord gekozen, dan stuurt **Uitnodiging opnieuw versturen** de mail
+"Reset password" (type `recovery`, via `resetPasswordForEmail`) met een nieuwe link naar dezelfde tussenpagina. Daarom
+moet dat sjabloon ook ingesteld zijn. Zolang `invite_pending` waar is accepteert `/auth/confirm` dat type enkel voor een
+technieker die nog geen wachtwoord koos; de uitbreiding voor "Wachtwoord vergeten" volgt in BT-06b.
 
 ### End-to-end tests
 

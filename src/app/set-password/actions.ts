@@ -42,6 +42,9 @@ export async function setPassword(
   if (state.status === "unavailable") {
     return refused(LOGIN_MESSAGES.technicalProblem);
   }
+  if (state.status === "invite-expired") {
+    return refused(SET_PASSWORD_MESSAGES.inviteExpired);
+  }
   if (state.status !== "password-pending") {
     return refused(
       `${SET_PASSWORD_MESSAGES.inviteLinkInvalid} ${SET_PASSWORD_MESSAGES.inviteLinkAdvice}`,
@@ -91,7 +94,7 @@ export async function setPassword(
     const db = getDb();
     const [updated] = await db
       .update(profiles)
-      .set({ invitePending: false })
+      .set({ invitePending: false, inviteVerifiedAt: null })
       .where(and(eq(profiles.id, state.user.id), eq(profiles.invitePending, true)))
       .returning({ role: profiles.role });
     // No row: a second submit got there first. The password is set either way.

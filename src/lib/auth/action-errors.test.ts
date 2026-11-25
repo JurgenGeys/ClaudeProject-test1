@@ -12,6 +12,7 @@ describe("authFailureMessage", () => {
     ["forbidden", "Je hebt geen toegang om dit te doen."],
     ["unauthenticated", "Je bent niet (meer) aangemeld. Meld je opnieuw aan."],
     ["password-pending", "Je bent niet (meer) aangemeld. Meld je opnieuw aan."],
+    ["invite-expired", "De link is verlopen. Vraag kantoor om een nieuwe uitnodiging."],
     ["inactive", "Je account is uitgeschakeld. Neem contact op met kantoor."],
     ["unavailable", "Dat is niet gelukt. Controleer je internetverbinding en probeer opnieuw."],
   ] as const)("%s", (code, message) => {

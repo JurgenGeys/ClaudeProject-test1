@@ -46,12 +46,12 @@ describe("passwordFormSchema", () => {
   it("refuses more than 72 bytes, also when the characters are multi-byte", () => {
     const long = "a".repeat(73);
     expect(fieldErrors(passwordFormSchema, { password: long, confirmPassword: long })).toEqual({
-      password: ["Je wachtwoord is te lang. Gebruik hoogstens 72 tekens."],
+      password: ["Gebruik een korter wachtwoord."],
     });
     const accents = "é".repeat(37); // 74 bytes
     expect(
       fieldErrors(passwordFormSchema, { password: accents, confirmPassword: accents }),
-    ).toEqual({ password: ["Je wachtwoord is te lang. Gebruik hoogstens 72 tekens."] });
+    ).toEqual({ password: ["Gebruik een korter wachtwoord."] });
     const exactly = "a".repeat(72);
     expect(
       passwordFormSchema.safeParse({ password: exactly, confirmPassword: exactly }).success,

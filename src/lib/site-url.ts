@@ -1,3 +1,5 @@
+import "server-only";
+
 import { CONFIRM_PATH } from "@/lib/auth/routes";
 
 /** The `SITE_URL` setting is missing or not usable. The message is safe to log: it holds no secret. */

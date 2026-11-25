@@ -80,6 +80,16 @@ describe("setPassword: who may do it", () => {
     expect(set).not.toHaveBeenCalled();
   });
 
+  it("refuses an expired temporary session (more than 24 hours) with the expiry message", async () => {
+    getAuthState.mockResolvedValue({ status: "invite-expired" });
+    expect(await setPassword(null, form(good))).toEqual({
+      fieldErrors: {},
+      formError: "De link is verlopen. Vraag kantoor om een nieuwe uitnodiging.",
+    });
+    expect(updateUser).not.toHaveBeenCalled();
+    expect(set).not.toHaveBeenCalled();
+  });
+
   it("shows the technical message when Auth cannot be reached", async () => {
     getAuthState.mockResolvedValue({ status: "unavailable" });
     expect(await setPassword(null, form(good))).toEqual({ fieldErrors: {}, formError: technical });
@@ -117,7 +127,7 @@ describe("setPassword: success", () => {
   it("sets the password, clears the pending flag and sends a technician to Mijn taken", async () => {
     await expect(setPassword(null, form(good))).rejects.toThrow("NEXT_REDIRECT:/my-tasks");
     expect(updateUser).toHaveBeenCalledWith({ password: "een-goed-wachtwoord" });
-    expect(set).toHaveBeenCalledWith({ invitePending: false });
+    expect(set).toHaveBeenCalledWith({ invitePending: false, inviteVerifiedAt: null });
     // Password first, flag second: a failure in between never gives access without a password.
     expect(updateUser.mock.invocationCallOrder[0]).toBeLessThan(set.mock.invocationCallOrder[0]);
   });
@@ -139,7 +149,7 @@ describe("setPassword: success", () => {
       error: new AuthApiError("same password", 422, "same_password"),
     });
     await expect(setPassword(null, form(good))).rejects.toThrow("NEXT_REDIRECT:/my-tasks");
-    expect(set).toHaveBeenCalledWith({ invitePending: false });
+    expect(set).toHaveBeenCalledWith({ invitePending: false, inviteVerifiedAt: null });
   });
 });
 

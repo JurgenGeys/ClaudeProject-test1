@@ -33,6 +33,10 @@ export const profiles = pgTable(
     // session that the invitation link creates may only be used to set that password
     // (`getAuthState` reports it as `password-pending`).
     invitePending: boolean("invite_pending").notNull().default(false),
+    // When the invitation link was verified (server time, set by the confirm action). The
+    // temporary session of a pending user ends 24 hours after this moment (`isInviteSessionExpired`).
+    // Cleared when the password is chosen.
+    inviteVerifiedAt: timestamp("invite_verified_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     // Set when the user is deactivated, cleared again on reactivation.
     deactivatedAt: timestamp("deactivated_at", { withTimezone: true }),

@@ -6,6 +6,7 @@ vi.mock("server-only", () => ({}));
 const { getAuthState } = vi.hoisted(() => ({ getAuthState: vi.fn() }));
 vi.mock("@/lib/auth/session", () => ({ getAuthState }));
 vi.mock("./actions", () => ({ setPassword: vi.fn() }));
+vi.mock("@/app/auth/actions", () => ({ signOut: vi.fn() }));
 vi.mock("next/navigation", () => ({
   redirect: (path: string) => {
     throw new Error(`NEXT_REDIRECT:${path}`);
@@ -51,6 +52,32 @@ describe("SetPasswordContent", () => {
     ).toBeInTheDocument();
     expect(screen.getByLabelText("Nieuw wachtwoord")).toBeInTheDocument();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("offers 'Annuleren', which signs the temporary session out", async () => {
+    getAuthState.mockResolvedValue({
+      status: "password-pending",
+      user: { id: "u1", email: "kevin@frisair.be", fullName: "Kevin Wouters" },
+    });
+    render(await renderContent({ mode: "invite" }));
+    expect(screen.getByRole("button", { name: "Annuleren" })).toBeInTheDocument();
+  });
+
+  it("sends a session that is older than 24 hours to the route that ends it", async () => {
+    getAuthState.mockResolvedValue({ status: "invite-expired" });
+    await expect(renderContent({ mode: "invite" })).rejects.toThrow(
+      "NEXT_REDIRECT:/auth/invite-expired",
+    );
+  });
+
+  it("shows the expiry message, and no form, after that session was ended", async () => {
+    getAuthState.mockResolvedValue({ status: "unauthenticated" });
+    render(await renderContent({ mode: "invite", error: "expired" }));
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "De link is verlopen. Vraag kantoor om een nieuwe uitnodiging.",
+    );
+    expect(screen.queryByLabelText("Nieuw wachtwoord")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Annuleren" })).not.toBeInTheDocument();
   });
 
   it("shows the invalid-link message, and no form, to a visitor without a session", async () => {

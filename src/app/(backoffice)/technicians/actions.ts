@@ -10,6 +10,8 @@ import { LOGIN_MESSAGES } from "@/lib/auth/messages";
 import { AuthError, requireRole } from "@/lib/auth/session";
 import { SiteUrlError, getInviteRedirectUrl } from "@/lib/site-url";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { createSupabaseCredentialsClient } from "@/lib/supabase/credentials";
+import { INVITED_BY_APP_KEY, findAuthUserByEmail } from "@/lib/technicians/auth-users";
 import { TECHNICIAN_ACTION_MESSAGES } from "@/lib/technicians/messages";
 import { TECHNICIAN_MESSAGES } from "@/lib/validation/messages";
 import { technicianIdSchema, technicianSchema } from "@/lib/validation/technician";
@@ -73,13 +75,17 @@ function classifyInviteError(error: { code?: string; status?: number }): InviteF
  * 1. `requireRole("backoffice")`, then Zod validation on the server.
  * 2. A profile with this e-mail address (any role) refuses the invitation: no second
  *    account, and a backoffice address can never become a technician.
- * 3. Supabase Auth creates the user and sends the mail (`inviteUserByEmail`, secret key).
- *    An address that already exists in Auth without a profile is refused as well: it is
- *    never given a role here. The only exception is an invitation that was sent but not
- *    opened yet (Auth sends it again), which is how an interrupted attempt heals.
- * 4. The profile (role technician, `invite_pending`) is inserted. When that fails the Auth
+ * 3. An Auth account with this address but without a profile is only reused when this
+ *    application created it itself (marker `invited_by_app` in `app_metadata`, which only the
+ *    admin API can set), i.e. an interrupted earlier invitation. Any other account, for
+ *    example one that somebody registered by themselves, is refused as a duplicate and gets
+ *    no role and no mail.
+ * 4. Supabase Auth creates the user and sends the mail (`inviteUserByEmail`, secret key). For
+ *    a new user the marker is set right after, with the admin API.
+ * 5. The profile (role technician, `invite_pending`) is inserted. When that fails the Auth
  *    user is removed again, so no half-finished invitation stays behind; if that fails too,
- *    inviting again repairs it (step 3 resends, step 4 inserts).
+ *    inviting again repairs it (the marker lets step 3 reuse the account, step 4 resends the
+ *    mail, step 5 inserts).
  * The profile cannot come first: its primary key is the Auth user id.
  */
 export async function inviteTechnician(
@@ -129,6 +135,11 @@ export async function inviteTechnician(
       return duplicate;
     }
 
+    const existingAuth = await findAuthUserByEmail(db, email);
+    if (existingAuth && !existingAuth.invitedByApp) {
+      return duplicate;
+    }
+
     const admin = createSupabaseAdminClient();
     const { data, error } = await admin.auth.admin.inviteUserByEmail(email, {
       // From the SITE_URL setting, never from the request (host header injection).
@@ -150,6 +161,24 @@ export async function inviteTechnician(
     }
 
     const userId = data.user.id;
+    if (existingAuth && existingAuth.id !== userId) {
+      // Not the account we looked at: something is wrong, so add nothing.
+      console.error("Inviting a technician returned another Auth user than expected.");
+      return refused(LOGIN_MESSAGES.technicalProblem, values);
+    }
+    if (!existingAuth) {
+      const { error: markError } = await admin.auth.admin.updateUserById(userId, {
+        app_metadata: { [INVITED_BY_APP_KEY]: true },
+      });
+      if (markError) {
+        console.error("Marking an invited Auth user failed:", describeError(markError));
+        const { error: cleanupError } = await admin.auth.admin.deleteUser(userId);
+        if (cleanupError) {
+          console.error("Removing the Auth user again failed:", describeError(cleanupError));
+        }
+        return refused(LOGIN_MESSAGES.technicalProblem, values);
+      }
+    }
     let inserted: { id: string }[];
     try {
       inserted = await db
@@ -217,20 +246,37 @@ export async function resendInvite(
       return refused(TECHNICIAN_ACTION_MESSAGES.alreadyAccepted(profile.fullName));
     }
 
+    const redirectTo = getInviteRedirectUrl();
     const { error } = await createSupabaseAdminClient().auth.admin.inviteUserByEmail(
       profile.email,
-      { redirectTo: getInviteRedirectUrl() },
+      { redirectTo },
     );
     if (error) {
       const failure = classifyInviteError(error);
-      if (failure === "exists") {
-        return refused(TECHNICIAN_ACTION_MESSAGES.alreadyOpened(profile.fullName));
-      }
       if (failure === "rate-limit") {
         return refused(TECHNICIAN_ACTION_MESSAGES.tooManyMails);
       }
-      console.error("Resending an invitation failed:", describeError(error));
-      return refused(LOGIN_MESSAGES.technicalProblem);
+      if (failure !== "exists") {
+        console.error("Resending an invitation failed:", describeError(error));
+        return refused(LOGIN_MESSAGES.technicalProblem);
+      }
+
+      // The first link was already opened, so Supabase sees a confirmed address and sends no
+      // invitation any more. The technician still has no password (`invite_pending`), so he gets
+      // Supabase's own mail for a one-time link of the type `recovery`. `/auth/confirm` accepts
+      // it for a pending technician, and it leads to the same "Wachtwoord instellen" page.
+      // `admin.generateLink` would give a link too, but we would have to send the mail ourselves.
+      const { error: recoveryError } =
+        await createSupabaseCredentialsClient().auth.resetPasswordForEmail(profile.email, {
+          redirectTo,
+        });
+      if (recoveryError) {
+        if (classifyInviteError(recoveryError) === "rate-limit") {
+          return refused(TECHNICIAN_ACTION_MESSAGES.tooManyMails);
+        }
+        console.error("Resending an invitation by recovery failed:", describeError(recoveryError));
+        return refused(LOGIN_MESSAGES.technicalProblem);
+      }
     }
 
     revalidatePath(PATH);

@@ -29,6 +29,9 @@ port = 54324
 
 [auth]
 enabled = true
+# Nobody registers by themselves: users come from an invitation (or the seed script). The admin
+# API (invite, create user) is not affected. Decision Jurgen, 25/11/2026.
+enable_signup = false
 site_url = "http://127.0.0.1:3000"
 # The invitation mail links to `<SITE_URL>/auth/confirm` (`redirectTo` of the invite; see
 # supabase/templates/invite.html). Supabase only accepts redirect addresses in this list.
@@ -46,6 +49,12 @@ additional_redirect_urls = [
 subject = "Je uitnodiging voor de planning"
 content_path = "./supabase/templates/invite.html"
 
+# "Uitnodiging opnieuw versturen" for someone who already opened the first link: Supabase only
+# sends an invitation to an address it has not confirmed yet, so that technician gets this mail.
+[auth.email.template.recovery]
+subject = "Kies een wachtwoord voor de planning"
+content_path = "./supabase/templates/recovery.html"
+
 # Rate limits of the LOCAL Auth server only (local development and the CI runner), approved by
 # Jurgen on 24/11/2026. The end-to-end tests sign in many times from one IP address (the runner),
 # which the default of 30 per 5 minutes does not allow. This file does not apply to real
@@ -57,6 +66,8 @@ content_path = "./supabase/templates/invite.html"
 [auth.rate_limit]
 sign_in_sign_ups = 300
 email_sent = 100
+# The end-to-end tests check several links from one IP address (default 30 per 5 minutes).
+token_verifications = 100
 
 # Not used; switched off to keep `supabase start` fast.
 [studio]
