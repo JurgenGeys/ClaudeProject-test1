@@ -22,7 +22,9 @@
   --destructive: oklch(0.577 0.245 27.325);
   --border: oklch(0.922 0 0);
   --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
+  /* Darker than the shadcn default (0.708): the focus ring is drawn at 50% opacity, and the
+     result must still reach 3 : 1 against the page (WCAG 1.4.11). */
+  --ring: oklch(0.3 0 0);
 }
 
 .dark {

@@ -6,7 +6,10 @@ vi.mock("server-only", () => ({}));
 const { checkRoleAccess } = vi.hoisted(() => ({ checkRoleAccess: vi.fn() }));
 vi.mock("@/lib/auth/role-access", () => ({ checkRoleAccess }));
 // The real button posts to a Server Action, which cannot run in a unit test.
-vi.mock("./sign-out-button", () => ({ SignOutButton: () => <button>Uitloggen</button> }));
+vi.mock("next/navigation", () => ({ usePathname: () => "/tasks" }));
+vi.mock("@/components/auth/sign-out-button", () => ({
+  SignOutButton: () => <button>Uitloggen</button>,
+}));
 
 import { RoleGate } from "./role-gate";
 

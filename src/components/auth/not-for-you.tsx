@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import type { UserRole } from "@/db/schema";
+import { Button } from "@/components/ui/button";
 import { homePathForRole } from "@/lib/auth/routes";
 
 const HOME_LABELS: Record<UserRole, string> = {
@@ -18,12 +19,9 @@ export function NotForYou({ role }: { role: UserRole }) {
       <p className="text-muted-foreground">
         Met je account kan je deze pagina niet openen. Ga terug naar je eigen startpagina.
       </p>
-      <Link
-        href={homePathForRole(role)}
-        className="inline-flex h-11 items-center rounded-md bg-primary px-4 text-base font-semibold text-primary-foreground hover:bg-primary/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
-      >
-        {HOME_LABELS[role]}
-      </Link>
+      <Button asChild size="lg" className="h-11 px-4 text-base font-semibold">
+        <Link href={homePathForRole(role)}>{HOME_LABELS[role]}</Link>
+      </Button>
     </section>
   );
 }
