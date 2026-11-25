@@ -101,7 +101,17 @@ niet aanmelden; is hij al aangemeld, dan wordt hij bij het volgende verzoek afge
 Een backoffice-gebruiker voegt een technieker toe op `/technicians` (menu Techniekers, knop **Technieker toevoegen**).
 De applicatie laat Supabase Auth een uitnodigingsmail sturen (`inviteUserByEmail` met de geheime sleutel, server-side)
 en maakt een profiel met rol `technician` aan. Tot de technieker een wachtwoord koos staat hij als **Uitgenodigd** in
-de lijst, met de knop **Uitnodiging opnieuw versturen**. Het scherm voor het uitschakelen volgt in een latere bouwtaak.
+de lijst, met de knop **Uitnodiging opnieuw versturen**.
+
+### Techniekers uitschakelen
+
+Bij een **actieve** technieker staat op `/technicians` de knop **Uitschakelen** (met bevestigingsdialoog). Dat kan enkel
+als hij geen open taken heeft (Toegewezen of Opgepikt); anders weigert de applicatie en toont ze het aantal, met een
+link naar zijn taken. Uitschakelen zet in één transactie `is_active = false` en `deactivated_at` én blokkeert zijn
+Auth-account (`ban_duration` van tien jaar, in dezelfde transactie, zodat het één geheel is). Zijn afgewerkte taken
+en uren blijven bewaard. Een aangemelde technieker wordt bij zijn volgende verzoek afgemeld ("Je account is
+uitgeschakeld"); aanmelden geeft hem de algemene melding. Een uitgenodigde technieker die nog geen wachtwoord koos kan
+niet uitgeschakeld worden. Opnieuw activeren volgt in BT-07b. Details: ontwerp, hoofdstuk 6.
 
 De stroom:
 
@@ -238,7 +248,7 @@ aanvaard) en openen de link daaruit. Daarvoor moet `SITE_URL` het adres zijn waa
 (`http://localhost:3000`; `playwright.config.ts` zet die waarde als hij niet ingesteld is).
 
 Een Playwright global setup (`e2e/global-setup.ts`) maakt vóór de tests de testgebruikers aan (backoffice,
-technieker, een uitgeschakelde en een geblokkeerde technieker): in Supabase Auth via de admin-API en hun profiel
+technieker, een uitgeschakelde en een geblokkeerde technieker); de tests van `e2e/deactivate.spec.ts` maken een eigen technieker aan en ruimen hem (en zijn taken) op: in Supabase Auth via de admin-API en hun profiel
 via Drizzle. Het testwachtwoord staat in `e2e/support/test-users.ts` (of in `E2E_TEST_PASSWORD`); het is enkel een
 testwaarde voor de lokale Supabase, geen geheim. Gebruik de tests nooit tegen een echt Supabase-project: ze maken
 gebruikers aan.

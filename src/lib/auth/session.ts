@@ -100,6 +100,13 @@ export const getAuthState = cache(async (): Promise<AuthState> => {
   if (error && isTemporaryAuthError(error)) {
     return { status: "unavailable" };
   }
+  if (error?.code === "user_banned") {
+    // Switching a technician off blocks his Auth account (BT-07). Supabase then refuses a session
+    // that is still valid, with this code, before the profile can be read. Someone who held a
+    // session is told that the account is disabled (decision Jurgen, 24/11/2026). This never
+    // happens when signing in: that goes through `signInWithPassword` and gets the general message.
+    return { status: "inactive" };
+  }
   if (error || !data.user) {
     return { status: "unauthenticated" };
   }

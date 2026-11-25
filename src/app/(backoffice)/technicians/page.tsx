@@ -13,6 +13,7 @@ import { listTechnicians } from "@/lib/technicians/queries";
 import { cn } from "@/lib/utils";
 
 import { AddTechnicianDialog } from "./add-technician-dialog";
+import { DeactivateTechnicianDialog } from "./deactivate-technician-dialog";
 import { ResendInviteButton } from "./resend-invite-button";
 import { TechnicianNoticeProvider } from "./technician-notice";
 import { TechnicianStatusBadge } from "./technician-status-badge";
@@ -20,8 +21,8 @@ import { TechnicianStatusBadge } from "./technician-status-badge";
 export const metadata: Metadata = { title: "Techniekers" };
 
 /**
- * B7: the technicians, with "Technieker toevoegen" and "Uitnodiging opnieuw versturen".
- * Switching off and on again come in BT-07 and BT-07b.
+ * B7: the technicians, with "Technieker toevoegen", "Uitnodiging opnieuw versturen" and
+ * "Uitschakelen". Switching on again comes in BT-07b.
  */
 export default async function TechniciansPage() {
   // Every page checks the role itself (ADR-0002, rule 3); the layout only handles the display.
@@ -84,6 +85,15 @@ export default async function TechniciansPage() {
                     <TableCell className="text-right">
                       {technician.status === "invited" ? (
                         <ResendInviteButton technicianId={technician.id} />
+                      ) : null}
+                      {technician.status === "active" ? (
+                        <div className="flex justify-end">
+                          <DeactivateTechnicianDialog
+                            technicianId={technician.id}
+                            fullName={technician.fullName}
+                            openTasks={technician.openTasks}
+                          />
+                        </div>
                       ) : null}
                     </TableCell>
                   </TableRow>
