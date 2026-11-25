@@ -15,14 +15,31 @@ function submit() {
 }
 
 describe("LoginForm", () => {
-  it("has labelled fields, a submit button and no password reminder link yet", () => {
+  it("has labelled fields, a submit button and the link 'Wachtwoord vergeten?'", () => {
     render(<LoginForm />);
     expect(screen.getByLabelText("E-mailadres")).toHaveAttribute("type", "email");
     expect(screen.getByLabelText("Wachtwoord")).toHaveAttribute("type", "password");
     expect(screen.getByRole("button", { name: "Aanmelden" })).toBeInTheDocument();
-    // The link "Wachtwoord vergeten?" is built in BT-06b.
-    expect(screen.queryByRole("link")).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Wachtwoord vergeten?" })).toHaveAttribute(
+      "href",
+      "/forgot-password",
+    );
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("puts the reminder link after the password field, so Tab goes e-mail, password, link, button", () => {
+    render(<LoginForm />);
+    const order = [
+      screen.getByLabelText("E-mailadres"),
+      screen.getByLabelText("Wachtwoord"),
+      screen.getByRole("link", { name: "Wachtwoord vergeten?" }),
+      screen.getByRole("button", { name: "Aanmelden" }),
+    ];
+    for (let i = 0; i < order.length - 1; i++) {
+      expect(
+        order[i].compareDocumentPosition(order[i + 1]) & Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
+    }
   });
 
   it("marks the form as hydrated, for the end-to-end tests", () => {

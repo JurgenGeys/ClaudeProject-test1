@@ -86,6 +86,19 @@ describe("LoginPage", () => {
     await expect(renderContent()).rejects.toThrow("NEXT_REDIRECT:/auth/invite-expired");
   });
 
+  it("sends a recovery session to the set password page in mode reset, so there is no loop", async () => {
+    getAuthState.mockResolvedValue({
+      status: "reset-pending",
+      user: { id: "u1", email: "x@y.be", fullName: "X", role: "technician" },
+    });
+    await expect(renderContent()).rejects.toThrow("NEXT_REDIRECT:/set-password?mode=reset");
+  });
+
+  it("sends an expired recovery session to the route that ends it", async () => {
+    getAuthState.mockResolvedValue({ status: "reset-expired" });
+    await expect(renderContent()).rejects.toThrow("NEXT_REDIRECT:/auth/reset-expired");
+  });
+
   it("signs a deactivated user out", async () => {
     getAuthState.mockResolvedValue({ status: "inactive" });
     await expect(renderContent()).rejects.toThrow("NEXT_REDIRECT:/auth/inactive");

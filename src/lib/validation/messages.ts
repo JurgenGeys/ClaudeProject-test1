@@ -67,4 +67,6 @@ export const PASSWORD_MESSAGES = {
   tooLong: "Gebruik een korter wachtwoord.",
   mismatch: "De twee wachtwoorden zijn niet gelijk.",
   tooWeak: "Dit wachtwoord is te zwak. Kies een ander wachtwoord.",
+  // Mode reset only: the new password may not be the old one.
+  sameAsOld: "Kies een ander wachtwoord dan je vorige.",
 } as const;

@@ -5,7 +5,7 @@ vi.mock("server-only", () => ({}));
 
 const { getAuthState } = vi.hoisted(() => ({ getAuthState: vi.fn() }));
 vi.mock("@/lib/auth/session", () => ({ getAuthState }));
-vi.mock("./actions", () => ({ setPassword: vi.fn() }));
+vi.mock("./actions", () => ({ setPassword: vi.fn(), cancelPasswordReset: vi.fn() }));
 vi.mock("@/app/auth/actions", () => ({ signOut: vi.fn() }));
 vi.mock("next/navigation", () => ({
   redirect: (path: string) => {
@@ -36,6 +36,76 @@ describe("SetPasswordPage", () => {
     render(<SetPasswordPage {...pageProps} />);
     expect(screen.getByText("FrisAir Koeltechniek")).toBeInTheDocument();
     expect(screen.queryByLabelText("Nieuw wachtwoord")).not.toBeInTheDocument();
+  });
+});
+
+describe("SetPasswordContent in mode reset", () => {
+  const resetUser = {
+    id: "u1",
+    email: "sofie@frisair.be",
+    fullName: "Sofie Peeters",
+    role: "backoffice" as const,
+  };
+
+  it("shows 'Nieuw wachtwoord kiezen' with the address, the form and 'Annuleren'", async () => {
+    getAuthState.mockResolvedValue({ status: "reset-pending", user: resetUser });
+    render(await renderContent({ mode: "reset" }));
+    expect(
+      screen.getByRole("heading", { level: 1, name: "Nieuw wachtwoord kiezen" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Kies een nieuw wachtwoord voor sofie@frisair.be."),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText("Nieuw wachtwoord")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Annuleren" })).toBeInTheDocument();
+    expect(screen.queryByText(/Welkom/)).not.toBeInTheDocument();
+  });
+
+  it("decides by the session, not by the query: a recovery session always gets the reset text", async () => {
+    getAuthState.mockResolvedValue({ status: "reset-pending", user: resetUser });
+    render(await renderContent({ mode: "invite" }));
+    expect(
+      screen.getByRole("heading", { level: 1, name: "Nieuw wachtwoord kiezen" }),
+    ).toBeVisible();
+  });
+
+  it("sends a recovery session that is older than 24 hours to the route that ends it", async () => {
+    getAuthState.mockResolvedValue({ status: "reset-expired" });
+    await expect(renderContent({ mode: "reset" })).rejects.toThrow(
+      "NEXT_REDIRECT:/auth/reset-expired",
+    );
+  });
+
+  it("shows the expiry message and a button to ask for a new link, after the session was ended", async () => {
+    getAuthState.mockResolvedValue({ status: "unauthenticated" });
+    render(await renderContent({ mode: "reset", error: "expired" }));
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "De link is verlopen. Vraag een nieuwe link aan.",
+    );
+    expect(screen.getByRole("link", { name: "Nieuwe link aanvragen" })).toHaveAttribute(
+      "href",
+      "/forgot-password",
+    );
+    expect(screen.queryByLabelText("Nieuw wachtwoord")).not.toBeInTheDocument();
+    expect(screen.queryByText(/kantoor/)).not.toBeInTheDocument();
+  });
+
+  it("shows the invalid-link message with a button to ask for a new link, and no form", async () => {
+    getAuthState.mockResolvedValue({ status: "unauthenticated" });
+    render(await renderContent({ mode: "reset", error: "link" }));
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Deze link is niet meer geldig.Vraag een nieuwe link aan.",
+    );
+    expect(screen.getByRole("link", { name: "Nieuwe link aanvragen" })).toBeInTheDocument();
+    expect(screen.queryByLabelText("Nieuw wachtwoord")).not.toBeInTheDocument();
+    expect(screen.queryByText(/kantoor/)).not.toBeInTheDocument();
+  });
+
+  it("does not claim the link is invalid when it could not be checked", async () => {
+    getAuthState.mockResolvedValue({ status: "unauthenticated" });
+    render(await renderContent({ mode: "reset", error: "unavailable" }));
+    expect(screen.getByRole("alert")).toHaveTextContent("Dat is niet gelukt.");
+    expect(screen.queryByText(/niet meer geldig/)).not.toBeInTheDocument();
   });
 });
 

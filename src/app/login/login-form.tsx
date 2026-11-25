@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useActionState, useEffect, useRef } from "react";
 
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -7,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FORGOT_PASSWORD_PATH } from "@/lib/auth/routes";
 import { fieldSummary } from "@/lib/validation/field-summary";
 
 import { login } from "./actions";
@@ -79,7 +81,7 @@ export function LoginForm({ notice }: { notice?: string }) {
             ) : null}
           </div>
 
-          <div>
+          <div className="relative">
             <Label htmlFor="password" className="block">
               Wachtwoord
             </Label>
@@ -97,6 +99,15 @@ export function LoginForm({ notice }: { notice?: string }) {
                 {fieldErrors.password}
               </p>
             ) : null}
+            {/* After the field in the DOM, so the Tab order is e-mail, password, this link, button
+                (a link in front of the field would take the focus, and the typed password). It
+                is placed top right, level with the label. */}
+            <Link
+              href={FORGOT_PASSWORD_PATH}
+              className="absolute top-0 right-0 text-sm text-muted-foreground underline underline-offset-4"
+            >
+              Wachtwoord vergeten?
+            </Link>
           </div>
 
           <Button type="submit" disabled={pending} className="h-11 w-full text-base font-semibold">

@@ -81,6 +81,20 @@ describe("checkRoleAccess", () => {
     );
   });
 
+  it("redirects a recovery session to the set password page in mode reset", async () => {
+    requireRole.mockRejectedValue(new AuthError("reset-pending"));
+    await expect(checkRoleAccess("backoffice")).rejects.toThrow(
+      "NEXT_REDIRECT:/set-password?mode=reset",
+    );
+  });
+
+  it("redirects an expired recovery session to the route that ends it", async () => {
+    requireRole.mockRejectedValue(new AuthError("reset-expired"));
+    await expect(checkRoleAccess("technician")).rejects.toThrow(
+      "NEXT_REDIRECT:/auth/reset-expired",
+    );
+  });
+
   it("reports the wrong role together with the user, so the page can point to their own start page", async () => {
     requireRole.mockRejectedValue(new AuthError("forbidden"));
     getCurrentUser.mockResolvedValue(technician);

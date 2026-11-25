@@ -50,7 +50,7 @@ async function openAddDialog(page: Page): Promise<Locator> {
     }
     await expect(dialog).toBeVisible({ timeout: 2_000 });
   }).toPass();
-  await dialog.locator('form[data-hydrated="true"]').waitFor();
+  await dialog.locator('form[data-hydrated="true"]:visible').waitFor();
   return dialog;
 }
 
@@ -86,7 +86,7 @@ async function openLinkAndConfirm(page: Page, link: string): Promise<void> {
   await page.getByRole("button", { name: "Wachtwoord instellen" }).click();
   await expect(page).toHaveURL(SET_PASSWORD_INVITE);
   await expect(page.getByRole("heading", { level: 1, name: "Welkom, Yana" })).toBeVisible();
-  await page.locator('form[data-hydrated="true"]').waitFor();
+  await page.locator('form[data-hydrated="true"]:visible').waitFor();
 }
 
 async function choosePassword(page: Page, password: string): Promise<void> {
@@ -139,14 +139,14 @@ test.describe("inviting a technician", () => {
       await page.getByRole("button", { name: "Wachtwoord instellen" }).click();
       await expect(page).toHaveURL(SET_PASSWORD_INVITE);
       await expect(page.getByRole("heading", { level: 1, name: "Welkom, Yana" })).toBeVisible();
-      await page.locator('form[data-hydrated="true"]').waitFor();
+      await page.locator('form[data-hydrated="true"]:visible').waitFor();
 
       // The temporary session may only be used to choose the password.
       for (const path of ["/my-tasks", "/tasks", "/technicians", "/"]) {
         await page.goto(path);
         await expect(page).toHaveURL(SET_PASSWORD_INVITE);
       }
-      await page.locator('form[data-hydrated="true"]').waitFor();
+      await page.locator('form[data-hydrated="true"]:visible').waitFor();
     });
 
     await test.step("a short password and two different passwords are refused", async () => {
@@ -261,7 +261,7 @@ test.describe("inviting a technician", () => {
       "/auth/confirm",
       "/auth/confirm?type=invite",
       "/auth/confirm?token_hash=geen-geldig-token",
-      // Only invitations (and their resend) are accepted until BT-06b adds password reset.
+      // Only the types `invite` and `recovery` are accepted.
       "/auth/confirm?token_hash=geen-geldig-token&type=signup",
     ]) {
       await page.goto(path);

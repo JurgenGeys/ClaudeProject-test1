@@ -4,13 +4,18 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
 
 const getUser = vi.fn();
+const getClaims = vi.fn();
 vi.mock("@/lib/supabase/server", () => ({
-  createSupabaseServerClient: async () => ({ auth: { getUser } }),
+  createSupabaseServerClient: async () => ({ auth: { getUser, getClaims } }),
 }));
 
 const findFirst = vi.fn();
+const selectRecovery = vi.fn();
 vi.mock("@/db/client", () => ({
-  getDb: () => ({ query: { profiles: { findFirst } } }),
+  getDb: () => ({
+    query: { profiles: { findFirst } },
+    select: () => ({ from: () => ({ where: selectRecovery }) }),
+  }),
 }));
 
 import { AuthApiError, AuthRetryableFetchError } from "@supabase/supabase-js";
@@ -39,6 +44,17 @@ const backofficeProfile: Profile = {
   role: "backoffice",
 };
 
+const SESSION_ID = "5e5510a9-0000-4000-8000-000000000001";
+const OTHER_SESSION_ID = "5e5510a9-0000-4000-8000-000000000002";
+
+/** The session of this request, as `getClaims` reports it (or null: it cannot be read). */
+function sessionIs(sessionId: string | null) {
+  getClaims.mockResolvedValue({
+    data: { claims: sessionId ? { session_id: sessionId } : {} },
+    error: null,
+  });
+}
+
 function signedInAs(profile: Profile | undefined) {
   getUser.mockResolvedValue({ data: { user: { id: profile?.id ?? "unknown" } }, error: null });
   findFirst.mockResolvedValue(profile);
@@ -57,6 +73,9 @@ async function codeOf(promise: Promise<unknown>): Promise<string | undefined> {
 describe("auth helpers", () => {
   beforeEach(() => {
     getUser.mockReset();
+    getClaims.mockReset();
+    selectRecovery.mockReset();
+    selectRecovery.mockResolvedValue([]);
     findFirst.mockReset();
   });
 
@@ -149,6 +168,111 @@ describe("auth helpers", () => {
         deactivatedAt: new Date("2026-11-25T08:00:00Z"),
       });
       expect(await getAuthState()).toEqual({ status: "inactive" });
+    });
+  });
+
+  describe("getAuthState with a recovery session (wachtwoord vergeten)", () => {
+    const HOUR = 60 * 60 * 1000;
+    /** The user has these recovery sessions (rows of `recovery_sessions`). */
+    const recoveryRows = (...rows: { sessionId: string; verifiedAt: Date }[]) =>
+      selectRecovery.mockResolvedValue(rows);
+    const own = (verifiedAt: Date) => ({ sessionId: SESSION_ID, verifiedAt });
+
+    it.each([
+      ["backoffice", backofficeProfile],
+      ["technician", technicianProfile],
+    ])("restricts the recovery session of an active %s", async (_name, profile) => {
+      signedInAs(profile);
+      recoveryRows(own(new Date()));
+      sessionIs(SESSION_ID);
+      expect(await getAuthState()).toEqual({
+        status: "reset-pending",
+        sessionId: SESSION_ID,
+        user: {
+          id: profile.id,
+          email: profile.email,
+          fullName: profile.fullName,
+          role: profile.role,
+        },
+      });
+    });
+
+    it("does not restrict another session of the same user (a phone that was already signed in)", async () => {
+      signedInAs(backofficeProfile);
+      recoveryRows({ sessionId: OTHER_SESSION_ID, verifiedAt: new Date() });
+      sessionIs(SESSION_ID);
+      expect(await getAuthState()).toMatchObject({ status: "authenticated" });
+    });
+
+    it("restricts each of two recovery sessions on its own", async () => {
+      signedInAs(backofficeProfile);
+      recoveryRows(own(new Date()), { sessionId: OTHER_SESSION_ID, verifiedAt: new Date() });
+      sessionIs(SESSION_ID);
+      expect(await getAuthState()).toMatchObject({
+        status: "reset-pending",
+        sessionId: SESSION_ID,
+      });
+      sessionIs(OTHER_SESSION_ID);
+      expect(await getAuthState()).toMatchObject({
+        status: "reset-pending",
+        sessionId: OTHER_SESSION_ID,
+      });
+    });
+
+    it("expires the recovery session after 24 hours, and not before", async () => {
+      signedInAs(backofficeProfile);
+      sessionIs(SESSION_ID);
+      recoveryRows(own(new Date(Date.now() - 24 * HOUR + 60_000)));
+      expect(await getAuthState()).toMatchObject({ status: "reset-pending" });
+
+      recoveryRows(own(new Date(Date.now() - 24 * HOUR - 60_000)));
+      expect(await getAuthState()).toEqual({ status: "reset-expired", sessionId: SESSION_ID });
+    });
+
+    it("does not look at the session at all when nobody is resetting", async () => {
+      signedInAs(backofficeProfile);
+      expect(await getAuthState()).toMatchObject({ status: "authenticated" });
+      expect(getClaims).not.toHaveBeenCalled();
+    });
+
+    it("does not hand out a normal session when it cannot tell which session this is", async () => {
+      signedInAs(backofficeProfile);
+      recoveryRows(own(new Date()));
+      sessionIs(null);
+      expect(await getAuthState()).toEqual({ status: "unavailable" });
+
+      getClaims.mockResolvedValue({ data: null, error: new Error("no session") });
+      expect(await getAuthState()).toEqual({ status: "unavailable" });
+    });
+
+    it("lets a deactivated profile win over a recovery session", async () => {
+      signedInAs({
+        ...backofficeProfile,
+        isActive: false,
+        deactivatedAt: new Date("2026-11-25T08:00:00Z"),
+      });
+      recoveryRows(own(new Date()));
+      sessionIs(SESSION_ID);
+      expect(await getAuthState()).toEqual({ status: "inactive" });
+    });
+
+    it("lets a pending invitation win over a recovery session", async () => {
+      signedInAs({ ...technicianProfile, invitePending: true, inviteVerifiedAt: new Date() });
+      recoveryRows(own(new Date()));
+      sessionIs(SESSION_ID);
+      expect(await getAuthState()).toMatchObject({ status: "password-pending" });
+    });
+
+    it("makes requireRole refuse the recovery session for every role", async () => {
+      signedInAs(backofficeProfile);
+      recoveryRows(own(new Date()));
+      sessionIs(SESSION_ID);
+      expect(await codeOf(requireRole("backoffice"))).toBe("reset-pending");
+      expect(await codeOf(requireRole("technician", "backoffice"))).toBe("reset-pending");
+      expect(await getCurrentUser()).toBeNull();
+
+      recoveryRows(own(new Date(Date.now() - 25 * HOUR)));
+      expect(await codeOf(requireRole("backoffice"))).toBe("reset-expired");
     });
   });
 

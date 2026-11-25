@@ -16,7 +16,7 @@ import { setPassword } from "./actions";
 const inputClass = "mt-1 h-11";
 
 /** The form of G2: "Nieuw wachtwoord", "Herhaal wachtwoord" and "Wachtwoord bewaren". */
-export function SetPasswordForm() {
+export function SetPasswordForm({ mode }: { mode: "invite" | "reset" }) {
   const [state, formAction, pending] = useActionState(setPassword, null);
   const alertRef = useRef<HTMLDivElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
@@ -42,6 +42,8 @@ export function SetPasswordForm() {
       <CardContent className="p-6">
         {/* `noValidate`: the browser would show its own (English) messages; the server validates. */}
         <form ref={formRef} action={formAction} noValidate className="space-y-4">
+          {/* Only the wording of a refusal depends on it, never what the action may do. */}
+          <input type="hidden" name="mode" value={mode} />
           {message ? (
             <Alert
               ref={alertRef}

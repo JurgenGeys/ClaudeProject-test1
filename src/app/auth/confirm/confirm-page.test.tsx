@@ -32,6 +32,16 @@ describe("/auth/confirm page", () => {
     expect(verifyOtp).not.toHaveBeenCalled();
   });
 
+  it("uses its own text for a recovery link (wachtwoord vergeten), without claiming an invitation", async () => {
+    render(await content({ token_hash: "abc123", type: "recovery" }));
+    expect(
+      screen.getByRole("heading", { level: 1, name: "Nieuw wachtwoord kiezen" }),
+    ).toBeVisible();
+    expect(screen.queryByText(/uitgenodigd/)).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Wachtwoord instellen" })).toBeInTheDocument();
+    expect(verifyOtp).not.toHaveBeenCalled();
+  });
+
   it("sends the token and the type along with the button, as hidden fields", async () => {
     const { container } = render(await content({ token_hash: "abc123", type: "recovery" }));
     expect(container.querySelector('input[name="token_hash"]')).toHaveValue("abc123");
@@ -43,6 +53,15 @@ describe("/auth/confirm page", () => {
     async (query) => {
       await expect(content(query)).rejects.toThrow(
         "NEXT_REDIRECT:/set-password?mode=invite&error=link",
+      );
+    },
+  );
+
+  it.each([{ type: "recovery" }, { token_hash: "", type: "recovery" }])(
+    "shows the reset wording of the invalid link message for a recovery link without a token (%j)",
+    async (query) => {
+      await expect(content(query)).rejects.toThrow(
+        "NEXT_REDIRECT:/set-password?mode=reset&error=link",
       );
     },
   );

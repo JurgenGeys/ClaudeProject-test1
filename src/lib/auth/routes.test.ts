@@ -10,7 +10,7 @@ describe("homePathForRole", () => {
 });
 
 describe("isPublicPath", () => {
-  it.each(["/login", "/auth/clear-session", "/auth/confirm", "/set-password"])(
+  it.each(["/login", "/forgot-password", "/auth/clear-session", "/auth/confirm", "/set-password"])(
     "%s is public",
     (path) => {
       expect(isPublicPath(path)).toBe(true);
@@ -23,7 +23,8 @@ describe("isPublicPath", () => {
     "/technicians",
     "/my-tasks",
     "/auth/inactive",
-    "/forgot-password",
+    "/auth/reset-expired",
+    "/forgot-password-evil",
     "/login-evil",
     "/logins",
     "/set-password-evil",

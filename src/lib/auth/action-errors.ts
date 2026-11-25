@@ -1,4 +1,4 @@
-import { LOGIN_MESSAGES, SET_PASSWORD_MESSAGES } from "./messages";
+import { LOGIN_MESSAGES, RESET_PASSWORD_MESSAGES, SET_PASSWORD_MESSAGES } from "./messages";
 import type { AuthError } from "./session";
 
 /**
@@ -16,8 +16,11 @@ export function authFailureMessage(error: AuthError): string {
       return LOGIN_MESSAGES.accountDisabled;
     case "invite-expired":
       return SET_PASSWORD_MESSAGES.inviteExpired;
+    case "reset-expired":
+      return RESET_PASSWORD_MESSAGES.expired;
     case "unauthenticated":
     case "password-pending":
+    case "reset-pending":
       return "Je bent niet (meer) aangemeld. Meld je opnieuw aan.";
   }
 }
