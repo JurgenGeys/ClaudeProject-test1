@@ -3,17 +3,29 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 
-const { checkRoleAccess, listTechnicians, inviteTechnician, resendInvite, deactivateTechnician } =
-  vi.hoisted(() => ({
-    checkRoleAccess: vi.fn(),
-    listTechnicians: vi.fn(),
-    inviteTechnician: vi.fn(),
-    resendInvite: vi.fn(),
-    deactivateTechnician: vi.fn(),
-  }));
+const {
+  checkRoleAccess,
+  listTechnicians,
+  inviteTechnician,
+  resendInvite,
+  deactivateTechnician,
+  reactivateTechnician,
+} = vi.hoisted(() => ({
+  checkRoleAccess: vi.fn(),
+  listTechnicians: vi.fn(),
+  inviteTechnician: vi.fn(),
+  resendInvite: vi.fn(),
+  deactivateTechnician: vi.fn(),
+  reactivateTechnician: vi.fn(),
+}));
 vi.mock("@/lib/auth/role-access", () => ({ checkRoleAccess }));
 vi.mock("@/lib/technicians/queries", () => ({ listTechnicians }));
-vi.mock("./actions", () => ({ inviteTechnician, resendInvite, deactivateTechnician }));
+vi.mock("./actions", () => ({
+  inviteTechnician,
+  resendInvite,
+  deactivateTechnician,
+  reactivateTechnician,
+}));
 
 import TechniciansPage from "./page";
 
@@ -79,8 +91,51 @@ describe("B7 Techniekers: the list", () => {
     const buttons = screen.getAllByRole("button", { name: "Uitnodiging opnieuw versturen" });
     expect(buttons).toHaveLength(1);
     expect(screen.getByRole("row", { name: /Yana/ })).toContainElement(buttons[0]);
-    // Switching on again is built in BT-07b.
-    expect(screen.queryByRole("button", { name: "Opnieuw activeren" })).not.toBeInTheDocument();
+  });
+
+  it("offers 'Opnieuw activeren' only for a switched-off technician", async () => {
+    await renderPage();
+    const buttons = screen.getAllByRole("button", { name: "Opnieuw activeren" });
+    expect(buttons).toHaveLength(1);
+    expect(screen.getByRole("row", { name: /Tom/ })).toContainElement(buttons[0]);
+  });
+
+  it("confirms 'Opnieuw activeren' in a dialog and shows the confirmation above the list", async () => {
+    reactivateTechnician.mockResolvedValue({
+      ok: true,
+      message: "Tom Hendrickx is opnieuw actief. Je kan hem weer taken toewijzen.",
+    });
+    await renderPage();
+    fireEvent.click(screen.getByRole("button", { name: "Opnieuw activeren" }));
+
+    const dialog = await screen.findByRole("dialog", { name: "Tom Hendrickx opnieuw activeren?" });
+    expect(dialog).toHaveTextContent(
+      'Hij kan zich dan weer aanmelden met zijn vorige wachtwoord. Weet hij dat niet meer, dan gebruikt hij "Wachtwoord vergeten" op het aanmeldscherm.',
+    );
+    fireEvent.click(within(dialog).getByRole("button", { name: "Opnieuw activeren" }));
+
+    await waitFor(() =>
+      expect(screen.getByRole("status")).toHaveTextContent(
+        "Tom Hendrickx is opnieuw actief. Je kan hem weer taken toewijzen.",
+      ),
+    );
+    const formData = reactivateTechnician.mock.calls[0][1] as FormData;
+    expect(formData.get("id")).toBe("t3");
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("keeps the dialog open and shows the reason when switching on is refused", async () => {
+    reactivateTechnician.mockResolvedValue({
+      ok: false,
+      fieldErrors: {},
+      formError: "Tom Hendrickx is al actief. Laad de pagina opnieuw.",
+    });
+    await renderPage();
+    fireEvent.click(screen.getByRole("button", { name: "Opnieuw activeren" }));
+    const dialog = await screen.findByRole("dialog", { name: "Tom Hendrickx opnieuw activeren?" });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Opnieuw activeren" }));
+
+    expect(await within(dialog).findByText(/is al actief/)).toBeVisible();
   });
 
   it("offers 'Uitschakelen' only for an active technician, not for invited or switched-off ones", async () => {
@@ -89,7 +144,9 @@ describe("B7 Techniekers: the list", () => {
     expect(buttons).toHaveLength(1);
     expect(screen.getByRole("row", { name: /Kevin/ })).toContainElement(buttons[0]);
     expect(
-      within(screen.getByRole("row", { name: /Tom/ })).queryByRole("button"),
+      within(screen.getByRole("row", { name: /Tom/ })).queryByRole("button", {
+        name: "Uitschakelen",
+      }),
     ).not.toBeInTheDocument();
     expect(
       within(screen.getByRole("row", { name: /Yana/ })).queryByRole("button", {

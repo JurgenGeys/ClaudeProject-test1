@@ -29,6 +29,10 @@ const deactivateTechnicianProfile = vi.fn();
 vi.mock("@/lib/technicians/deactivate", () => ({
   deactivateTechnicianProfile: (...args: unknown[]) => deactivateTechnicianProfile(...args),
 }));
+const reactivateTechnicianProfile = vi.fn();
+vi.mock("@/lib/technicians/reactivate", () => ({
+  reactivateTechnicianProfile: (...args: unknown[]) => reactivateTechnicianProfile(...args),
+}));
 vi.mock("@/db/client", () => ({
   getDb: () => ({
     transaction: (callback: (tx: unknown) => Promise<unknown>) => transaction(callback),
@@ -62,7 +66,12 @@ vi.mock("next/cache", () => ({ revalidatePath: (...args: unknown[]) => revalidat
 
 import { AuthError } from "@/lib/auth/session";
 
-import { deactivateTechnician, inviteTechnician, resendInvite } from "./actions";
+import {
+  deactivateTechnician,
+  inviteTechnician,
+  reactivateTechnician,
+  resendInvite,
+} from "./actions";
 
 function form(fields: Record<string, string>): FormData {
   const data = new FormData();
@@ -648,5 +657,165 @@ describe("deactivateTechnician", () => {
       formError: "Dat is niet gelukt. Controleer je internetverbinding en probeer opnieuw.",
     });
     expect(JSON.stringify(consoleError.mock.calls)).not.toContain("kevin@frisair.be");
+  });
+});
+
+describe("reactivateTechnician", () => {
+  const id = authUserId;
+  const technical = "Dat is niet gelukt. Controleer je internetverbinding en probeer opnieuw.";
+
+  it("requires the backoffice role and touches nothing for anyone else", async () => {
+    requireRole.mockRejectedValue(new AuthError("forbidden"));
+    expect(await reactivateTechnician(null, form({ id }))).toEqual({
+      ok: false,
+      fieldErrors: {},
+      formError: "Je hebt geen toegang om dit te doen.",
+    });
+    expect(requireRole).toHaveBeenCalledWith("backoffice");
+    expect(transaction).not.toHaveBeenCalled();
+    expect(updateUserById).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["unauthenticated", "Je bent niet (meer) aangemeld. Meld je opnieuw aan."],
+    ["inactive", "Je account is uitgeschakeld. Neem contact op met kantoor."],
+    ["reset-pending", "Je bent niet (meer) aangemeld. Meld je opnieuw aan."],
+  ] as const)("refuses a caller who is %s", async (code, formError) => {
+    requireRole.mockRejectedValue(new AuthError(code));
+    expect(await reactivateTechnician(null, form({ id }))).toMatchObject({ ok: false, formError });
+    expect(transaction).not.toHaveBeenCalled();
+    expect(updateUserById).not.toHaveBeenCalled();
+  });
+
+  it("does not hide unexpected errors of the role check", async () => {
+    requireRole.mockRejectedValue(new Error("boom"));
+    await expect(reactivateTechnician(null, form({ id }))).rejects.toThrow("boom");
+  });
+
+  it.each(["", "not-a-uuid", "x"])("refuses the id %j without a database call", async (bad) => {
+    expect(await reactivateTechnician(null, form({ id: bad }))).toMatchObject({
+      ok: false,
+      formError: "Deze technieker bestaat niet (meer). Laad de pagina opnieuw.",
+    });
+    expect(await reactivateTechnician(null, new FormData())).toMatchObject({ ok: false });
+    expect(transaction).not.toHaveBeenCalled();
+  });
+
+  it("switches the technician on, lifts the block in the same transaction and refreshes the list", async () => {
+    reactivateTechnicianProfile.mockResolvedValue({
+      kind: "reactivated",
+      fullName: "Tom Hendrickx",
+    });
+    // The block is lifted while the transaction callback still runs, so a failure can roll back.
+    let liftedInsideTransaction = false;
+    updateUserById.mockImplementation(async () => {
+      liftedInsideTransaction = transaction.mock.calls.length === 1;
+      return { error: null };
+    });
+
+    expect(await reactivateTechnician(null, form({ id }))).toEqual({
+      ok: true,
+      message: "Tom Hendrickx is opnieuw actief. Je kan hem weer taken toewijzen.",
+    });
+    expect(reactivateTechnicianProfile).toHaveBeenCalledWith(tx, id);
+    expect(updateUserById).toHaveBeenCalledExactlyOnceWith(id, { ban_duration: "none" });
+    expect(liftedInsideTransaction).toBe(true);
+    expect(revalidatePath).toHaveBeenCalledWith("/technicians");
+  });
+
+  it("takes the id from the form only and ignores any other field", async () => {
+    reactivateTechnicianProfile.mockResolvedValue({
+      kind: "reactivated",
+      fullName: "Tom Hendrickx",
+    });
+    await reactivateTechnician(null, form({ id, email: "evil@example.com", fullName: "Evil" }));
+    expect(reactivateTechnicianProfile).toHaveBeenCalledWith(tx, id);
+    expect(updateUserById).toHaveBeenCalledWith(id, { ban_duration: "none" });
+  });
+
+  it.each([
+    [{ kind: "not-found" }, "Deze technieker bestaat niet (meer). Laad de pagina opnieuw."],
+    [
+      { kind: "already-active", fullName: "Tom Hendrickx" },
+      "Tom Hendrickx is al actief. Laad de pagina opnieuw.",
+    ],
+    [
+      { kind: "invited", fullName: "Yana Willems" },
+      "Yana Willems heeft de uitnodiging nog niet aanvaard en is niet uitgeschakeld.",
+    ],
+  ])("refuses %j, changes nothing and lists no users", async (outcome, formError) => {
+    reactivateTechnicianProfile.mockResolvedValue(outcome);
+    expect(await reactivateTechnician(null, form({ id }))).toEqual({
+      ok: false,
+      fieldErrors: {},
+      formError,
+    });
+    expect(updateUserById).not.toHaveBeenCalled();
+    expect(revalidatePath).not.toHaveBeenCalled();
+  });
+
+  it("rolls back and reports a technical problem when lifting the block fails", async () => {
+    reactivateTechnicianProfile.mockResolvedValue({
+      kind: "reactivated",
+      fullName: "Tom Hendrickx",
+    });
+    updateUserById.mockResolvedValue({
+      error: new AuthApiError("boom", 500, "unexpected_failure"),
+    });
+    expect(await reactivateTechnician(null, form({ id }))).toEqual({
+      ok: false,
+      fieldErrors: {},
+      formError: technical,
+    });
+    // No second call: nothing was lifted, so there is nothing to block again.
+    expect(updateUserById).toHaveBeenCalledExactlyOnceWith(id, { ban_duration: "none" });
+    expect(revalidatePath).not.toHaveBeenCalled();
+  });
+
+  it("blocks the account again when the commit fails after the block was lifted", async () => {
+    reactivateTechnicianProfile.mockResolvedValue({
+      kind: "reactivated",
+      fullName: "Tom Hendrickx",
+    });
+    transaction.mockImplementation(async (callback: (tx: unknown) => Promise<unknown>) => {
+      await callback(tx);
+      throw new Error("commit failed");
+    });
+    expect(await reactivateTechnician(null, form({ id }))).toMatchObject({
+      ok: false,
+      formError: technical,
+    });
+    expect(updateUserById).toHaveBeenNthCalledWith(1, id, { ban_duration: "none" });
+    expect(updateUserById).toHaveBeenNthCalledWith(2, id, { ban_duration: "87600h" });
+    expect(revalidatePath).not.toHaveBeenCalled();
+  });
+
+  it("still reports the problem when blocking again fails as well", async () => {
+    reactivateTechnicianProfile.mockResolvedValue({
+      kind: "reactivated",
+      fullName: "Tom Hendrickx",
+    });
+    transaction.mockImplementation(async (callback: (tx: unknown) => Promise<unknown>) => {
+      await callback(tx);
+      throw new Error("commit failed");
+    });
+    updateUserById
+      .mockResolvedValueOnce({ error: null })
+      .mockResolvedValueOnce({ error: new AuthApiError("boom", 500, "unexpected_failure") });
+    expect(await reactivateTechnician(null, form({ id }))).toMatchObject({
+      ok: false,
+      formError: technical,
+    });
+    expect(updateUserById).toHaveBeenCalledTimes(2);
+  });
+
+  it("gives the technical message when the database fails, without personal data in the log", async () => {
+    transaction.mockRejectedValue(new Error("db down for tom@frisair.be"));
+    expect(await reactivateTechnician(null, form({ id }))).toMatchObject({
+      ok: false,
+      formError: technical,
+    });
+    expect(updateUserById).not.toHaveBeenCalled();
+    expect(JSON.stringify(consoleError.mock.calls)).not.toContain("tom@frisair.be");
   });
 });
