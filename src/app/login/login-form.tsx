@@ -2,11 +2,16 @@
 
 import { useActionState, useEffect, useRef } from "react";
 
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+
 import { login } from "./actions";
 
-const inputClass =
-  "mt-1 block h-11 w-full rounded-md border border-border bg-background px-3 text-base " +
-  "focus:outline-none focus-visible:ring-2 focus-visible:ring-primary aria-[invalid=true]:border-red-700";
+// 44 px high, as the design asks for touch targets on a phone.
+const inputClass = "mt-1 h-11";
 
 /** "Vul de 2 gemarkeerde velden in." (design: summary above the form). */
 function fieldSummary(count: number): string {
@@ -41,73 +46,68 @@ export function LoginForm({ notice }: { notice?: string }) {
   }, [state]);
 
   return (
-    // `noValidate`: the browser would show its own (English) messages; the server validates.
-    <form
-      ref={formRef}
-      action={formAction}
-      noValidate
-      className="mt-6 space-y-4 rounded-lg border border-border bg-card p-6 shadow-sm"
-    >
-      {message ? (
-        <div
-          ref={alertRef}
-          role="alert"
-          tabIndex={-1}
-          className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-900"
-        >
-          {message}
-        </div>
-      ) : null}
+    <Card className="mt-6 py-0 shadow-sm">
+      <CardContent className="p-6">
+        {/* `noValidate`: the browser would show its own (English) messages; the server validates. */}
+        <form ref={formRef} action={formAction} noValidate className="space-y-4">
+          {message ? (
+            <Alert
+              ref={alertRef}
+              variant="destructive"
+              tabIndex={-1}
+              className="border-red-200 bg-red-50 text-red-900 outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 *:data-[slot=alert-description]:text-red-900"
+            >
+              <AlertDescription>{message}</AlertDescription>
+            </Alert>
+          ) : null}
 
-      <div>
-        <label htmlFor="email" className="block text-sm font-medium">
-          E-mailadres
-        </label>
-        <input
-          id="email"
-          name="email"
-          type="email"
-          autoComplete="email"
-          inputMode="email"
-          defaultValue={state?.email ?? ""}
-          aria-invalid={fieldErrors.email ? true : undefined}
-          aria-describedby={fieldErrors.email ? "email-error" : undefined}
-          className={inputClass}
-        />
-        {fieldErrors.email ? (
-          <p id="email-error" className="mt-1 text-sm text-red-700">
-            {fieldErrors.email}
-          </p>
-        ) : null}
-      </div>
+          <div>
+            <Label htmlFor="email" className="block">
+              E-mailadres
+            </Label>
+            <Input
+              id="email"
+              name="email"
+              type="email"
+              autoComplete="email"
+              inputMode="email"
+              defaultValue={state?.email ?? ""}
+              aria-invalid={fieldErrors.email ? true : undefined}
+              aria-describedby={fieldErrors.email ? "email-error" : undefined}
+              className={inputClass}
+            />
+            {fieldErrors.email ? (
+              <p id="email-error" className="mt-1 text-sm text-red-700">
+                {fieldErrors.email}
+              </p>
+            ) : null}
+          </div>
 
-      <div>
-        <label htmlFor="password" className="block text-sm font-medium">
-          Wachtwoord
-        </label>
-        <input
-          id="password"
-          name="password"
-          type="password"
-          autoComplete="current-password"
-          aria-invalid={fieldErrors.password ? true : undefined}
-          aria-describedby={fieldErrors.password ? "password-error" : undefined}
-          className={inputClass}
-        />
-        {fieldErrors.password ? (
-          <p id="password-error" className="mt-1 text-sm text-red-700">
-            {fieldErrors.password}
-          </p>
-        ) : null}
-      </div>
+          <div>
+            <Label htmlFor="password" className="block">
+              Wachtwoord
+            </Label>
+            <Input
+              id="password"
+              name="password"
+              type="password"
+              autoComplete="current-password"
+              aria-invalid={fieldErrors.password ? true : undefined}
+              aria-describedby={fieldErrors.password ? "password-error" : undefined}
+              className={inputClass}
+            />
+            {fieldErrors.password ? (
+              <p id="password-error" className="mt-1 text-sm text-red-700">
+                {fieldErrors.password}
+              </p>
+            ) : null}
+          </div>
 
-      <button
-        type="submit"
-        disabled={pending}
-        className="h-11 w-full rounded-md bg-primary text-base font-semibold text-primary-foreground hover:bg-primary/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:opacity-60"
-      >
-        {pending ? "Bezig met aanmelden…" : "Aanmelden"}
-      </button>
-    </form>
+          <Button type="submit" disabled={pending} className="h-11 w-full text-base font-semibold">
+            {pending ? "Bezig met aanmelden…" : "Aanmelden"}
+          </Button>
+        </form>
+      </CardContent>
+    </Card>
   );
 }

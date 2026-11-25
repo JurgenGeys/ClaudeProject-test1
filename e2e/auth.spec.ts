@@ -30,6 +30,10 @@ test.describe("sign in", () => {
     await expect(page).toHaveURL("/tasks");
     await expect(page.getByRole("heading", { level: 1, name: "Taken" })).toBeVisible();
     await expect(page.getByText(BACKOFFICE.fullName)).toBeVisible();
+    const menu = page.getByRole("navigation", { name: "Hoofdmenu" });
+    await expect(menu.getByRole("link", { name: "Taken" })).toHaveAttribute("aria-current", "page");
+    await expect(menu.getByRole("link", { name: "Klanten" })).toBeVisible();
+    await expect(menu.getByRole("link", { name: "Techniekers" })).toBeVisible();
 
     await test.step("a technician page says it is not meant for this user", async () => {
       await page.goto("/my-tasks");
@@ -46,6 +50,15 @@ test.describe("sign in", () => {
       await expect(page).toHaveURL("/tasks");
     });
 
+    await test.step("a menu item whose page is not built yet shows the Dutch 404 page", async () => {
+      await page.getByRole("link", { name: "Klanten" }).click();
+      await expect(
+        page.getByRole("heading", { level: 1, name: "Deze pagina bestaat (nog) niet" }),
+      ).toBeVisible();
+      await page.getByRole("link", { name: "Naar de startpagina" }).click();
+      await expect(page).toHaveURL("/tasks");
+    });
+
     await test.step("signing out ends the session", async () => {
       await page.getByRole("button", { name: "Uitloggen" }).click();
       await expect(page).toHaveURL("/login");
@@ -59,10 +72,15 @@ test.describe("sign in", () => {
     await expect(page).toHaveURL("/my-tasks");
     await expect(page.getByRole("heading", { level: 1, name: "Mijn taken" })).toBeVisible();
     await expect(page.getByText(TECHNICIAN.fullName)).toBeVisible();
+    // A technician has no menu, only the name and "Uitloggen".
+    await expect(page.getByRole("navigation", { name: "Hoofdmenu" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Uitloggen" })).toBeVisible();
 
     await test.step("a backoffice page says it is not meant for this user", async () => {
       await page.goto("/tasks");
       await expect(page.getByRole("heading", { level: 1, name: NOT_FOR_YOU })).toBeVisible();
+      // The header follows the signed-in user: still no menu of the backoffice.
+      await expect(page.getByRole("navigation", { name: "Hoofdmenu" })).toHaveCount(0);
       await page.getByRole("link", { name: "Naar mijn taken" }).click();
       await expect(page).toHaveURL("/my-tasks");
     });
