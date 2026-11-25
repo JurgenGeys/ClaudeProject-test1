@@ -8,7 +8,9 @@ import {
 
 /**
  * "Vorige" and "Volgende" under the list (design B1): plain links that keep every filter and
- * change only `?page=`. Nothing is shown when there is one page.
+ * change only `?page=`. Nothing is shown when there is one page. A link that has nowhere to go (no
+ * previous page on the first page) is left out: `aria-disabled` on a span without a role is
+ * ignored by screen readers, and the line "pagina 1 van 3" already tells where the user is.
  */
 export function TaskPagination({
   filters,
@@ -27,7 +29,6 @@ export function TaskPagination({
   const last = Math.min(page * PAGE_SIZE, total);
   const linkClass =
     "inline-flex h-11 items-center rounded-md border border-border bg-background px-4 text-sm font-medium hover:bg-accent md:h-10";
-  const disabledClass = `${linkClass} pointer-events-none opacity-50`;
 
   return (
     <nav
@@ -46,11 +47,7 @@ export function TaskPagination({
           >
             Vorige
           </Link>
-        ) : (
-          <span aria-disabled="true" className={disabledClass}>
-            Vorige
-          </span>
-        )}
+        ) : null}
         {page < pageCount ? (
           <Link
             href={taskOverviewHref({ ...filters, page: page + 1 })}
@@ -59,11 +56,7 @@ export function TaskPagination({
           >
             Volgende
           </Link>
-        ) : (
-          <span aria-disabled="true" className={disabledClass}>
-            Volgende
-          </span>
-        )}
+        ) : null}
       </div>
     </nav>
   );

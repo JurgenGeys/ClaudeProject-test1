@@ -250,7 +250,9 @@ describe("TaskPagination", () => {
       `/tasks?status=all&technician=${ID}&from=2026-11-01&page=2`,
     );
     expect(within(nav).queryByRole("link", { name: "Vorige" })).not.toBeInTheDocument();
-    expect(within(nav).getByText("Vorige")).toHaveAttribute("aria-disabled", "true");
+    // No inert "Vorige": a span with aria-disabled and no role is ignored by screen readers.
+    expect(within(nav).queryByText("Vorige")).not.toBeInTheDocument();
+    expect(nav.querySelector("[aria-disabled]")).toBeNull();
   });
 
   it("links back to page 1 without ?page= from page 2", () => {
@@ -265,6 +267,10 @@ describe("TaskPagination", () => {
       "Taken 101 tot 120 van 120",
     );
     expect(screen.queryByRole("link", { name: "Volgende" })).not.toBeInTheDocument();
+    expect(screen.queryByText("Volgende")).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("navigation", { name: "Paginering" }).querySelector("[aria-disabled]"),
+    ).toBeNull();
   });
 });
 
