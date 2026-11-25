@@ -80,8 +80,6 @@ describe("profiles table", () => {
       invite_pending: ["boolean", "NO"],
       invite_verified_at: ["timestamp with time zone", "YES"],
       is_active: ["boolean", "NO"],
-      recovery_session_id: ["uuid", "YES"],
-      recovery_verified_at: ["timestamp with time zone", "YES"],
       role: ["USER-DEFINED", "NO"],
     });
   });
@@ -93,19 +91,6 @@ describe("profiles table", () => {
         select invite_pending from public.profiles where id = ${id}
       `;
       expect(row.invite_pending).toBe(false);
-    });
-  });
-
-  it("starts every profile without a recovery session", async () => {
-    await inRolledBackTransaction(async (tx) => {
-      const id = await createProfile(tx, "no-recovery@example.be");
-      const [row] = await tx<
-        { recovery_session_id: string | null; recovery_verified_at: Date | null }[]
-      >`
-        select recovery_session_id, recovery_verified_at from public.profiles where id = ${id}
-      `;
-      expect(row.recovery_session_id).toBeNull();
-      expect(row.recovery_verified_at).toBeNull();
     });
   });
 
@@ -251,39 +236,6 @@ describe("profiles constraints", () => {
     });
   });
 
-  it("refuses a recovery session without its moment, and a moment without its session", async () => {
-    await inRolledBackTransaction(async (tx) => {
-      const id = await createProfile(tx, "recovery-a@example.be");
-      await expectSqlError(
-        tx`update public.profiles set recovery_session_id = gen_random_uuid() where id = ${id}`,
-        "23514",
-      );
-    });
-    await inRolledBackTransaction(async (tx) => {
-      const id = await createProfile(tx, "recovery-b@example.be");
-      await expectSqlError(
-        tx`update public.profiles set recovery_verified_at = now() where id = ${id}`,
-        "23514",
-      );
-    });
-  });
-
-  it("allows setting and clearing a recovery session with both fields together", async () => {
-    await inRolledBackTransaction(async (tx) => {
-      const id = await createProfile(tx, "recovery-c@example.be");
-      await tx`
-        update public.profiles
-        set recovery_session_id = gen_random_uuid(), recovery_verified_at = now()
-        where id = ${id}
-      `;
-      await tx`
-        update public.profiles
-        set recovery_session_id = null, recovery_verified_at = null
-        where id = ${id}
-      `;
-    });
-  });
-
   it("allows deactivating and reactivating with both fields together", async () => {
     await inRolledBackTransaction(async (tx) => {
       const id = await createProfile(tx, "state-c@example.be");
@@ -293,6 +245,83 @@ describe("profiles constraints", () => {
       await tx`
         update public.profiles set is_active = true, deactivated_at = null where id = ${id}
       `;
+    });
+  });
+});
+
+describe("recovery_sessions", () => {
+  async function createRecoverySession(tx: Tx, userId: string): Promise<string> {
+    const [row] = await tx<{ session_id: string }[]>`
+      insert into public.recovery_sessions (session_id, user_id)
+      values (gen_random_uuid(), ${userId}) returning session_id
+    `;
+    return row.session_id;
+  }
+
+  it("has the columns of the design, with the moment filled in by the database", async () => {
+    const columns = await sql<{ column_name: string; data_type: string; is_nullable: string }[]>`
+      select column_name, data_type, is_nullable
+      from information_schema.columns
+      where table_schema = 'public' and table_name = 'recovery_sessions'
+    `;
+    expect(
+      Object.fromEntries(columns.map((c) => [c.column_name, [c.data_type, c.is_nullable]])),
+    ).toEqual({
+      session_id: ["uuid", "NO"],
+      user_id: ["uuid", "NO"],
+      verified_at: ["timestamp with time zone", "NO"],
+    });
+    await inRolledBackTransaction(async (tx) => {
+      const id = await createProfile(tx, "recovery-default@example.be");
+      const sessionId = await createRecoverySession(tx, id);
+      const [row] = await tx<{ verified_at: Date }[]>`
+        select verified_at from public.recovery_sessions where session_id = ${sessionId}
+      `;
+      expect(Math.abs(row.verified_at.getTime() - Date.now())).toBeLessThan(60_000);
+    });
+  });
+
+  it("has Row Level Security on and no policies", async () => {
+    const [table] = await sql<{ relrowsecurity: boolean }[]>`
+      select relrowsecurity from pg_class where oid = 'public.recovery_sessions'::regclass
+    `;
+    expect(table.relrowsecurity).toBe(true);
+    const policies = await sql`
+      select policyname from pg_policies
+      where schemaname = 'public' and tablename = 'recovery_sessions'
+    `;
+    expect(policies).toHaveLength(0);
+  });
+
+  it("allows several recovery sessions for one user, and no session twice", async () => {
+    await inRolledBackTransaction(async (tx) => {
+      const id = await createProfile(tx, "recovery-two@example.be");
+      const first = await createRecoverySession(tx, id);
+      await createRecoverySession(tx, id);
+      const rows = await tx`select session_id from public.recovery_sessions where user_id = ${id}`;
+      expect(rows).toHaveLength(2);
+      await expectSqlError(
+        tx`insert into public.recovery_sessions (session_id, user_id) values (${first}, ${id})`,
+        "23505",
+      );
+    });
+  });
+
+  it("refuses a session of a user without a profile (foreign key)", async () => {
+    await inRolledBackTransaction(async (tx) => {
+      await expectSqlError(
+        tx`insert into public.recovery_sessions (session_id, user_id)
+           values (gen_random_uuid(), gen_random_uuid())`,
+        "23503",
+      );
+    });
+  });
+
+  it("does not allow deleting a profile that has a recovery session (ON DELETE RESTRICT)", async () => {
+    await inRolledBackTransaction(async (tx) => {
+      const id = await createProfile(tx, "recovery-restrict@example.be");
+      await createRecoverySession(tx, id);
+      await expectSqlError(tx`delete from public.profiles where id = ${id}`, "23503");
     });
   });
 });

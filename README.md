@@ -202,12 +202,15 @@ De stroom daarna:
    `<SITE_URL>/auth/confirm?token_hash=…&type=recovery`. Zoals bij een uitnodiging toont die pagina eerst een knop;
    pas de klik verbruikt het token.
 2. De klik maakt een **herstelsessie**: de server bewaart het id van die ene sessie en het tijdstip in
-   `profiles.recovery_session_id` en `profiles.recovery_verified_at`. Die sessie mag enkel `/set-password?mode=reset`
+   een rij van de tabel `recovery_sessions`. Die sessie mag enkel `/set-password?mode=reset`
    gebruiken (pagina's, Server Actions en `/` sturen ernaartoe; aanmelden met die sessie opent niets). Ze duurt 24 uur
    (daarna: afgemeld met "De link is verlopen. Vraag een nieuwe link aan.") en heeft een knop **Annuleren**. Andere
    sessies van dezelfde gebruiker (bv. een gsm die al aangemeld is) blijven gewoon werken tot het wachtwoord gekozen is.
+   Twee herstellinks op twee toestellen geven twee beperkte sessies; **Annuleren** op het ene toestel laat het andere
+   beperkt.
 3. Na het kiezen van een nieuw wachtwoord worden **alle andere sessies** van die gebruiker beëindigd
-   (`signOut` met scope `others`) en gaat hij naar het startscherm van zijn rol. Het oude wachtwoord werkt niet meer.
+   (`signOut` met scope `others`) en gaat hij naar het startscherm van zijn rol. Het nieuwe wachtwoord moet verschillen van het vorige
+   ("Kies een ander wachtwoord dan je vorige.").
 4. Een uitgeschakelde gebruiker, een gebruiker zonder profiel en een ongeldige, verlopen of gebruikte link krijgen
    dezelfde melding: "Deze link is niet meer geldig. Vraag een nieuwe link aan." met een knop naar `/forgot-password`.
 

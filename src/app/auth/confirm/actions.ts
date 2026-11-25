@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 
 import { getDb } from "@/db/client";
-import { profiles } from "@/db/schema";
+import { profiles, recoverySessions } from "@/db/schema";
 import { endLocalSession } from "@/lib/auth/login-redirect";
 import {
   SET_PASSWORD_ERROR_LINK,
@@ -48,10 +48,9 @@ function invalidLinkPath(mode: string, error: string): string {
  *   The server stores the moment in `profiles.invite_verified_at`; `getAuthState` reports
  *   `password-pending`. Goes to G2 in mode invite.
  * - any other active user, type `recovery` only: the recovery session (BT-06b). The server
- *   stores this very session (`session_id` of the new token) and the moment in
- *   `profiles.recovery_session_id` and `recovery_verified_at`; `getAuthState` reports
- *   `reset-pending` for that session only (other sessions of the user are not touched). Goes to
- *   G2 in mode reset.
+ *   stores this very session (`session_id` of the new token) in a row of `recovery_sessions`,
+ *   with the database time; `getAuthState` reports `reset-pending` for that session only (other
+ *   sessions of the user, also other recovery sessions, are not touched). Goes to G2 in mode reset.
  * Both end 24 hours after this moment. Anything else (no profile, deactivated, an `invite` link
  * for somebody who already has a password) is signed out again and treated as an invalid link,
  * so a disabled user gets the same general message as a link that does not exist.
@@ -112,10 +111,16 @@ export async function confirmLink(formData: FormData): Promise<void> {
           destination = SET_PASSWORD_INVITE_PATH;
         }
       } else if (type === "recovery" && sessionId) {
+        // A row of its own for this session only: a recovery session that exists already (a
+        // second link on another device) stays restricted, and cannot be freed by this one.
+        // The moment comes from the database clock (column default).
         await db
-          .update(profiles)
-          .set({ recoverySessionId: sessionId, recoveryVerifiedAt: sql`now()` })
-          .where(eq(profiles.id, profile.id));
+          .insert(recoverySessions)
+          .values({ sessionId, userId: profile.id })
+          .onConflictDoUpdate({
+            target: recoverySessions.sessionId,
+            set: { verifiedAt: sql`now()` },
+          });
         destination = SET_PASSWORD_RESET_PATH;
       } else {
         // An invitation link for somebody who already has a password, or a token without a

@@ -7,6 +7,7 @@ import postgres from "postgres";
 import { assertLocalSupabase } from "../../src/lib/supabase/local-only";
 import { customers } from "../../src/db/schema/customers";
 import { profiles } from "../../src/db/schema/profiles";
+import { recoverySessions } from "../../src/db/schema/recovery-sessions";
 import { tasks } from "../../src/db/schema/tasks";
 
 import { TEST_PASSWORD, type TestUser } from "./test-users";
@@ -121,6 +122,7 @@ export async function removeUser(email: string): Promise<void> {
       .where(sql`lower(${authUsers.email}) = ${email.toLowerCase()}`)
       .limit(1);
     if (found[0]) {
+      await db.delete(recoverySessions).where(eq(recoverySessions.userId, found[0].id));
       await db.delete(profiles).where(eq(profiles.id, found[0].id));
     }
     return found[0]?.id;
@@ -144,14 +146,24 @@ export async function setInviteVerifiedAt(email: string, verifiedAt: Date): Prom
   });
 }
 
-/** Moves the moment the "wachtwoord vergeten" link was confirmed, to test the 24 hour limit. */
+/**
+ * Moves the moment the "wachtwoord vergeten" link was confirmed, for every recovery session of
+ * this user, to test the 24 hour limit.
+ */
 export async function setRecoveryVerifiedAt(email: string, verifiedAt: Date): Promise<void> {
   assertLocalSupabase(process.env);
   await withDb(async (db) => {
-    await db
-      .update(profiles)
-      .set({ recoveryVerifiedAt: verifiedAt })
-      .where(eq(profiles.email, email.toLowerCase()));
+    const [profile] = await db
+      .select({ id: profiles.id })
+      .from(profiles)
+      .where(eq(profiles.email, email.toLowerCase()))
+      .limit(1);
+    if (profile) {
+      await db
+        .update(recoverySessions)
+        .set({ verifiedAt })
+        .where(eq(recoverySessions.userId, profile.id));
+    }
   });
 }
 

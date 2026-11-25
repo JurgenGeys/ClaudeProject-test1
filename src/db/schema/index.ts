@@ -4,3 +4,4 @@
 export * from "./profiles";
 export * from "./customers";
 export * from "./tasks";
+export * from "./recovery-sessions";

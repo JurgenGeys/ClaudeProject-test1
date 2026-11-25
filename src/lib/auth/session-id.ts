@@ -1,7 +1,7 @@
 /**
  * The `session_id` claim of a Supabase access token: the id of the Auth session it belongs to.
  * It stays the same when the token is refreshed, so it identifies "this browser's session"
- * (what a recovery session is tied to, see `profiles.recovery_session_id`).
+ * (what a recovery session is tied to, see `recovery_sessions`).
  *
  * The token is only decoded here, not verified: callers use a token that Supabase Auth just
  * issued (`verifyOtp`) or just verified (`getUser`). Returns `null` for anything that is not a

@@ -1,4 +1,10 @@
-import { test as base, expect, type Page } from "@playwright/test";
+import {
+  test as base,
+  expect,
+  type Browser,
+  type BrowserContext,
+  type Page,
+} from "@playwright/test";
 
 import { countMails, waitForConfirmLinks } from "./support/mailbox";
 import { signIn } from "./support/sign-in";
@@ -57,16 +63,37 @@ async function signInAndWait(page: Page, user: TestUser, password = TEST_PASSWOR
   await expect(page).toHaveURL(START_PAGE[user.role]);
 }
 
+/**
+ * The visible page. After a client-side navigation Next.js keeps the previous route hidden in
+ * the DOM (it has the same labels and `data-hydrated` forms), so locators for fields are always
+ * scoped to what is visible.
+ */
+const visibleMain = (page: Page) => page.locator("main:visible");
+
 /** From the login page through "Wachtwoord vergeten?" to the confirmation message. */
 async function requestLink(page: Page, email: string): Promise<void> {
   await page.goto("/login");
   await page.getByRole("link", { name: "Wachtwoord vergeten?" }).click();
   await expect(page).toHaveURL("/forgot-password");
   await expect(page.getByRole("heading", { level: 1, name: "Wachtwoord vergeten" })).toBeVisible();
-  await page.locator('form[data-hydrated="true"]').waitFor();
-  await page.getByLabel("E-mailadres").fill(email);
-  await page.getByRole("button", { name: "Stuur mij een link" }).click();
+  await page.locator('form[data-hydrated="true"]:visible').waitFor();
+  await visibleMain(page).getByLabel("E-mailadres").fill(email);
+  await visibleMain(page).getByRole("button", { name: "Stuur mij een link" }).click();
   await expect(page.getByRole("status")).toHaveText(SENT);
+}
+
+/**
+ * Asks for one more mail for this address and returns its link. `before` is the number of mails
+ * the address already got. Auth wants a short interval between two mails, so a request that was
+ * swallowed is repeated.
+ */
+async function requestNextLink(page: Page, email: string, before: number): Promise<string> {
+  await expect(async () => {
+    await requestLink(page, email);
+    expect(await countMails(email)).toBeGreaterThan(before);
+  }).toPass({ timeout: 30_000 });
+  const [newest] = await waitForConfirmLinks(email, before + 1);
+  return newest;
 }
 
 /** Opens the link from the mail and presses the button on the page it leads to. */
@@ -78,7 +105,7 @@ async function openLinkAndConfirm(page: Page, link: string): Promise<void> {
   await expect(
     page.getByRole("heading", { level: 1, name: "Nieuw wachtwoord kiezen" }),
   ).toBeVisible();
-  await page.locator('form[data-hydrated="true"]').waitFor();
+  await page.locator('form[data-hydrated="true"]:visible').waitFor();
 }
 
 async function choosePassword(page: Page, password: string): Promise<void> {
@@ -119,7 +146,7 @@ for (const role of ["backoffice", "technician"] as const) {
         await page.getByRole("button", { name: "Wachtwoord instellen" }).click();
         await expect(page).toHaveURL(SET_PASSWORD_RESET);
         await expect(page.getByText(`Kies een nieuw wachtwoord voor ${user.email}.`)).toBeVisible();
-        await page.locator('form[data-hydrated="true"]').waitFor();
+        await page.locator('form[data-hydrated="true"]:visible').waitFor();
       });
 
       await test.step("the recovery session cannot open any other page", async () => {
@@ -134,7 +161,7 @@ for (const role of ["backoffice", "technician"] as const) {
           await page.goto(path);
           await expect(page).toHaveURL(SET_PASSWORD_RESET);
         }
-        await page.locator('form[data-hydrated="true"]').waitFor();
+        await page.locator('form[data-hydrated="true"]:visible').waitFor();
       });
 
       await test.step("a short password and two different passwords are refused", async () => {
@@ -198,11 +225,14 @@ test.describe("forgot password: what the screen never tells", () => {
       await requestLink(page, email);
       // The same text, the same link back, and the form is gone for every one of them.
       await expect(page.getByRole("link", { name: "Terug naar aanmelden" })).toBeVisible();
-      await expect(page.getByLabel("E-mailadres")).toHaveCount(0);
+      await expect(visibleMain(page).getByLabel("E-mailadres")).toHaveCount(0);
     }
 
-    // The mail for the known address proves the sending has run for all three requests.
+    // The mail for the known address was asked for last, so by the time it is here the work for
+    // the earlier requests (one database lookup each, no mail) has long started. A short extra
+    // wait makes sure the "no mail" checks below cannot pass just because they were too early.
     await waitForConfirmLinks(known.email, 1);
+    await page.waitForTimeout(2_000);
     expect(await countMails(unknown)).toBe(0);
     expect(await countMails(disabled.email)).toBe(0);
   });
@@ -211,7 +241,7 @@ test.describe("forgot password: what the screen never tells", () => {
     page,
   }) => {
     await page.goto("/forgot-password");
-    await page.locator('form[data-hydrated="true"]').waitFor();
+    await page.locator('form[data-hydrated="true"]:visible').waitFor();
 
     await page.getByRole("button", { name: "Stuur mij een link" }).click();
     await expect(page.getByLabel("E-mailadres")).toHaveAccessibleDescription(
@@ -334,5 +364,89 @@ test.describe("forgot password: the recovery session", () => {
     } finally {
       await otherDevice.close();
     }
+  });
+});
+
+test.describe("forgot password: two links on two devices (one recovery session each)", () => {
+  /** A device that has opened its link and stands on the new password form. */
+  async function deviceWithLink(
+    browser: Browser,
+    baseURL: string | undefined,
+    link: string,
+  ): Promise<{ context: BrowserContext; page: Page }> {
+    const context = await browser.newContext({ baseURL });
+    const page = await context.newPage();
+    await openLinkAndConfirm(page, link);
+    return { context, page };
+  }
+
+  test("cancelling the second session leaves the first one restricted", async ({
+    browser,
+    baseURL,
+    page,
+    makeUser,
+  }) => {
+    const user = await makeUser("backoffice");
+    // Supabase keeps only the newest recovery token: each device confirms its link before the
+    // next one is requested.
+    const a = await deviceWithLink(browser, baseURL, await requestNextLink(page, user.email, 0));
+    const b = await deviceWithLink(browser, baseURL, await requestNextLink(page, user.email, 1));
+    try {
+      await b.page.getByRole("button", { name: "Annuleren" }).click();
+      await expect(b.page).toHaveURL("/login");
+
+      // Device A is still a recovery session: it cannot open anything but the password form.
+      for (const path of ["/tasks", "/"]) {
+        await a.page.goto(path);
+        await expect(a.page).toHaveURL(SET_PASSWORD_RESET);
+      }
+    } finally {
+      await a.context.close();
+      await b.context.close();
+    }
+  });
+
+  test("using the second session ends the first one", async ({
+    browser,
+    baseURL,
+    page,
+    makeUser,
+  }) => {
+    const user = await makeUser("backoffice");
+    // Supabase keeps only the newest recovery token: each device confirms its link before the
+    // next one is requested.
+    const a = await deviceWithLink(browser, baseURL, await requestNextLink(page, user.email, 0));
+    const b = await deviceWithLink(browser, baseURL, await requestNextLink(page, user.email, 1));
+    try {
+      await choosePassword(b.page, NEW_PASSWORD);
+      await expect(b.page).toHaveURL("/tasks");
+
+      // The password changed, so the other session is gone, restricted or not.
+      await a.page.goto("/tasks");
+      await expect(a.page).toHaveURL("/login");
+    } finally {
+      await a.context.close();
+      await b.context.close();
+    }
+  });
+});
+
+test.describe("forgot password: the new password must differ", () => {
+  test("the old password is refused in a reset, and another one works", async ({
+    page,
+    makeUser,
+  }) => {
+    const user = await makeUser("technician");
+    await requestLink(page, user.email);
+    await openLinkAndConfirm(page, (await waitForConfirmLinks(user.email, 1))[0]);
+
+    await choosePassword(page, TEST_PASSWORD);
+    await expect(page.getByLabel("Nieuw wachtwoord", { exact: true })).toHaveAccessibleDescription(
+      /Kies een ander wachtwoord dan je vorige\./,
+    );
+    await expect(page).toHaveURL(SET_PASSWORD_RESET);
+
+    await choosePassword(page, NEW_PASSWORD);
+    await expect(page).toHaveURL("/my-tasks");
   });
 });
