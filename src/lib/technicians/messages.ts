@@ -22,4 +22,11 @@ export const TECHNICIAN_ACTION_MESSAGES = {
   alreadyActive: (name: string) => `${name} is al actief. Laad de pagina opnieuw.`,
   notDisabled: (name: string) =>
     `${name} heeft de uitnodiging nog niet aanvaard en is niet uitgeschakeld.`,
+  // Revoking an invitation (BT-07c).
+  revoked: (name: string) =>
+    `De uitnodiging van ${name} is ingetrokken. De link in de mail werkt niet meer.`,
+  notPending: (name: string) =>
+    `${name} heeft al een wachtwoord gekozen en kan niet meer ingetrokken worden. Laad de pagina opnieuw.`,
+  hasRecords: (name: string) =>
+    `De uitnodiging van ${name} kan niet ingetrokken worden: er hangen nog gegevens aan.`,
 } as const;

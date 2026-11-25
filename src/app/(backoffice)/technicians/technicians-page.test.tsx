@@ -10,6 +10,7 @@ const {
   resendInvite,
   deactivateTechnician,
   reactivateTechnician,
+  revokeInvitation,
 } = vi.hoisted(() => ({
   checkRoleAccess: vi.fn(),
   listTechnicians: vi.fn(),
@@ -17,6 +18,7 @@ const {
   resendInvite: vi.fn(),
   deactivateTechnician: vi.fn(),
   reactivateTechnician: vi.fn(),
+  revokeInvitation: vi.fn(),
 }));
 vi.mock("@/lib/auth/role-access", () => ({ checkRoleAccess }));
 vi.mock("@/lib/technicians/queries", () => ({ listTechnicians }));
@@ -25,6 +27,7 @@ vi.mock("./actions", () => ({
   resendInvite,
   deactivateTechnician,
   reactivateTechnician,
+  revokeInvitation,
 }));
 
 import TechniciansPage from "./page";
@@ -91,6 +94,51 @@ describe("B7 Techniekers: the list", () => {
     const buttons = screen.getAllByRole("button", { name: "Uitnodiging opnieuw versturen" });
     expect(buttons).toHaveLength(1);
     expect(screen.getByRole("row", { name: /Yana/ })).toContainElement(buttons[0]);
+  });
+
+  it("offers 'Uitnodiging intrekken' only for an invited technician", async () => {
+    await renderPage();
+    const buttons = screen.getAllByRole("button", { name: "Uitnodiging intrekken" });
+    expect(buttons).toHaveLength(1);
+    expect(screen.getByRole("row", { name: /Yana/ })).toContainElement(buttons[0]);
+  });
+
+  it("confirms 'Uitnodiging intrekken' in a dialog and shows the confirmation above the list", async () => {
+    revokeInvitation.mockResolvedValue({
+      ok: true,
+      message:
+        "De uitnodiging van Yana Willems is ingetrokken. De link in de mail werkt niet meer.",
+    });
+    await renderPage();
+    fireEvent.click(screen.getByRole("button", { name: "Uitnodiging intrekken" }));
+
+    const dialog = await screen.findByRole("dialog", {
+      name: "De uitnodiging van Yana Willems intrekken?",
+    });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Uitnodiging intrekken" }));
+
+    await waitFor(() =>
+      expect(screen.getByRole("status")).toHaveTextContent(
+        "De uitnodiging van Yana Willems is ingetrokken.",
+      ),
+    );
+    expect((revokeInvitation.mock.calls[0][1] as FormData).get("id")).toBe("t2");
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("keeps the dialog open and shows the reason when revoking is refused", async () => {
+    revokeInvitation.mockResolvedValue({
+      ok: false,
+      fieldErrors: {},
+      formError: "Yana Willems heeft al een wachtwoord gekozen. Laad de pagina opnieuw.",
+    });
+    await renderPage();
+    fireEvent.click(screen.getByRole("button", { name: "Uitnodiging intrekken" }));
+    const dialog = await screen.findByRole("dialog", {
+      name: "De uitnodiging van Yana Willems intrekken?",
+    });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Uitnodiging intrekken" }));
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent("Laad de pagina opnieuw.");
   });
 
   it("offers 'Opnieuw activeren' only for a switched-off technician", async () => {

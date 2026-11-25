@@ -253,3 +253,28 @@ export async function readProfileState(
     return row;
   });
 }
+
+/**
+ * Pretends the technician chose a password in the meantime: `invite_pending` goes to false. For
+ * the test of a technician list that is out of date when "Uitnodiging intrekken" is pressed.
+ */
+export async function markInviteAccepted(email: string): Promise<void> {
+  assertLocalSupabase(process.env);
+  await withDb(async (db) => {
+    await db
+      .update(profiles)
+      .set({ invitePending: false, inviteVerifiedAt: null })
+      .where(eq(profiles.email, email.toLowerCase()));
+  });
+}
+
+/** Whether `auth.users` still has an account with this address. */
+export async function authAccountExists(email: string): Promise<boolean> {
+  assertLocalSupabase(process.env);
+  return withDb(async (db) => {
+    const rows = await db.execute(sql`
+      select 1 from auth.users where lower(email) = ${email.toLowerCase()}
+    `);
+    return rows.length > 0;
+  });
+}

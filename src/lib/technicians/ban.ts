@@ -52,3 +52,30 @@ export async function changeAuthBan(
     clearTimeout(timer);
   }
 }
+
+/**
+ * Deletes an Auth account, with the same time-out as `changeAuthBan`. Throws `AuthDeleteFailedError` when Auth refuses and `AuthTimeoutError` on a time-out. Used after the
+ * profile was removed (the profile's foreign key to `auth.users` is `ON DELETE RESTRICT`, so the
+ * account can only go once nothing refers to it).
+ */
+export class AuthDeleteFailedError extends Error {
+  constructor(readonly cause: unknown) {
+    super("Deleting the Auth account failed");
+    this.name = "AuthDeleteFailedError";
+  }
+}
+
+export async function deleteAuthAccount(admin: AdminClient, userId: string): Promise<void> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_resolve, reject) => {
+    timer = setTimeout(() => reject(new AuthTimeoutError()), AUTH_BAN_TIMEOUT_MS);
+  });
+  try {
+    const { error } = await Promise.race([admin.auth.admin.deleteUser(userId), timeout]);
+    if (error) {
+      throw new AuthDeleteFailedError(error);
+    }
+  } finally {
+    clearTimeout(timer);
+  }
+}

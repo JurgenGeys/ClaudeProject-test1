@@ -25,6 +25,10 @@ const execute = vi.fn();
 // `deactivate.db.test.ts` against a real database.
 const transaction = vi.fn();
 const tx = { marker: "tx" };
+const revokeInvitationProfile = vi.fn();
+vi.mock("@/lib/technicians/revoke", () => ({
+  revokeInvitationProfile: (...args: unknown[]) => revokeInvitationProfile(...args),
+}));
 const deactivateTechnicianProfile = vi.fn();
 vi.mock("@/lib/technicians/deactivate", () => ({
   deactivateTechnicianProfile: (...args: unknown[]) => deactivateTechnicianProfile(...args),
@@ -72,6 +76,7 @@ import {
   inviteTechnician,
   reactivateTechnician,
   resendInvite,
+  revokeInvitation,
 } from "./actions";
 
 function form(fields: Record<string, string>): FormData {
@@ -277,8 +282,8 @@ describe("inviteTechnician: an Auth account without a profile", () => {
     execute.mockResolvedValue([{ id: authUserId, invited_by_app: "true" }]);
     expect(await inviteTechnician(null, form(valid))).toMatchObject({ ok: true });
     expect(inviteUserByEmail).toHaveBeenCalled();
-    // Already marked: nothing to set again.
-    expect(updateUserById).not.toHaveBeenCalled();
+    // Already marked: nothing to set again; only a block left by a revoked invitation is lifted.
+    expect(updateUserById).toHaveBeenCalledExactlyOnceWith(authUserId, { ban_duration: "none" });
     expect(values).toHaveBeenCalledWith(expect.objectContaining({ id: authUserId }));
   });
 
@@ -1015,5 +1020,186 @@ describe("reactivateTechnician", () => {
     }
     expect(updateUserById).toHaveBeenNthCalledWith(2, id, { ban_duration: "87600h" });
     expect(revalidatePath).not.toHaveBeenCalled();
+  });
+});
+
+describe("revokeInvitation", () => {
+  const id = authUserId;
+  const technical = "Dat is niet gelukt. Controleer je internetverbinding en probeer opnieuw.";
+  const revoked = { kind: "revoked", fullName: "Yana Willems" };
+
+  it("requires the backoffice role and touches nothing for anyone else", async () => {
+    requireRole.mockRejectedValue(new AuthError("forbidden"));
+    expect(await revokeInvitation(null, form({ id }))).toEqual({
+      ok: false,
+      fieldErrors: {},
+      formError: "Je hebt geen toegang om dit te doen.",
+    });
+    expect(requireRole).toHaveBeenCalledWith("backoffice");
+    expect(transaction).not.toHaveBeenCalled();
+    expect(updateUserById).not.toHaveBeenCalled();
+    expect(deleteUser).not.toHaveBeenCalled();
+  });
+
+  it.each(["unauthenticated", "inactive", "reset-pending"] as const)(
+    "refuses a caller who is %s",
+    async (code) => {
+      requireRole.mockRejectedValue(new AuthError(code));
+      expect(await revokeInvitation(null, form({ id }))).toMatchObject({ ok: false });
+      expect(transaction).not.toHaveBeenCalled();
+      expect(deleteUser).not.toHaveBeenCalled();
+    },
+  );
+
+  it("does not hide unexpected errors of the role check", async () => {
+    requireRole.mockRejectedValue(new Error("boom"));
+    await expect(revokeInvitation(null, form({ id }))).rejects.toThrow("boom");
+  });
+
+  it.each(["", "not-a-uuid", "x"])("refuses the id %j without a database call", async (bad) => {
+    expect(await revokeInvitation(null, form({ id: bad }))).toMatchObject({
+      ok: false,
+      formError: "Deze technieker bestaat niet (meer). Laad de pagina opnieuw.",
+    });
+    expect(await revokeInvitation(null, new FormData())).toMatchObject({ ok: false });
+    expect(transaction).not.toHaveBeenCalled();
+  });
+
+  it("removes the profile, blocks Auth inside the transaction, deletes the account after the commit", async () => {
+    revokeInvitationProfile.mockResolvedValue(revoked);
+    const order: string[] = [];
+    updateUserById.mockImplementation(async () => {
+      order.push(`block (inside transaction: ${transaction.mock.calls.length === 1})`);
+      return { error: null };
+    });
+    transaction.mockImplementation(async (callback: (tx: unknown) => Promise<unknown>) => {
+      const result = await callback(tx);
+      order.push("commit");
+      return result;
+    });
+    deleteUser.mockImplementation(async () => {
+      order.push("delete");
+      return { error: null };
+    });
+
+    expect(await revokeInvitation(null, form({ id }))).toEqual({
+      ok: true,
+      message:
+        "De uitnodiging van Yana Willems is ingetrokken. De link in de mail werkt niet meer.",
+    });
+    expect(revokeInvitationProfile).toHaveBeenCalledWith(tx, id);
+    expect(updateUserById).toHaveBeenCalledExactlyOnceWith(id, { ban_duration: "87600h" });
+    expect(deleteUser).toHaveBeenCalledExactlyOnceWith(id);
+    expect(order).toEqual(["block (inside transaction: true)", "commit", "delete"]);
+    expect(revalidatePath).toHaveBeenCalledWith("/technicians");
+  });
+
+  it("takes the id from the form only and ignores any other field", async () => {
+    revokeInvitationProfile.mockResolvedValue(revoked);
+    await revokeInvitation(null, form({ id, email: "evil@example.com", fullName: "Evil" }));
+    expect(revokeInvitationProfile).toHaveBeenCalledWith(tx, id);
+    expect(deleteUser).toHaveBeenCalledWith(id);
+  });
+
+  it.each([
+    [{ kind: "not-found" }, "Deze technieker bestaat niet (meer). Laad de pagina opnieuw."],
+    [
+      { kind: "not-pending", fullName: "Yana Willems" },
+      "Yana Willems heeft al een wachtwoord gekozen en kan niet meer ingetrokken worden. Laad de pagina opnieuw.",
+    ],
+    [
+      { kind: "has-records", fullName: "Yana Willems" },
+      "De uitnodiging van Yana Willems kan niet ingetrokken worden: er hangen nog gegevens aan.",
+    ],
+  ])("refuses %j and leaves Auth alone", async (outcome, formError) => {
+    revokeInvitationProfile.mockResolvedValue(outcome);
+    expect(await revokeInvitation(null, form({ id }))).toEqual({
+      ok: false,
+      fieldErrors: {},
+      formError,
+    });
+    expect(updateUserById).not.toHaveBeenCalled();
+    expect(deleteUser).not.toHaveBeenCalled();
+    expect(revalidatePath).not.toHaveBeenCalled();
+  });
+
+  it("rolls back, deletes nothing and reports a technical problem when the block fails", async () => {
+    revokeInvitationProfile.mockResolvedValue(revoked);
+    updateUserById.mockResolvedValue({
+      error: new AuthApiError("nope", 500, "unexpected_failure"),
+    });
+    expect(await revokeInvitation(null, form({ id }))).toMatchObject({
+      ok: false,
+      formError: technical,
+    });
+    expect(updateUserById).toHaveBeenCalledTimes(1);
+    expect(deleteUser).not.toHaveBeenCalled();
+    expect(revalidatePath).not.toHaveBeenCalled();
+  });
+
+  it("lifts the block again, and deletes nothing, when the commit fails after the block was set", async () => {
+    revokeInvitationProfile.mockResolvedValue(revoked);
+    transaction.mockImplementation(async (callback: (tx: unknown) => Promise<unknown>) => {
+      await callback(tx);
+      throw new Error("commit failed");
+    });
+    expect(await revokeInvitation(null, form({ id }))).toMatchObject({
+      ok: false,
+      formError: technical,
+    });
+    expect(updateUserById).toHaveBeenNthCalledWith(1, id, { ban_duration: "87600h" });
+    expect(updateUserById).toHaveBeenNthCalledWith(2, id, { ban_duration: "none" });
+    expect(deleteUser).not.toHaveBeenCalled();
+  });
+
+  it("gives the technical message when the database fails, without personal data in the log", async () => {
+    revokeInvitationProfile.mockRejectedValue(new Error("connection to yana@frisair.be lost"));
+    expect(await revokeInvitation(null, form({ id }))).toMatchObject({ formError: technical });
+    expect(JSON.stringify(consoleError.mock.calls)).not.toContain("yana@frisair.be");
+    expect(JSON.stringify(consoleError.mock.calls)).toContain(id);
+    expect(updateUserById).not.toHaveBeenCalled();
+    expect(deleteUser).not.toHaveBeenCalled();
+  });
+
+  it("still reports success, and logs only the id, when deleting the blocked account fails", async () => {
+    revokeInvitationProfile.mockResolvedValue(revoked);
+    deleteUser.mockResolvedValue({
+      error: new AuthApiError("Database error for yana@frisair.be", 500, "unexpected_failure"),
+    });
+    expect(await revokeInvitation(null, form({ id }))).toMatchObject({ ok: true });
+    expect(consoleError).toHaveBeenCalledTimes(1);
+    expect(JSON.stringify(consoleError.mock.calls)).toContain(id);
+    expect(JSON.stringify(consoleError.mock.calls)).not.toContain("yana");
+    expect(revalidatePath).toHaveBeenCalledWith("/technicians");
+  });
+
+  it("still reports success when Auth does not answer in time while deleting", async () => {
+    revokeInvitationProfile.mockResolvedValue(revoked);
+    deleteUser.mockReturnValue(new Promise(() => {}));
+    vi.useFakeTimers();
+    try {
+      const result = revokeInvitation(null, form({ id }));
+      await vi.advanceTimersByTimeAsync(AUTH_BAN_TIMEOUT_MS);
+      expect(await result).toMatchObject({ ok: true });
+    } finally {
+      vi.useRealTimers();
+    }
+    expect(consoleError).toHaveBeenCalledTimes(1);
+  });
+
+  it("rolls back and lifts a possibly applied block when Auth does not answer in time", async () => {
+    revokeInvitationProfile.mockResolvedValue(revoked);
+    vi.useFakeTimers();
+    try {
+      updateUserById.mockReturnValueOnce(new Promise(() => {}));
+      updateUserById.mockResolvedValueOnce({ error: null });
+      const result = revokeInvitation(null, form({ id }));
+      await vi.advanceTimersByTimeAsync(AUTH_BAN_TIMEOUT_MS);
+      expect(await result).toMatchObject({ ok: false, formError: technical });
+    } finally {
+      vi.useRealTimers();
+    }
+    expect(updateUserById).toHaveBeenNthCalledWith(2, id, { ban_duration: "none" });
+    expect(deleteUser).not.toHaveBeenCalled();
   });
 });

@@ -11,13 +11,20 @@ import { AuthError, requireRole } from "@/lib/auth/session";
 import { SiteUrlError, getInviteRedirectUrl } from "@/lib/site-url";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseCredentialsClient } from "@/lib/supabase/credentials";
-import { AuthTimeoutError, BanFailedError, changeAuthBan } from "@/lib/technicians/ban";
+import {
+  AuthDeleteFailedError,
+  AuthTimeoutError,
+  BanFailedError,
+  changeAuthBan,
+  deleteAuthAccount,
+} from "@/lib/technicians/ban";
 import {
   AUTH_BAN_DURATION,
   INVITED_BY_APP_KEY,
   findAuthUserByEmail,
 } from "@/lib/technicians/auth-users";
 import { deactivateTechnicianProfile, type DeactivateOutcome } from "@/lib/technicians/deactivate";
+import { revokeInvitationProfile, type RevokeOutcome } from "@/lib/technicians/revoke";
 import { TECHNICIAN_ACTION_MESSAGES } from "@/lib/technicians/messages";
 import { reactivateTechnicianProfile, type ReactivateOutcome } from "@/lib/technicians/reactivate";
 import { TECHNICIAN_MESSAGES } from "@/lib/validation/messages";
@@ -150,6 +157,11 @@ export async function inviteTechnician(
     }
 
     const admin = createSupabaseAdminClient();
+    if (existingAuth) {
+      // A revoked invitation (BT-07c) leaves the account blocked when deleting it failed: lift
+      // that block, or the new link would not work.
+      await changeAuthBan(admin, existingAuth.id, "none");
+    }
     const { data, error } = await admin.auth.admin.inviteUserByEmail(email, {
       // From the SITE_URL setting, never from the request (host header injection).
       redirectTo: getInviteRedirectUrl(),
@@ -482,5 +494,87 @@ export async function reactivateTechnician(
     case "reactivated":
       revalidatePath(PATH);
       return { ok: true, message: TECHNICIAN_ACTION_MESSAGES.reactivated(outcome.fullName) };
+  }
+}
+
+/**
+ * Revokes the invitation of a technician who has not accepted it (design B7, "Uitnodiging
+ * intrekken"; BT-07c). The technician comes from a hidden field (id only). Afterwards the link in
+ * the mail does not work any more and he is gone from the list.
+ *
+ * Order, and why: `profiles.id` has a foreign key to `auth.users` with `ON DELETE RESTRICT`, so the
+ * Auth account can only be deleted after the profile is gone, and the profile row lock of this
+ * transaction would block Auth's own delete if it ran inside. So:
+ * 1. One transaction: `revokeInvitationProfile` locks the profile (`FOR UPDATE`), refuses anything
+ *    but a technician with `invite_pending`, refuses when rows refer to him, and deletes the
+ *    profile.
+ * 2. Still inside the transaction the Auth account is blocked (`ban_duration`, with a time-out).
+ *    That is what makes the link unusable, also when step 4 fails. If it fails, the transaction
+ *    rolls back: the invitation is either revoked or not. If the commit fails after the block was
+ *    set (or Auth timed out), the block is lifted again (best effort).
+ * 3. After the commit the Auth account is deleted (with time-out). If that fails it is only
+ *    logged, with the id: the account stays blocked and has no profile, so the link and any
+ *    session are useless, and inviting the same address again reuses and unblocks it
+ *    (`inviteTechnician`).
+ */
+export async function revokeInvitation(
+  _previous: TechnicianActionState,
+  formData: FormData,
+): Promise<TechnicianActionState> {
+  try {
+    await requireRole("backoffice");
+  } catch (error) {
+    if (error instanceof AuthError) {
+      return refused(authFailureMessage(error));
+    }
+    throw error;
+  }
+
+  const id = technicianIdSchema.safeParse(formData.get("id"));
+  if (!id.success) {
+    return refused(TECHNICIAN_ACTION_MESSAGES.notFound);
+  }
+
+  let banned = false;
+  let outcome: RevokeOutcome;
+  const admin = createSupabaseAdminClient();
+  try {
+    outcome = await getDb().transaction(async (tx) => {
+      const result = await revokeInvitationProfile(tx, id.data);
+      if (result.kind === "revoked") {
+        await changeAuthBan(admin, id.data, AUTH_BAN_DURATION);
+        banned = true;
+      }
+      return result;
+    });
+  } catch (error) {
+    if (banned || error instanceof AuthTimeoutError) {
+      await tryChangeBan(id.data, "none", "Lifting the block after a failed revoke failed");
+    }
+    console.error(
+      `Revoking the invitation of technician ${id.data} failed:`,
+      describeError(error instanceof BanFailedError ? error.cause : error),
+    );
+    return refused(LOGIN_MESSAGES.technicalProblem);
+  }
+
+  switch (outcome.kind) {
+    case "not-found":
+      return refused(TECHNICIAN_ACTION_MESSAGES.notFound);
+    case "not-pending":
+      return refused(TECHNICIAN_ACTION_MESSAGES.notPending(outcome.fullName));
+    case "has-records":
+      return refused(TECHNICIAN_ACTION_MESSAGES.hasRecords(outcome.fullName));
+    case "revoked":
+      try {
+        await deleteAuthAccount(admin, id.data);
+      } catch (error) {
+        console.error(
+          `Deleting the Auth account of revoked technician ${id.data} failed (it stays blocked):`,
+          describeError(error instanceof AuthDeleteFailedError ? error.cause : error),
+        );
+      }
+      revalidatePath(PATH);
+      return { ok: true, message: TECHNICIAN_ACTION_MESSAGES.revoked(outcome.fullName) };
   }
 }
