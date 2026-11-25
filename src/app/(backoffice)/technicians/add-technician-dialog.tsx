@@ -106,6 +106,7 @@ function AddTechnicianForm({ onInvited }: { onInvited: (message: string) => void
         <Input
           id="technician-name"
           name="fullName"
+          aria-required="true"
           autoComplete="off"
           defaultValue={failed?.values?.fullName ?? ""}
           aria-invalid={fieldErrors.fullName ? true : undefined}
@@ -126,6 +127,7 @@ function AddTechnicianForm({ onInvited }: { onInvited: (message: string) => void
         <Input
           id="technician-email"
           name="email"
+          aria-required="true"
           type="email"
           autoComplete="off"
           inputMode="email"

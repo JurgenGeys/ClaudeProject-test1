@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, sql } from "drizzle-orm";
 
 import { getDb, type Database } from "@/db/client";
 import { profiles, tasks } from "@/db/schema";
@@ -57,4 +57,37 @@ export async function queryTechnicians(db: Database): Promise<TechnicianRow[]> {
 export async function listTechnicians(): Promise<TechnicianRow[]> {
   await requireRole("backoffice");
   return queryTechnicians(getDb());
+}
+
+/** A technician as the task form offers him (design B2). */
+export type AssignableTechnician = { id: string; fullName: string };
+
+/**
+ * The technicians a task can be given to (design B2: "enkel actieve techniekers"): active and
+ * with a password chosen. Switched-off technicians and invited ones who did not accept yet are
+ * left out. This is only the choice list: the Server Action checks again, under a lock.
+ */
+export async function queryAssignableTechnicians(
+  db: Pick<Database, "select">,
+): Promise<AssignableTechnician[]> {
+  const rows = await db
+    .select({ id: profiles.id, fullName: profiles.fullName })
+    .from(profiles)
+    .where(
+      and(
+        eq(profiles.role, "technician"),
+        eq(profiles.isActive, true),
+        eq(profiles.invitePending, false),
+      ),
+    )
+    .orderBy(asc(profiles.id));
+  return rows.sort((a, b) =>
+    a.fullName.localeCompare(b.fullName, "nl-BE", { sensitivity: "base" }),
+  );
+}
+
+/** The choice list of the task form. Backoffice only, like every read function. */
+export async function listAssignableTechnicians(): Promise<AssignableTechnician[]> {
+  await requireRole("backoffice");
+  return queryAssignableTechnicians(getDb());
 }
