@@ -12,3 +12,10 @@ export const LOGIN_MESSAGES = {
   passwordTooLong: "Dit wachtwoord is te lang.",
   technicalProblem: "Dat is niet gelukt. Controleer je internetverbinding en probeer opnieuw.",
 } as const;
+
+/** Messages of "Wachtwoord instellen" (design G2). Shown to end users, so in Dutch. */
+export const SET_PASSWORD_MESSAGES = {
+  // An invitation that is expired, already used or otherwise invalid (design G2).
+  inviteLinkInvalid: "Deze link is niet meer geldig.",
+  inviteLinkAdvice: "Vraag kantoor om een nieuwe uitnodiging.",
+} as const;

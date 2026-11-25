@@ -50,6 +50,7 @@ Zie `.env.example`; de waarden komen in `.env.local` (nooit committen). Lokaal t
 | -------------------------------------- | ----------------------------------------------------------------------------------------- | -------------- |
 | `DATABASE_URL`                         | Verbinding voor Drizzle en `pnpm db:migrate`                                              | Enkel server   |
 | `NEXT_PUBLIC_SUPABASE_URL`             | URL van het Supabase-project                                                              | Ook browser    |
+| `SITE_URL`                             | Publiek adres van de toepassing; de link in de uitnodigingsmail wordt hieruit gebouwd     | Enkel server   |
 | `NEXT_PUBLIC_COMPANY_NAME`             | Naam van het bedrijf van de klant, boven de titel op het aanmeldscherm (leeg = geen naam) | Ook browser    |
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Publieke sleutel, enkel voor aanmelden en sessies                                         | Ook browser    |
 | `SUPABASE_SECRET_KEY`                  | Geheime sleutel (omzeilt alle beveiliging per rij): enkel server en scripts               | Enkel server   |
@@ -91,9 +92,66 @@ pnpm dev                                         # open http://localhost:3000 en
 ```
 
 Met een eigen Supabase-project vul je de URL, de sleutels en `DATABASE_URL` van dat project in `.env.local` in
-(zie de tabel hierboven) en voer je dezelfde `db:migrate`- en `seed:backoffice`-stappen uit. Een technieker
-kan je pas aanmaken zodra het uitnodigen is gebouwd (BT-06). Een uitgeschakelde gebruiker kan niet aanmelden;
-is hij al aangemeld, dan wordt hij bij het volgende verzoek afgemeld en naar `/login` gestuurd.
+(zie de tabel hierboven) en voer je dezelfde `db:migrate`- en `seed:backoffice`-stappen uit. Techniekers voeg je toe
+via het scherm Techniekers (zie [Techniekers uitnodigen](#techniekers-uitnodigen)). Een uitgeschakelde gebruiker kan
+niet aanmelden; is hij al aangemeld, dan wordt hij bij het volgende verzoek afgemeld en naar `/login` gestuurd.
+
+### Techniekers uitnodigen
+
+Een backoffice-gebruiker voegt een technieker toe op `/technicians` (menu Techniekers, knop **Technieker toevoegen**).
+De applicatie laat Supabase Auth een uitnodigingsmail sturen (`inviteUserByEmail` met de geheime sleutel, server-side)
+en maakt een profiel met rol `technician` aan. Tot de technieker een wachtwoord koos staat hij als **Uitgenodigd** in
+de lijst, met de knop **Uitnodiging opnieuw versturen**. Het scherm voor het uitschakelen volgt in een latere bouwtaak.
+
+De stroom:
+
+1. De mail bevat een link `<SITE_URL>/auth/confirm?token_hash=…&type=invite`.
+2. `/auth/confirm` (route handler) controleert het token en maakt een sessie; daarna gaat de technieker naar
+   `/set-password?mode=invite` (scherm "Wachtwoord instellen").
+3. Zolang `profiles.invite_pending` waar is, geldt die sessie nergens anders: elke pagina en elke Server Action
+   behandelt de gebruiker als "nog zonder wachtwoord" en stuurt hem naar `/set-password`. Aanmelden met een
+   wachtwoord kan dan ook niet. Na het kiezen van een wachtwoord (minstens 8 tekens) is hij aangemeld en gaat hij
+   naar `/my-tasks`.
+4. Een ongeldige, verlopen of al gebruikte link toont "Deze link is niet meer geldig. Vraag kantoor om een nieuwe
+   uitnodiging."
+
+`SITE_URL` (bv. `http://localhost:3000`, zonder pad) bepaalt het adres in de mail. Het komt nooit uit de
+`Host`-header van een verzoek (anders kan iemand een mail met een link naar een andere site uitlokken). Zonder
+`SITE_URL` (of met een ongeldige waarde) lukt het uitnodigen niet, met een duidelijke fout in de serverlog. Gewone
+`http` wordt enkel voor `localhost` aanvaard.
+
+**Lokaal**: `supabase start` (zie boven), `SITE_URL=http://localhost:3000` in `.env.local`, `pnpm dev`, meld aan als
+backoffice-gebruiker en voeg een technieker toe. De mail komt niet in een echte mailbox maar in de testmailbox
+(Mailpit) van de lokale Supabase op <http://127.0.0.1:54324>; open daar de mail en klik op de link.
+`supabase/config.toml` bevat daarvoor het sjabloon (`supabase/templates/invite.html`), de toegelaten redirect-URL's
+(`http://localhost:3000/auth/confirm` en dezelfde met `127.0.0.1`) en een hogere limiet voor het aantal mails per uur
+(`email_sent`, enkel lokaal). Draai je de app op een andere poort of host, pas dan `SITE_URL` en
+`additional_redirect_urls` aan.
+
+**Een echt Supabase-project** leest `supabase/config.toml` niet. Stel dit in het dashboard in
+(per klantproject, zie ADR-0002):
+
+1. _Authentication, URL Configuration_: **Site URL** = de waarde van `SITE_URL`; bij **Redirect URLs** komt
+   `<SITE_URL>/auth/confirm` (exact dat adres). Staat het adres niet in de lijst, dan valt Supabase terug op de Site
+   URL en werkt de link niet.
+2. _Authentication, Email Templates, Invite user_: onderwerp "Je uitnodiging voor de planning" en als inhoud de tekst
+   uit `supabase/templates/invite.html`. Die gebruikt `{{ .RedirectTo }}?token_hash={{ .TokenHash }}&type=invite`;
+   het standaardsjabloon met `{{ .ConfirmationURL }}` werkt niet met deze stroom.
+3. _Authentication, Sign In / Providers_: laat de e-mailprovider aan, en zet **Allow new users to sign up** uit.
+   Gebruikers komen enkel via een uitnodiging (of het seed-script); anders kan iedereen zich met een eigen
+   wachtwoord registreren in dit project. Een registratie zonder profiel krijgt in de applicatie geen toegang,
+   maar het is beter om het niet toe te laten.
+4. _Authentication, Sign In / Providers, Email_: de geldigheid van de link is de **Email OTP Expiration** (standaard
+   1 uur, maximaal 24 uur). Een technieker die te laat is, krijgt via **Uitnodiging opnieuw versturen** een nieuwe mail.
+   Zorg dat de optie die het huidige wachtwoord vraagt bij een wachtwoordwijziging ("Secure password change" of
+   "Require current password when updating") uit staat: de technieker heeft nog geen wachtwoord.
+5. _Mail versturen_: de ingebouwde mailserver van Supabase is enkel om te testen (zeer weinig mails per uur, en enkel
+   naar teamleden van het project). Voor echt gebruik is een eigen SMTP-dienst nodig (keuze K6, nog open).
+6. De omgevingsvariabele `SITE_URL` op de hosting van de applicatie, met hetzelfde adres als de Site URL.
+
+Een uitnodiging die al geopend werd, kan niet opnieuw verstuurd worden (Supabase weigert dat voor een bevestigd
+adres). Heeft die technieker zijn wachtwoord toen niet gekozen, dan toont het scherm een uitleg; de oplossing is de
+functie "Wachtwoord vergeten" (bouwtaak BT-06b).
 
 ### End-to-end tests
 
@@ -109,6 +167,11 @@ pnpm exec playwright install chromium   # eenmalig
 pnpm test:e2e
 ```
 
+De test voor het uitnodigen (`e2e/invite.spec.ts`) leest de uitnodigingsmail uit de testmailbox van de lokale Supabase
+(Mailpit, standaard `http://127.0.0.1:54324`, aan te passen met `E2E_MAIL_URL`; enkel een adres op deze machine wordt
+aanvaard) en opent de link daaruit. Daarvoor moet `SITE_URL` het adres zijn waarop de tests de app openen
+(`http://localhost:3000`; `playwright.config.ts` zet die waarde als hij niet ingesteld is).
+
 Een Playwright global setup (`e2e/global-setup.ts`) maakt vóór de tests de testgebruikers aan (backoffice,
 technieker, een uitgeschakelde en een geblokkeerde technieker): in Supabase Auth via de admin-API en hun profiel
 via Drizzle. Het testwachtwoord staat in `e2e/support/test-users.ts` (of in `E2E_TEST_PASSWORD`); het is enkel een
@@ -117,7 +180,8 @@ gebruikers aan.
 
 In CI doet de job `End-to-end tests` hetzelfde op de runner: Supabase CLI via de officiële action, `supabase start`,
 `pnpm db:migrate`, de lokale URL en sleutels uit `supabase status -o env` als omgeving voor build en tests, en
-daarna `pnpm test:e2e`. Die sleutels bestaan enkel op de runner. `supabase/config.toml` verhoogt de rate limit voor aanmeldingen van de lokale Auth-server naar 300 per 5 minuten (de tests melden vaak aan vanaf één IP-adres); dat geldt enkel lokaal en in CI, niet voor echte Supabase-projecten. CI zet `NEXT_PUBLIC_COMPANY_NAME` op een testwaarde die een test op het aanmeldscherm controleert.
+daarna `pnpm test:e2e`. Die sleutels bestaan enkel op de runner. `supabase/config.toml` verhoogt de rate limit voor aanmeldingen van de lokale Auth-server naar 300 per 5 minuten (de tests melden vaak aan vanaf één IP-adres); dat geldt enkel lokaal en in CI, niet voor echte Supabase-projecten. CI zet `NEXT_PUBLIC_COMPANY_NAME` op een testwaarde die een test op het aanmeldscherm controleert, en `SITE_URL` op
+`http://localhost:3000` voor de link in de uitnodigingsmail.
 
 `pnpm test` draait zonder database; databasetests (`*.db.test.ts`) lopen enkel via `pnpm test:db`.
 

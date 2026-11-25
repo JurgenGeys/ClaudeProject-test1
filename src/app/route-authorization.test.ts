@@ -27,6 +27,7 @@ describe("authorization per page and route handler", () => {
   it("finds the pages of both route groups", () => {
     const names = guarded.map((file) => relative(APP_DIR, file).replaceAll("\\", "/"));
     expect(names).toContain("(backoffice)/tasks/page.tsx");
+    expect(names).toContain("(backoffice)/technicians/page.tsx");
     expect(names).toContain("(technician)/my-tasks/page.tsx");
   });
 

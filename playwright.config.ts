@@ -10,6 +10,10 @@ if (existsSync(".env.local")) {
 // The build shows this name on the login screen and a test checks it; CI sets the same value.
 process.env.NEXT_PUBLIC_COMPANY_NAME ||= "FrisAir Koeltechniek";
 
+// The invitation mail links to this address (`/auth/confirm`). It must be the address the tests
+// open (`baseURL` below) and be allowed in `supabase/config.toml`; CI sets the same value.
+process.env.SITE_URL ||= "http://localhost:3000";
+
 const port = 3000;
 const baseURL = `http://localhost:${port}`;
 

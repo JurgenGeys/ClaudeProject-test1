@@ -50,3 +50,20 @@ export const CORRECTION_MESSAGES = {
 export const CANCELLATION_MESSAGES = {
   reasonTooLong: `De reden is te lang. Houd ze korter dan ${CANCELLATION_REASON_MAX_LENGTH} tekens.`,
 } as const;
+
+/** Error messages of the "Technieker toevoegen" dialog (design B7). */
+export const TECHNICIAN_MESSAGES = {
+  nameRequired: "Vul de naam in.",
+  emailInvalid: "Vul een geldig e-mailadres in.",
+  emailExists: "Er bestaat al een gebruiker met dit e-mailadres.",
+  tooLong: "Deze tekst is te lang. Maak hem korter.",
+} as const;
+
+/** Messages of "Wachtwoord instellen" (design G2). */
+export const PASSWORD_MESSAGES = {
+  tooShort: "Je wachtwoord moet minstens 8 tekens hebben.",
+  // Supabase (bcrypt) refuses passwords of more than 72 bytes.
+  tooLong: "Je wachtwoord is te lang. Gebruik hoogstens 72 tekens.",
+  mismatch: "De twee wachtwoorden zijn niet gelijk.",
+  tooWeak: "Dit wachtwoord is te zwak. Kies een ander wachtwoord.",
+} as const;

@@ -7,16 +7,12 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { fieldSummary } from "@/lib/validation/field-summary";
 
 import { login } from "./actions";
 
 // 44 px high, as the design asks for touch targets on a phone.
 const inputClass = "mt-1 h-11";
-
-/** "Vul de 2 gemarkeerde velden in." (design: summary above the form). */
-function fieldSummary(count: number): string {
-  return count === 1 ? "Vul het gemarkeerde veld in." : `Vul de ${count} gemarkeerde velden in.`;
-}
 
 /**
  * The login form (design G1). `notice` is a message that was decided before the form was

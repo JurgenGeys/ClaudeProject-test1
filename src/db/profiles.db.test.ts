@@ -77,8 +77,19 @@ describe("profiles table", () => {
       email: ["text", "NO"],
       full_name: ["text", "NO"],
       id: ["uuid", "NO"],
+      invite_pending: ["boolean", "NO"],
       is_active: ["boolean", "NO"],
       role: ["USER-DEFINED", "NO"],
+    });
+  });
+
+  it("starts every profile as not waiting for a password (`invite_pending` is false by default)", async () => {
+    await inRolledBackTransaction(async (tx) => {
+      const id = await createProfile(tx, "no-invite@example.be");
+      const [row] = await tx<{ invite_pending: boolean }[]>`
+        select invite_pending from public.profiles where id = ${id}
+      `;
+      expect(row.invite_pending).toBe(false);
     });
   });
 

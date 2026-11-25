@@ -15,7 +15,7 @@ test.describe("without a session", () => {
     ).toBeVisible();
   });
 
-  for (const path of ["/tasks", "/my-tasks"]) {
+  for (const path of ["/tasks", "/my-tasks", "/technicians"]) {
     test(`${path} sends a visitor to the login page`, async ({ page }) => {
       await page.goto(path);
       await expect(page).toHaveURL("/login");

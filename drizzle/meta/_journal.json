@@ -15,6 +15,13 @@
       "when": 1795591440642,
       "tag": "0001_tasks_and_customers",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1795594492606,
+      "tag": "0002_profiles_invite_pending",
+      "breakpoints": true
     }
   ]
 }

@@ -73,6 +73,14 @@ describe("LoginPage", () => {
     await expect(renderContent()).rejects.toThrow(`NEXT_REDIRECT:${path}`);
   });
 
+  it("sends an invited user without a password to the set password page", async () => {
+    getAuthState.mockResolvedValue({
+      status: "password-pending",
+      user: { id: "u1", email: "x@y.be", fullName: "X" },
+    });
+    await expect(renderContent()).rejects.toThrow("NEXT_REDIRECT:/set-password?mode=invite");
+  });
+
   it("signs a deactivated user out", async () => {
     getAuthState.mockResolvedValue({ status: "inactive" });
     await expect(renderContent()).rejects.toThrow("NEXT_REDIRECT:/auth/inactive");

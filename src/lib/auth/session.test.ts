@@ -25,6 +25,7 @@ const technicianProfile: Profile = {
   fullName: "Kevin Wouters",
   role: "technician",
   isActive: true,
+  invitePending: false,
   createdAt: new Date("2026-11-24T08:00:00Z"),
   deactivatedAt: null,
 };
@@ -103,6 +104,28 @@ describe("auth helpers", () => {
       signedInAs(undefined);
       expect(await getAuthState()).toEqual({ status: "inactive" });
     });
+
+    it("reports an invited user without a password as `password-pending`", async () => {
+      signedInAs({ ...technicianProfile, invitePending: true });
+      expect(await getAuthState()).toEqual({
+        status: "password-pending",
+        user: {
+          id: technicianProfile.id,
+          email: technicianProfile.email,
+          fullName: technicianProfile.fullName,
+        },
+      });
+    });
+
+    it("lets a deactivated profile win over a pending invitation", async () => {
+      signedInAs({
+        ...technicianProfile,
+        invitePending: true,
+        isActive: false,
+        deactivatedAt: new Date("2026-11-25T08:00:00Z"),
+      });
+      expect(await getAuthState()).toEqual({ status: "inactive" });
+    });
   });
 
   describe("getAuthState when Auth is unavailable", () => {
@@ -173,6 +196,17 @@ describe("auth helpers", () => {
     it("refuses an Auth user without a profile", async () => {
       signedInAs(undefined);
       expect(await codeOf(requireRole("technician"))).toBe("inactive");
+    });
+
+    it("refuses an invited user who has not chosen a password yet, whatever the role", async () => {
+      signedInAs({ ...technicianProfile, invitePending: true });
+      expect(await codeOf(requireRole("technician"))).toBe("password-pending");
+      expect(await codeOf(requireRole("backoffice"))).toBe("password-pending");
+    });
+
+    it("makes getCurrentUser return null for an invited user without a password", async () => {
+      signedInAs({ ...technicianProfile, invitePending: true });
+      expect(await getCurrentUser()).toBeNull();
     });
   });
 });

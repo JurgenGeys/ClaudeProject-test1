@@ -29,6 +29,10 @@ export const profiles = pgTable(
     email: text("email").notNull().unique(),
     role: userRoleEnum("role").notNull(),
     isActive: boolean("is_active").notNull().default(true),
+    // True from the moment a technician is invited until they chose a password. Until then the
+    // session that the invitation link creates may only be used to set that password
+    // (`getAuthState` reports it as `password-pending`).
+    invitePending: boolean("invite_pending").notNull().default(false),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     // Set when the user is deactivated, cleared again on reactivation.
     deactivatedAt: timestamp("deactivated_at", { withTimezone: true }),

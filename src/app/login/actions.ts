@@ -78,9 +78,10 @@ export async function login(_previous: LoginState, formData: FormData): Promise<
     const profile = await getDb().query.profiles.findFirst({
       where: eq(profiles.id, data.user.id),
     });
-    if (!profile || !profile.isActive) {
-      // The password was right but the account may not be used: end the session that was just
-      // created and give the same message as for a wrong password. "Je account is
+    if (!profile || !profile.isActive || profile.invitePending) {
+      // The password was right but the account may not be used (deactivated, or an invited
+      // user whose password is not chosen through the invitation yet): end the session that
+      // was just created and give the same message as for a wrong password. "Je account is
       // uitgeschakeld" is only shown to someone who was already signed in (`/auth/inactive`).
       await verifier.auth.signOut({ scope: "local" });
       return failure(email, LOGIN_MESSAGES.invalidCredentials);

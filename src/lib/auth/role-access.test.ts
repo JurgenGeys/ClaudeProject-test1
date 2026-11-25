@@ -67,6 +67,13 @@ describe("checkRoleAccess", () => {
     await expect(checkRoleAccess("backoffice")).rejects.toThrow("NEXT_REDIRECT:/auth/inactive");
   });
 
+  it("redirects an invited user without a password to the set password page", async () => {
+    requireRole.mockRejectedValue(new AuthError("password-pending"));
+    await expect(checkRoleAccess("technician")).rejects.toThrow(
+      "NEXT_REDIRECT:/set-password?mode=invite",
+    );
+  });
+
   it("reports the wrong role together with the user, so the page can point to their own start page", async () => {
     requireRole.mockRejectedValue(new AuthError("forbidden"));
     getCurrentUser.mockResolvedValue(technician);

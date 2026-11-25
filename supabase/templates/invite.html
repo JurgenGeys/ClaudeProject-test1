@@ -1,0 +1,13 @@
+<h2>Je bent uitgenodigd</h2>
+<p>Er is een account voor je aangemaakt voor de planning. Kies een wachtwoord om te beginnen:</p>
+<p>
+  <a href="{{ .RedirectTo }}?token_hash={{ .TokenHash }}&type=invite">Wachtwoord kiezen</a>
+</p>
+<p>
+  Werkt de knop niet? Kopieer dan dit adres in je browser:<br />
+  {{ .RedirectTo }}?token_hash={{ .TokenHash }}&type=invite
+</p>
+<p>
+  De link werkt maar één keer en niet voor altijd. Is hij verlopen of niet meer geldig, vraag dan
+  kantoor om een nieuwe uitnodiging.
+</p>
