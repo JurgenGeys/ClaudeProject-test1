@@ -13,6 +13,12 @@ describe("SavedNotice", () => {
     expect(window.location.pathname + window.location.search).toBe("/tasks/1043?x=2");
   });
 
+  it("removes the parameter it was given (?reset), and leaves ?saved alone", () => {
+    window.history.replaceState(null, "", "/tasks/1043?reset=1&saved=1");
+    render(<SavedNotice param="reset">Taak teruggezet.</SavedNotice>);
+    expect(window.location.pathname + window.location.search).toBe("/tasks/1043?saved=1");
+  });
+
   it("leaves an address without ?saved alone", () => {
     window.history.replaceState(null, "", "/tasks/1043");
     render(<SavedNotice>Taak #1043 bewaard.</SavedNotice>);

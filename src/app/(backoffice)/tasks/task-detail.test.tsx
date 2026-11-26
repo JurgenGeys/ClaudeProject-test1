@@ -3,6 +3,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { TaskDetail } from "@/lib/tasks/detail";
 
+vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
+// The dialog "Terugzetten" imports the Server Action; it is tested in reset-task-dialog.test.tsx.
+vi.mock("./actions", () => ({ resetTask: vi.fn() }));
+
 import { TaskDetailView } from "./task-detail";
 
 const task: TaskDetail = {
@@ -129,6 +133,64 @@ describe("TaskDetailView (B3)", () => {
     } else {
       expect(link).not.toBeInTheDocument();
     }
+  });
+
+  describe("Terugzetten (BT-14)", () => {
+    const pickedUp = {
+      ...task,
+      status: "picked_up" as const,
+      pickedUpAt: new Date("2026-11-23T06:48:00Z"),
+    };
+    const technicians = [
+      { id: "u1", fullName: "Kevin Wouters" },
+      { id: "u2", fullName: "Jens Maes" },
+    ];
+
+    it("is offered for an Opgepikt task, next to Bewerken, with the current planning as default", () => {
+      render(<TaskDetailView task={pickedUp} technicians={technicians} />);
+      const button = screen.getByRole("button", { name: "Terugzetten" });
+      expect(button).toBeInTheDocument();
+      expect(screen.getByRole("link", { name: "Bewerken" })).toBeInTheDocument();
+      // Bewerken (outline) comes first, then Terugzetten as the main action (the mockup).
+      expect(
+        screen.getByRole("link", { name: "Bewerken" }).compareDocumentPosition(button) &
+          Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
+    });
+
+    it.each(["open", "assigned", "completed", "invoiced", "cancelled"] as const)(
+      "is not offered for a %s task",
+      (status) => {
+        render(
+          <TaskDetailView
+            task={{
+              ...task,
+              status,
+              pickedUpAt: status === "open" || status === "assigned" ? null : pickedUp.pickedUpAt,
+              completion: status === "completed" || status === "invoiced" ? completion : null,
+              cancelledAt: status === "cancelled" ? new Date("2026-11-23T10:20:00Z") : null,
+            }}
+            technicians={technicians}
+          />,
+        );
+        expect(screen.queryByRole("button", { name: "Terugzetten" })).not.toBeInTheDocument();
+      },
+    );
+
+    it("shows the confirmation of the design after a reset, and only when the task is Toegewezen again", () => {
+      const { rerender } = render(<TaskDetailView task={task} reset />);
+      expect(screen.getByRole("status")).toHaveTextContent(
+        "Taak teruggezet. Ze staat opnieuw op Toegewezen bij Kevin Wouters, voor ma 23/11 om 13:30.",
+      );
+      // Somebody picked it up again meanwhile: the message would be untrue.
+      rerender(<TaskDetailView task={pickedUp} reset technicians={technicians} />);
+      expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    });
+
+    it("shows no confirmation without ?reset=1", () => {
+      render(<TaskDetailView task={task} />);
+      expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    });
   });
 
   it("builds none of the actions of the later build tasks", () => {

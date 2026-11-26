@@ -68,3 +68,23 @@ export const COMPLETE_MESSAGES = {
   /** Shown on T1 after finishing (`/my-tasks?completed=1`). */
   done: "Taak afgemeld. Bedankt!",
 } as const;
+
+/** Texts of putting a task back to Toegewezen (design B3, dialog "Terugzetten"). Dutch, for end users. */
+export const RESET_MESSAGES = {
+  button: "Terugzetten",
+  dialogTitle: "Taak terugzetten",
+  /** Followed by the bold word "Toegewezen" and the rest. */
+  dialogIntro:
+    "Gebruik dit als de taak niet kon doorgaan, bv. omdat de klant niet thuis was. De taak komt terug op",
+  dialogOutro: "Je kan meteen een andere technieker of datum kiezen.",
+  technician: "Technieker",
+  chooseTechnician: "Kies een technieker",
+  date: "Datum",
+  startTime: "Startuur",
+  confirm: "Terugzetten",
+  confirming: "Bezig met terugzetten…",
+  cancel: "Annuleren",
+  /** "Taak teruggezet. Ze staat opnieuw op Toegewezen bij Kevin Wouters, voor di 24/11 om 08:00." */
+  done: (technician: string, moment: string) =>
+    `Taak teruggezet. Ze staat opnieuw op Toegewezen bij ${technician}, voor ${moment}.`,
+} as const;
