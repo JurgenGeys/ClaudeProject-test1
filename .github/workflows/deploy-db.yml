@@ -53,6 +53,14 @@ jobs:
         run: |
           set -euo pipefail
           : "${DATABASE_URL:?Secret DATABASE_URL is not set in the environment 'test'}"
+          # Also mask the password part on its own (GitHub only masks the whole secret). Nothing is
+          # printed: the workflow command is read by the runner and never shown in the log.
+          rest="${DATABASE_URL#*://}"
+          userinfo="${rest%@*}"
+          password="${userinfo#*:}"
+          if [ -n "$password" ]; then
+            echo "::add-mask::$password"
+          fi
 
       - name: Run Drizzle migrations
         env:

@@ -310,8 +310,12 @@ project, enkel tegen de lokale Supabase.
 1. Ga naar <https://supabase.com/dashboard> en meld je aan. Kies **New project**.
 2. Kies een naam (bv. `planning-test`) en bij **Region** de regio **Central EU (Frankfurt)**. Dat is verplicht: de
    data moet in de EU blijven.
-3. Kies een **database-wachtwoord** en bewaar het in je wachtwoordbeheerder. Je kunt het later niet meer bekijken, enkel vervangen.
+3. Laat Supabase het **database-wachtwoord** genereren (knop _Generate a password_), of kies er zelf een met enkel
+   letters en cijfers. Tekens als `@ # / : ? %` breken de connection string. Bewaar het in je wachtwoordbeheerder; je
+   kunt het later niet meer bekijken, enkel vervangen.
 4. Wacht tot het project klaar is (enkele minuten).
+5. Zet meteen, vóór de applicatie online komt, _Authentication, Sign In / Providers_, **Allow new users to sign up** uit.
+   Gebruikers komen enkel via een uitnodiging of het seed-script.
 
 ### Stap 2. Waarden verzamelen
 
@@ -346,9 +350,17 @@ De tabellen worden nooit met de hand in Supabase aangemaakt, maar met de migrati
 3. Ga naar _Actions_, kies links **Deploy database (test environment)** en klik **Run workflow** (branch `main`).
    Vink **Also create the first backoffice user** aan en vul je naam en e-mailadres in. De workflow past de migraties
    toe en maakt de eerste backoffice-gebruiker met het wachtwoord uit `SEED_BACKOFFICE_PASSWORD`. De logs tonen nooit
-   een geheime waarde. Opnieuw starten is veilig.
+   een geheime waarde, maar het e-mailadres en de naam die je invult staan wel in de Actions-log. Opnieuw starten is veilig.
+4. Na de eerste aanmelding: wijzig het wachtwoord van de backoffice-gebruiker, en verwijder daarna de secret
+   `SEED_BACKOFFICE_PASSWORD` uit de environment `test`.
 
-Gaat er iets mis ("permission denied for table users")? Zie punt 7 van de checklist hieronder.
+Start de workflow **direct na de merge** van deze wijziging (of van elke latere wijziging met een nieuwe migratie):
+Vercel deployt na elke merge naar `main` meteen, en de nieuwe code verwacht de nieuwe tabellen. De migraties lopen in
+één transactie. Mislukt de workflow, dan blijft de database ongewijzigd. Los de fout op en start de workflow opnieuw,
+of zet in Vercel (_Deployments_) de vorige deployment terug met **Instant Rollback**.
+
+Gaat er iets mis ("permission denied for table users")? Zie punt 7 van de checklist in
+[Een echt Supabase-project](#techniekers-uitnodigen), hierboven.
 
 ### Stap 4. De applicatie op Vercel zetten
 
@@ -380,9 +392,9 @@ Gaat er iets mis ("permission denied for table users")? Zie punt 7 van de checkl
 
 1. Vercel, _Settings, Environment Variables_: voeg `SITE_URL` toe met dat adres (enkel Production). Ga naar
    _Deployments_, open de laatste deployment, kies **Redeploy**.
-2. Stel in het Supabase-dashboard de punten uit de checklist hieronder in ([Een echt Supabase-project](#techniekers-uitnodigen),
-   punten 1 tot 4): **Site URL** = hetzelfde adres; bij **Redirect URLs** komt `<adres>/auth/confirm`; zet **Allow new
-   users to sign up** uit; plak de mailsjablonen uit `supabase/templates/invite.html` en `recovery.html` (de uitleg staat bij de
+2. Stel in het Supabase-dashboard de punten uit de checklist hierboven in ([Een echt Supabase-project](#techniekers-uitnodigen),
+   punten 1 tot 4): **Site URL** = hetzelfde adres; bij **Redirect URLs** komt `<adres>/auth/confirm`; controleer dat **Allow new
+   users to sign up** uit staat (stap 1); plak de mailsjablonen uit `supabase/templates/invite.html` en `recovery.html` (de uitleg staat bij de
    punten).
 3. Open het adres in je browser en meld je aan met het e-mailadres en het wachtwoord van de backoffice-gebruiker
    uit stap 3. Voeg daarna een technieker toe om de uitnodigingsmail te testen.

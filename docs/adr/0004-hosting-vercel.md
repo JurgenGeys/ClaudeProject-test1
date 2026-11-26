@@ -1,6 +1,6 @@
 # ADR-0004: Hosting van de applicatie op Vercel (regio Frankfurt)
 
-- **Status**: Aanvaard, beslist door Jurgen 26/11/2026
+- **Status**: Aanvaard
 - **Datum**: 2026-11-26
 - **Beslist door**: Jurgen
 
@@ -38,15 +38,20 @@ automatisch een preview per pull request.
   korte afstand tot de Supabase-database.
 - Negatief / risico's:
   - Vercel is een Amerikaans bedrijf. Er is een verwerkersovereenkomst (DPA) en Vercel valt onder het
-    EU-US Data Privacy Framework (DPF). Dat is hetzelfde niveau als Supabase (ook Amerikaans bedrijf,
-    data in Frankfurt). Wie volledige Europese soevereiniteit eist, kiest een van de alternatieven.
+    EU-US Data Privacy Framework (DPF). Supabase (ook een Amerikaans bedrijf, data in Frankfurt) heeft
+    een DPA en een doorgiftemechanisme (DPF of standaardcontractbepalingen; te controleren in #88).
+    Wie volledige Europese soevereiniteit eist, kiest een van de alternatieven.
   - De regio `fra1` geldt voor de uitvoering van de functies. Statische bestanden (assets) worden via
-    het wereldwijde netwerk geserveerd en logging kan buiten de EU passeren. Nagaan bij een echte klant,
-    voor er persoonsgegevens in zitten.
+    het wereldwijde netwerk geserveerd en logging kan buiten de EU passeren.
+  - Vercel-builds draaien standaard in de VS. Daar komen broncode en build-variabelen terecht, geen
+    persoonsgegevens.
   - Voor commercieel gebruik is het betalende Pro-plan nodig; het gratis Hobby-plan is enkel voor
-    niet-commercieel gebruik (testen en oefenen). Kosten doorrekenen in de prijs per klant.
-  - URL's met zoektermen kunnen in Vercel-logs belanden (zie issue #48). Voor een echte klant:
-    bewaartermijn van de logs nagaan en zo nodig zoektermen niet meer in de URL zetten.
+    niet-commercieel gebruik (testen en oefenen). Ook een demo voor een betalende klant kan al
+    commercieel gebruik zijn. Kosten doorrekenen in de prijs per klant.
+  - URL's met zoektermen kunnen in Vercel-logs belanden (zie issue #48).
+  - Opvolg-issue #88 houdt de nog te controleren punten bij: logs en bewaartermijn, data buiten de EU,
+    builds in de VS, het gedrag van de Proxy, de doorgifte door Supabase en het Pro-plan. Af te ronden
+    vóór er persoonsgegevens van een echte klant in komen.
   - `SITE_URL` staat vast per omgeving: uitnodigings- en herstellinks wijzen altijd naar dat adres,
     ook als de mail vanuit een preview-deployment verstuurd wordt (zie README).
 - Wat agents hierdoor wel en niet mogen doen: Vercel-specifieke configuratie blijft beperkt tot
