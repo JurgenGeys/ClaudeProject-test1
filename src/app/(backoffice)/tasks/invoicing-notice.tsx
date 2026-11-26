@@ -19,7 +19,7 @@ export function useSetInvoicingNotice(): (notice: InvoicingNotice) => void {
  * "Na een geslaagde actie: korte bevestiging bovenaan"). It wraps the whole list area, not just
  * the list, so the message stays when the last task of the page was marked and the list gives
  * way to the empty state. The live region is always in the page, so a screen reader announces
- * a message that appears in it. Green when everything went well, amber when something was left out.
+ * a message that appears in it (an empty region takes no room; the margin is on the message). Green when everything went well, amber when something was left out.
  */
 export function InvoicingNoticeProvider({ children }: { children: ReactNode }) {
   const [notice, setNotice] = useState<InvoicingNotice>(null);
@@ -27,7 +27,7 @@ export function InvoicingNoticeProvider({ children }: { children: ReactNode }) {
 
   return (
     <SetNoticeContext.Provider value={setNotice}>
-      <div role="status" className="empty:hidden">
+      <div role="status">
         {notice ? (
           <Alert
             className={

@@ -87,6 +87,7 @@ const taskLink = (page: Page, number: number) =>
 test.describe("marking tasks as invoiced in the overview (B1)", () => {
   test("tick tasks, see the bar, confirm, and find them under Gefactureerd", async ({
     page,
+    isMobile,
     technician,
     token,
   }) => {
@@ -95,6 +96,25 @@ test.describe("marking tasks as invoiced in the overview (B1)", () => {
     await signInAsBackoffice(page);
     await page.goto(`/tasks?status=completed&technician=${technician.id}`);
     await expect(taskLink(page, first)).toBeVisible();
+
+    await test.step("the tab is the list for invoicing: explanation, Afgemeld, no status, newest completion first", async () => {
+      await expect(
+        page.getByText(
+          "Afgewerkte taken die nog niet gefactureerd zijn, nieuwste eerst. Gefactureerd? Vink ze aan en markeer ze.",
+        ),
+      ).toBeVisible();
+      if (!isMobile) {
+        const table = page.getByRole("table", { name: "Taken" });
+        await expect(table.getByRole("columnheader", { name: "Afgemeld" })).toBeVisible();
+        await expect(table.getByRole("columnheader", { name: "Gepland" })).toHaveCount(0);
+        await expect(table.getByRole("columnheader", { name: "Status" })).toHaveCount(0);
+      }
+      // The tasks were completed one after the other, so the last one made is on top.
+      const order = await page
+        .getByRole("link", { name: /#\d+/ })
+        .evaluateAll((links) => links.map((link) => link.textContent?.match(/#(\d+)/)?.[1]));
+      expect(order.map(Number).filter((n) => numbers.includes(n))).toEqual([...numbers].reverse());
+    });
 
     await test.step("there is no bar until something is ticked", async () => {
       await expect(page.getByRole("button", { name: "Markeer als gefactureerd" })).toHaveCount(0);

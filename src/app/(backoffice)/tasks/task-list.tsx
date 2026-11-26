@@ -25,6 +25,13 @@ export function taskHref(row: Pick<TaskOverviewRow, "number">): string {
 const planned = (row: TaskOverviewRow) =>
   `${formatDate(row.scheduledDate)} ${formatTimeOfDay(row.startTime)}`;
 
+/**
+ * The day the technician completed the task, in Belgian time (tab Afgewerkt: the list for
+ * invoicing shows when the work was reported, not when it was planned).
+ */
+const completedDay = (row: TaskOverviewRow) =>
+  row.completedAt ? formatDate(row.completedAt, { omitCurrentYear: true }) : "–";
+
 function Technician({ name }: { name: string | null }) {
   return name ? (
     <>{name}</>
@@ -116,8 +123,14 @@ function allState(
 export function TaskList({
   rows,
   selection,
+  completed = false,
 }: {
   rows: TaskOverviewRow[];
+  /**
+   * The list of the tab Afgewerkt (design B1): the column "Afgemeld" instead of "Gepland", and
+   * no status column, because every task is Afgewerkt.
+   */
+  completed?: boolean;
   /** Adds a checkbox to every row and one for all rows; without it the list is read only. */
   selection?: RowSelection;
 }) {
@@ -140,12 +153,12 @@ export function TaskList({
                 </TableHead>
               ) : null}
               <TableHead scope="col">Nr.</TableHead>
-              <TableHead scope="col">Gepland</TableHead>
+              <TableHead scope="col">{completed ? "Afgemeld" : "Gepland"}</TableHead>
               <TableHead scope="col">Klant</TableHead>
               <TableHead scope="col">Soort</TableHead>
               <TableHead scope="col">Instructies</TableHead>
               <TableHead scope="col">Technieker</TableHead>
-              <TableHead scope="col">Status</TableHead>
+              {completed ? null : <TableHead scope="col">Status</TableHead>}
               <TableHead scope="col" className="text-right">
                 Uren
               </TableHead>
@@ -171,7 +184,7 @@ export function TaskList({
                     {formatTaskNumber(row.number)}
                   </Link>
                 </TableCell>
-                <TableCell>{planned(row)}</TableCell>
+                <TableCell>{completed ? completedDay(row) : planned(row)}</TableCell>
                 <TableCell>
                   {/* A second, larger target for the task (the number alone is small). */}
                   <Link href={taskHref(row)} className="font-medium hover:underline">
@@ -186,9 +199,11 @@ export function TaskList({
                 <TableCell>
                   <Technician name={row.technicianName} />
                 </TableCell>
-                <TableCell>
-                  <StatusCell row={row} />
-                </TableCell>
+                {completed ? null : (
+                  <TableCell>
+                    <StatusCell row={row} />
+                  </TableCell>
+                )}
                 <TableCell className="text-right font-medium">
                   <Hours row={row} />
                 </TableCell>
@@ -234,7 +249,7 @@ export function TaskList({
                   {formatTaskNumber(row.number)}
                 </span>
                 {" · "}
-                <span className="font-medium">{planned(row)}</span>
+                <span className="font-medium">{completed ? completedDay(row) : planned(row)}</span>
               </span>
               <span>
                 <span className="font-medium">{row.customerName}</span>
@@ -249,9 +264,11 @@ export function TaskList({
                 <Technician name={row.technicianName} />
               </span>
               <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                <span>
-                  <StatusCell row={row} />
-                </span>
+                {completed ? null : (
+                  <span>
+                    <StatusCell row={row} />
+                  </span>
+                )}
                 {row.minutes !== null ? (
                   <span className="text-sm font-medium">
                     <Hours row={row} />

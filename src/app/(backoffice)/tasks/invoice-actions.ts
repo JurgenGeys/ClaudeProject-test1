@@ -60,8 +60,9 @@ function problemsOf(outcome: Extract<MarkInvoicedOutcome, { kind: "done" }>): st
  * 2. Zod validation: only task numbers (at most one page) with their versions, and where the
  *    request comes from; a form that is not valid is answered like a task that changed;
  * 3. one transaction (`markInvoicedInTransaction`): lock, `checkTransition`, version, update;
- * 4. the lists are refreshed whenever the database answered, also when nothing was marked: the
- *    versions on the page are out of date then;
+ * 4. the overview is refreshed whenever the database answered, also when nothing was marked: the
+ *    versions on the page are out of date then. The page of one task is not refreshed after a
+ *    refusal, because that would remove the dialog that shows the message;
  * 5. from the page of one task a success redirects to it with the confirmation.
  */
 export async function markInvoiced(
@@ -107,17 +108,16 @@ export async function markInvoiced(
     return { ok: false, kind: "error", message: LOGIN_MESSAGES.technicalProblem };
   }
 
-  revalidatePath(TASKS_PATH);
-  for (const ref of parsed.data.tasks) {
-    revalidatePath(`${TASKS_PATH}/${ref.number}`);
-  }
-
   if (view === "task") {
     const [only] = parsed.data.tasks;
     if (outcome.marked.length === 1) {
+      revalidatePath(TASKS_PATH);
+      revalidatePath(`${TASKS_PATH}/${only.number}`);
       // `redirect()` throws, so it stays outside the try/catch above.
       redirect(`${TASKS_PATH}/${only.number}?invoiced=marked`);
     }
+    // No refresh of the task page on a refusal: it would remove the dialog with the message
+    // (the button "Pagina herladen" reads the page again).
     return {
       ok: false,
       kind: "nothing",
@@ -130,6 +130,10 @@ export async function markInvoiced(
     };
   }
 
+  revalidatePath(TASKS_PATH);
+  for (const ref of parsed.data.tasks) {
+    revalidatePath(`${TASKS_PATH}/${ref.number}`);
+  }
   const problems = problemsOf(outcome);
   if (outcome.marked.length === 0) {
     return { ok: false, kind: "nothing", problems, reload: false };
@@ -182,7 +186,7 @@ export async function unmarkInvoiced(
     case "not-found":
       return { ok: false, message: TASK_ACTION_MESSAGES.taskNotFound, reload: false };
     case "changed":
-      revalidatePath(`${TASKS_PATH}/${number}`);
+      // No refresh of the task page: it would remove the dialog with this message.
       return { ok: false, message: TASK_ACTION_MESSAGES.changed, reload: true };
     case "refused":
       return { ok: false, message: LOGIN_MESSAGES.technicalProblem, reload: false };

@@ -30,6 +30,7 @@ const aRow: TaskOverviewRow = {
   status: "assigned",
   technicianName: "Kevin Wouters",
   pickedUpAt: null,
+  completedAt: null,
   minutes: null,
   corrected: false,
 };

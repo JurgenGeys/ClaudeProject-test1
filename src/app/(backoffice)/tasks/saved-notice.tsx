@@ -7,16 +7,19 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 /**
  * "Taak #1043 bewaard." after a save. `createTask` and `updateTask` redirect with `?saved=1`;
  * once the message is shown the parameter is removed from the address, so that a reload or a
- * bookmark does not show the message again. The message itself stays on the page.
+ * bookmark does not show the message again. The message itself stays on the page. `param` is
+ * the name of that parameter: other actions use their own (`?invoiced=marked`). The page reads
+ * the parameter on the server and only renders this component when it is valid; the effect also
+ * runs again when the message changes, for a component that stays mounted between two actions.
  */
-export function SavedNotice({ children }: { children: string }) {
+export function SavedNotice({ children, param = "saved" }: { children: string; param?: string }) {
   useEffect(() => {
     const url = new URL(window.location.href);
-    if (url.searchParams.has("saved")) {
-      url.searchParams.delete("saved");
+    if (url.searchParams.has(param)) {
+      url.searchParams.delete(param);
       window.history.replaceState(window.history.state, "", `${url.pathname}${url.search}`);
     }
-  }, []);
+  }, [param, children]);
 
   return (
     <Alert

@@ -216,9 +216,28 @@ describe("markInvoiced: the result", () => {
     expect(revalidatePath).toHaveBeenCalledWith("/tasks");
   });
 
-  it("from the page of one task, a success redirects to it with the confirmation", async () => {
+  it("from the page of one task, a success redirects to it with the confirmation and refreshes it", async () => {
     const { redirected } = await run(() => markInvoiced(null, markForm("task", 1001)));
     expect(redirected).toBe("/tasks/1001?invoiced=marked");
+    expect(revalidatePath).toHaveBeenCalledWith("/tasks");
+    expect(revalidatePath).toHaveBeenCalledWith("/tasks/1001");
+  });
+
+  it("from the page of one task, a refusal does not refresh anything: the dialog with the message must stay", async () => {
+    markInvoicedInTransaction.mockResolvedValue({
+      kind: "done",
+      marked: [],
+      alreadyInvoiced: [1001],
+      changed: [],
+    });
+    await run(() => markInvoiced(null, markForm("task", 1001)));
+    expect(revalidatePath).not.toHaveBeenCalled();
+  });
+
+  it("refuses the page of one task with more than one task, without touching the database", async () => {
+    const { result } = await run(() => markInvoiced(null, markForm("task", 1001, 1002)));
+    expect(result).toMatchObject({ ok: false, kind: "nothing", reload: true });
+    expect(transaction).not.toHaveBeenCalled();
   });
 
   it.each([
@@ -290,9 +309,10 @@ describe("unmarkInvoiced", () => {
     expect(revalidatePath).toHaveBeenCalledWith("/tasks/1001");
   });
 
-  it("says the task changed, with a reload button, when it is no longer as shown", async () => {
+  it("says the task changed, with a reload button, when a colleague took the mark off first, and does not refresh the page", async () => {
     unmarkInvoicedInTransaction.mockResolvedValue({ kind: "changed" });
     const { result } = await run(() => unmarkInvoiced(null, data()));
+    expect(revalidatePath).not.toHaveBeenCalled();
     expect(result).toEqual({
       ok: false,
       message: "Deze taak is intussen gewijzigd. Bekijk de taak opnieuw.",

@@ -1,5 +1,5 @@
 import { render, screen, within } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 
@@ -35,6 +35,7 @@ function row(overrides: Partial<TaskOverviewRow> = {}): TaskOverviewRow {
     status: "assigned",
     technicianName: "Kevin Wouters",
     pickedUpAt: null,
+    completedAt: null,
     minutes: null,
     corrected: false,
     ...overrides,
@@ -374,5 +375,53 @@ describe("TaskList", () => {
     );
     expect(document.querySelector("img")).toBeNull();
     expect(screen.getAllByText("<img src=x onerror=alert(1)>").length).toBeGreaterThan(0);
+  });
+});
+
+describe("TaskList of the tab Afgewerkt (completed)", () => {
+  // "Now" is fixed: a day in this year has no year.
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-11-25T12:00:00Z"));
+  });
+  afterEach(() => vi.useRealTimers());
+
+  const done = row({
+    status: "completed",
+    minutes: 90,
+    scheduledDate: "2026-11-20",
+    // 23:30 UTC on 23 November is 00:30 on the 24th in Belgium.
+    completedAt: new Date("2026-11-23T23:30:00Z"),
+  });
+
+  it("shows Afgemeld (in Belgian time) instead of Gepland, and no status column", () => {
+    render(<TaskList rows={[done]} completed />);
+    const table = screen.getByRole("table");
+    expect(within(table).getByRole("columnheader", { name: "Afgemeld" })).toBeInTheDocument();
+    expect(within(table).queryByRole("columnheader", { name: "Gepland" })).not.toBeInTheDocument();
+    expect(within(table).queryByRole("columnheader", { name: "Status" })).not.toBeInTheDocument();
+    const cells = within(within(table).getAllByRole("row")[1]).getAllByRole("cell");
+    expect(cells.map((cell) => cell.textContent)).toContain("di 24/11");
+    expect(table).not.toHaveTextContent("vr 20/11");
+  });
+
+  it("shows the same on the phone cards: number and completion day, hours, no status label", () => {
+    render(<TaskList rows={[done]} completed />);
+    const card = screen.getByRole("list", { name: "Taken" });
+    expect(card).toHaveTextContent("#1042 · di 24/11");
+    expect(card).toHaveTextContent("1u30");
+    expect(card.querySelector("[data-status]")).toBeNull();
+  });
+
+  it("shows a dash when there is no completion (not expected on this tab)", () => {
+    render(<TaskList rows={[row({ completedAt: null })]} completed />);
+    expect(within(screen.getByRole("table")).getAllByRole("cell")[1]).toHaveTextContent("–");
+  });
+
+  it("leaves the other tabs as they were: Gepland and Status", () => {
+    render(<TaskList rows={[done]} />);
+    const table = screen.getByRole("table");
+    expect(within(table).getByRole("columnheader", { name: "Gepland" })).toBeInTheDocument();
+    expect(within(table).getByRole("columnheader", { name: "Status" })).toBeInTheDocument();
   });
 });

@@ -50,15 +50,20 @@ const taskRefSchema = z.string().transform((value, ctx) => {
   return ref;
 });
 
-const markSchema = z.object({
-  tasks: z
-    .array(taskRefSchema)
-    .min(1)
-    .max(MAX_INVOICE_SELECTION)
-    // The same task twice is not what the page sends.
-    .refine((refs) => new Set(refs.map((ref) => ref.number)).size === refs.length),
-  view: z.enum(invoiceViews),
-});
+const markSchema = z
+  .object({
+    tasks: z
+      .array(taskRefSchema)
+      .min(1)
+      .max(MAX_INVOICE_SELECTION)
+      // The same task twice is not what the page sends.
+      .refine((refs) => new Set(refs.map((ref) => ref.number)).size === refs.length),
+    view: z.enum(invoiceViews),
+  })
+  .refine(
+    // The page of one task marks that task and nothing else.
+    (form) => form.view !== "task" || form.tasks.length === 1,
+  );
 
 export type MarkInvoicedParse =
   | { ok: true; data: { tasks: InvoiceTaskRef[]; view: InvoiceView } }

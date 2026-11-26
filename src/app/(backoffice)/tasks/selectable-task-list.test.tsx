@@ -1,5 +1,5 @@
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const { markInvoiced } = vi.hoisted(() => ({ markInvoiced: vi.fn() }));
 vi.mock("./invoice-actions", () => ({ markInvoiced, unmarkInvoiced: vi.fn() }));
@@ -23,6 +23,7 @@ function row(number: number, customerName: string): TaskOverviewRow {
     status: "completed",
     technicianName: "Kevin Wouters",
     pickedUpAt: new Date("2026-11-23T06:48:00Z"),
+    completedAt: new Date("2026-11-23T10:47:00Z"),
     minutes: 90,
     corrected: false,
   };
@@ -52,7 +53,11 @@ const allBox = () =>
 
 beforeEach(() => {
   vi.resetAllMocks();
+  // "Now" is fixed: a day in this year has no year.
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date("2026-11-25T12:00:00Z"));
 });
+afterEach(() => vi.useRealTimers());
 
 describe("the selection (B1, tab Afgewerkt)", () => {
   it("has a checkbox per task with the task number and the customer in its name, in the table and on the cards", () => {
@@ -87,19 +92,34 @@ describe("the selection (B1, tab Afgewerkt)", () => {
     expect(container.querySelector('[aria-live="polite"]')).toBeInTheDocument();
   });
 
-  it("announces the number in the live region and shows the bar", () => {
+  it("announces the number in a live region that holds only the count, not the whole bar", () => {
     const { container } = setUp();
+    const live = container.querySelector('[aria-live="polite"]') as HTMLElement;
+    expect(live).toBeEmptyDOMElement();
     fireEvent.click(rowBox(1036, "Fam. Hermans"));
-    const live = container.querySelector('[aria-live="polite"]')!;
-    expect(live).toHaveTextContent("1 taak geselecteerd");
+    expect(live).toHaveTextContent(/^1 taak geselecteerd$/);
+    expect(live).not.toContainElement(
+      screen.getByRole("button", { name: "Markeer als gefactureerd" }),
+    );
+    fireEvent.click(rowBox(1030, "Notariskantoor Lambrechts"));
+    expect(live).toHaveTextContent(/^2 taken geselecteerd$/);
+    fireEvent.click(rowBox(1036, "Fam. Hermans"));
+    fireEvent.click(rowBox(1030, "Notariskantoor Lambrechts"));
+    expect(live).toBeEmptyDOMElement();
     expect(
-      within(live as HTMLElement).getByRole("button", { name: "Markeer als gefactureerd" }),
-    ).toBeInTheDocument();
-    fireEvent.click(rowBox(1030, "Notariskantoor Lambrechts"));
-    expect(live).toHaveTextContent("2 taken geselecteerd");
-    fireEvent.click(rowBox(1036, "Fam. Hermans"));
-    fireEvent.click(rowBox(1030, "Notariskantoor Lambrechts"));
-    expect(screen.queryByText(/geselecteerd/)).not.toBeInTheDocument();
+      screen.queryByRole("button", { name: "Markeer als gefactureerd" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("is the list for invoicing: the column Afgemeld with the day of completing, and no status", () => {
+    setUp();
+    const table = screen.getByRole("table", { name: "Taken" });
+    expect(within(table).getByRole("columnheader", { name: "Afgemeld" })).toBeInTheDocument();
+    expect(within(table).queryByRole("columnheader", { name: "Gepland" })).not.toBeInTheDocument();
+    expect(within(table).queryByRole("columnheader", { name: "Status" })).not.toBeInTheDocument();
+    // Belgian time: 10:47 UTC on 23 November is the same day; the planned day is not shown.
+    expect(within(table).getAllByText(/ma 23\/11/)).toHaveLength(3);
+    expect(table).not.toHaveTextContent("Afgewerkt");
   });
 
   it("selects and clears all with 'Alles selecteren', which is half checked for a part", () => {

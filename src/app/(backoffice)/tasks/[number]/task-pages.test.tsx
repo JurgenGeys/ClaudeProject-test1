@@ -14,7 +14,7 @@ const { checkRoleAccess, getTaskDetail, listAssignableTechnicians, notFound } = 
 vi.mock("@/lib/auth/role-access", () => ({ checkRoleAccess }));
 vi.mock("@/lib/tasks/detail", () => ({ getTaskDetail }));
 vi.mock("@/lib/technicians/queries", () => ({ listAssignableTechnicians }));
-vi.mock("next/navigation", () => ({ notFound, useSearchParams: () => null }));
+vi.mock("next/navigation", () => ({ notFound }));
 vi.mock("../invoice-actions", () => ({ markInvoiced: vi.fn(), unmarkInvoiced: vi.fn() }));
 vi.mock("../actions", () => ({ createTask: vi.fn(), updateTask: vi.fn() }));
 vi.mock("../../customers/actions", () => ({ searchCustomers: vi.fn() }));
@@ -93,6 +93,22 @@ describe("the task page (B3)", () => {
     render(await detailPage("1043", { saved: "1" }));
     expect(screen.getByRole("status")).toHaveTextContent("Taak #1043 bewaard.");
   });
+
+  it.each([
+    ["marked", "Taak gemarkeerd als gefactureerd."],
+    ["unmarked", "Markering ongedaan gemaakt. De taak staat weer op Afgewerkt."],
+  ])("shows the confirmation for ?invoiced=%s", async (value, message) => {
+    render(await detailPage("1043", { invoiced: value }));
+    expect(screen.getByRole("status")).toHaveTextContent(message);
+  });
+
+  it.each([["1"], ["yes"], ["<b>marked</b>"], ["MARKED"]])(
+    "shows no invoicing confirmation for ?invoiced=%j",
+    async (value) => {
+      render(await detailPage("1043", { invoiced: value }));
+      expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    },
+  );
 
   it.each([["abc"], ["0"], ["-1"], ["1e3"], ["01043"], ["1043abc"], ["9999999999"], [""]])(
     "gives 'not found' for the number %j without asking the database",

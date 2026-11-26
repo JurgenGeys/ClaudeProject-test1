@@ -40,6 +40,8 @@ export type TaskOverviewRow = {
   technicianName: string | null;
   /** Since when the task is picked up; `null` before Opgepikt. */
   pickedUpAt: Date | null;
+  /** When the technician completed it (`task_completions.completed_at`); `null` before Afgewerkt. */
+  completedAt: Date | null;
   /** The hours that count (the correction if there is one); `null` before Afgewerkt. */
   minutes: number | null;
   corrected: boolean;
@@ -63,8 +65,21 @@ export type TaskOverview = {
   hasAnyTask: boolean;
 };
 
-/** Tabs that show the newest first (design B1, "Sortering"); the others show the oldest first. */
-const NEWEST_FIRST: readonly string[] = ["completed", "invoiced", "cancelled"];
+/** Tabs that show the newest planned day first (design B1, "Sortering"); Afgewerkt has its own order. */
+const NEWEST_FIRST: readonly string[] = ["invoiced", "cancelled"];
+
+/**
+ * The order of the list (design B1, "Sortering"). Afgewerkt is the list for invoicing: the
+ * newest completion first, by the moment of completing, then the highest task number. The other
+ * tabs go by planned day and start time, newest first for Gefactureerd and Geannuleerd.
+ */
+function orderBy(tab: TaskOverviewFilters["tab"]): SQL[] {
+  if (tab === "completed") {
+    return [desc(taskCompletions.completedAt), desc(tasks.number)];
+  }
+  const direction = NEWEST_FIRST.includes(tab) ? desc : asc;
+  return [direction(tasks.scheduledDate), direction(tasks.startTime), direction(tasks.number)];
+}
 
 /** The technicians for the filter: active and switched off, not the invited ones (they have no tasks). */
 export async function queryFilterTechnicians(
@@ -133,8 +148,6 @@ export async function queryTaskOverview(
   const extra = extraConditions(filters);
 
   const assignee = alias(profiles, "assignee");
-  const newestFirst = NEWEST_FIRST.includes(filters.tab);
-  const direction = newestFirst ? desc : asc;
 
   const [perStatus, anyTask] = await Promise.all([
     db
@@ -172,6 +185,7 @@ export async function queryTaskOverview(
       status: tasks.status,
       technicianName: assignee.fullName,
       pickedUpAt: tasks.pickedUpAt,
+      completedAt: taskCompletions.completedAt,
       minutes: sql<
         number | null
       >`coalesce(${taskCompletions.correctedMinutes}, ${taskCompletions.workedMinutes})`,
@@ -182,7 +196,7 @@ export async function queryTaskOverview(
     .leftJoin(assignee, eq(assignee.id, tasks.assigneeId))
     .leftJoin(taskCompletions, eq(taskCompletions.taskId, tasks.id))
     .where(and(tabCondition(filters.tab), ...extra))
-    .orderBy(direction(tasks.scheduledDate), direction(tasks.startTime), direction(tasks.number))
+    .orderBy(...orderBy(filters.tab))
     .limit(PAGE_SIZE)
     .offset((page - 1) * PAGE_SIZE);
 

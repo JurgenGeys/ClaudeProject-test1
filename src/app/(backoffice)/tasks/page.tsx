@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
 import { checkRoleAccess } from "@/lib/auth/role-access";
+import { INVOICE_MESSAGES } from "@/lib/tasks/invoice-messages";
 import { getTaskOverview } from "@/lib/tasks/overview";
 import { hasExtraFilters, taskOverviewHref } from "@/lib/validation/task-overview";
 
@@ -80,6 +81,9 @@ export default async function TasksPage({ searchParams }: PageProps<"/tasks">) {
       ) : (
         <ListArea key={taskOverviewHref(filters)} selectable={filters.tab === "completed"}>
           <StatusTabs filters={filters} counts={counts} />
+          {filters.tab === "completed" ? (
+            <p className="mt-3 text-sm text-muted-foreground">{INVOICE_MESSAGES.completedIntro}</p>
+          ) : null}
           <TaskFilters
             filters={filters}
             technicians={technicians}

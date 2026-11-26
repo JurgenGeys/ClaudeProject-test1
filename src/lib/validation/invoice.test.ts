@@ -113,6 +113,14 @@ describe("parseMarkInvoicedForm", () => {
     ).toEqual({ ok: false });
   });
 
+  it("lets the page of one task send exactly one task", () => {
+    expect(parseMarkInvoicedForm(form([...refs(1043), ["view", "task"]])).ok).toBe(true);
+    expect(parseMarkInvoicedForm(form([...refs(1043, 1044), ["view", "task"]]))).toEqual({
+      ok: false,
+    });
+    expect(parseMarkInvoicedForm(form([...refs(1043, 1044), ["view", "list"]])).ok).toBe(true);
+  });
+
   it("refuses an unknown or missing view", () => {
     expect(parseMarkInvoicedForm(form([...refs(1043), ["view", "other"]]))).toEqual({ ok: false });
     expect(parseMarkInvoicedForm(form(refs(1043)))).toEqual({ ok: false });

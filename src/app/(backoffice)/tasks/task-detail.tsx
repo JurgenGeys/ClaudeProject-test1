@@ -12,7 +12,6 @@ import { INVOICE_MESSAGES } from "@/lib/tasks/invoice-messages";
 import { formatDate, formatHours, formatTimeOfDay } from "@/lib/time/format";
 import { cn } from "@/lib/utils";
 
-import { InvoicedNotice } from "./invoiced-notice";
 import { SavedNotice } from "./saved-notice";
 import { TaskInvoiceActions } from "./task-invoice-actions";
 
@@ -133,7 +132,16 @@ function Completion({ task, now }: { task: TaskDetail; now: Date }) {
  * The only action is "Bewerken" (Open, Toegewezen, Opgepikt); the other actions of the design
  * (Terugzetten, annuleren, uren corrigeren, factureren) come with their own build tasks.
  */
-export function TaskDetailView({ task, saved = false }: { task: TaskDetail; saved?: boolean }) {
+export function TaskDetailView({
+  task,
+  saved = false,
+  invoiced = null,
+}: {
+  task: TaskDetail;
+  saved?: boolean;
+  /** `?invoiced=` of the address after marking or unmarking (BT-17). */
+  invoiced?: "marked" | "unmarked" | null;
+}) {
   const now = new Date();
   const number = formatTaskNumber(task.number);
   const editable = canEditTask(task.status);
@@ -143,7 +151,11 @@ export function TaskDetailView({ task, saved = false }: { task: TaskDetail; save
   return (
     <>
       {saved ? <SavedNotice>{`Taak ${number} bewaard.`}</SavedNotice> : null}
-      <InvoicedNotice />
+      {invoiced ? (
+        <SavedNotice param="invoiced">
+          {invoiced === "marked" ? INVOICE_MESSAGES.taskMarked : INVOICE_MESSAGES.unmarked}
+        </SavedNotice>
+      ) : null}
       <Link href="/tasks" className="text-sm underline-offset-4 hover:underline">
         ← Taken
       </Link>

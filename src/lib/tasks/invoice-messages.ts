@@ -7,6 +7,9 @@ export const INVOICE_MESSAGES = {
   selectTask: (number: number, customerName: string) =>
     `Selecteer taak #${number}, ${customerName}`,
   selectColumn: "Selecteren",
+  /** Under the tabs of the tab Afgewerkt (design B1). */
+  completedIntro:
+    "Afgewerkte taken die nog niet gefactureerd zijn, nieuwste eerst. Gefactureerd? Vink ze aan en markeer ze.",
   selectedCount: (count: number) =>
     count === 1 ? "1 taak geselecteerd" : `${count} taken geselecteerd`,
   barButton: "Markeer als gefactureerd",

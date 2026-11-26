@@ -28,7 +28,13 @@ export default async function TaskDetailPage({
   if (!task) {
     notFound();
   }
-  const { saved } = await searchParams;
+  const { saved, invoiced } = await searchParams;
 
-  return <TaskDetailView task={task} saved={saved === "1"} />;
+  return (
+    <TaskDetailView
+      task={task}
+      saved={saved === "1"}
+      invoiced={invoiced === "marked" || invoiced === "unmarked" ? invoiced : null}
+    />
+  );
 }

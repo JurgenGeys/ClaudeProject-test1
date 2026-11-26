@@ -27,7 +27,7 @@ import { TaskList } from "./task-list";
  * gefactureerd" (design B1; BT-17). The selection is per page: it holds the ids of the rows of
  * this page, and what counts is always the rows that are on the page now. `children` (the
  * pagination) is shown under the list and above the bar. The count sits in a live region that is
- * always in the page, so a screen reader announces it as the selection changes.
+ * always in the page, so a screen reader announces it as the selection changes (only the count is live, not the whole bar).
  */
 export function SelectableTaskList({
   rows,
@@ -56,18 +56,33 @@ export function SelectableTaskList({
 
   return (
     <>
-      <TaskList rows={rows} selection={{ selected, onToggle: toggle, onToggleAll: toggleAll }} />
+      <TaskList
+        rows={rows}
+        completed
+        selection={{ selected, onToggle: toggle, onToggleAll: toggleAll }}
+      />
       {children}
       {count > 0 ? <div aria-hidden="true" className="h-20" /> : null}
-      <div aria-live="polite" className="contents">
-        {count > 0 ? (
-          <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background shadow-lg">
-            <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6">
-              <p className="text-sm font-medium">{INVOICE_MESSAGES.selectedCount(count)}</p>
-              <MarkDialog chosen={chosen} onDone={() => setSelected(new Set())} />
-            </div>
-          </div>
-        ) : null}
+      {/* The wrapper and the count are always in the page, so a screen reader announces a change. */}
+      <div
+        className={
+          count > 0
+            ? "fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background shadow-lg"
+            : undefined
+        }
+      >
+        <div
+          className={
+            count > 0
+              ? "mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6"
+              : undefined
+          }
+        >
+          <p aria-live="polite" className={count > 0 ? "text-sm font-medium" : "sr-only"}>
+            {count > 0 ? INVOICE_MESSAGES.selectedCount(count) : ""}
+          </p>
+          {count > 0 ? <MarkDialog chosen={chosen} onDone={() => setSelected(new Set())} /> : null}
+        </div>
       </div>
     </>
   );
