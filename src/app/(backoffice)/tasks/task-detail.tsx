@@ -11,7 +11,7 @@ import { canEditTask } from "@/lib/tasks/transitions";
 import { formatDate, formatHours, formatTimeOfDay } from "@/lib/time/format";
 import { cn } from "@/lib/utils";
 
-import { SavedNotice } from "./saved-notice";
+import { SavedNotice } from "@/components/saved-notice";
 
 const CARD = "rounded-lg border border-border bg-card p-5";
 
