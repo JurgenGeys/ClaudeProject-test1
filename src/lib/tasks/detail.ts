@@ -1,6 +1,6 @@
 import "server-only";
 
-import { eq, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 
 import { getDb, type Database } from "@/db/client";
@@ -61,10 +61,16 @@ export type TaskDetail = {
   completion: TaskDetailCompletion | null;
 };
 
-/** The query behind `getTaskDetail`; exported with the database as a parameter for the database test. */
+/**
+ * The query behind `getTaskDetail` and `getMyTaskDetail`; exported with the database as a
+ * parameter for the database test. With `assigneeId` only a task of that assignee is found
+ * (T2: a technician sees his own tasks), so a task of somebody else is `null`, exactly like a
+ * task that does not exist.
+ */
 export async function queryTaskDetail(
   db: Pick<Database, "select">,
   number: number,
+  options: { assigneeId?: string } = {},
 ): Promise<TaskDetail | null> {
   const assignee = alias(profiles, "assignee");
   const creator = alias(profiles, "creator");
@@ -125,7 +131,12 @@ export async function queryTaskDetail(
     .leftJoin(taskCompletions, eq(taskCompletions.taskId, tasks.id))
     .leftJoin(completer, eq(completer.id, taskCompletions.completedBy))
     .leftJoin(corrector, eq(corrector.id, taskCompletions.correctedBy))
-    .where(eq(tasks.number, number))
+    .where(
+      and(
+        eq(tasks.number, number),
+        options.assigneeId !== undefined ? eq(tasks.assigneeId, options.assigneeId) : undefined,
+      ),
+    )
     .limit(1);
   if (!row) {
     return null;
@@ -189,4 +200,15 @@ export async function queryTaskDetail(
 export async function getTaskDetail(number: number): Promise<TaskDetail | null> {
   await requireRole("backoffice");
   return queryTaskDetail(getDb(), number);
+}
+
+/**
+ * The task for T2 (technician), by its number. Checks the role itself, before anything is read
+ * (ADR-0002, rule 3), and only finds a task whose `assignee_id` is the signed-in user (the id
+ * of the session, never one from the address). `null` for a task that does not exist, one that
+ * is not assigned, and one of somebody else: the page cannot tell them apart.
+ */
+export async function getMyTaskDetail(number: number): Promise<TaskDetail | null> {
+  const user = await requireRole("technician");
+  return queryTaskDetail(getDb(), number, { assigneeId: user.id });
 }

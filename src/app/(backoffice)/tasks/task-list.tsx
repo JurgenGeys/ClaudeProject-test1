@@ -10,19 +10,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { firstLine } from "@/lib/tasks/instructions";
 import { formatTaskNumber, workTypeLabel } from "@/lib/tasks/labels";
 import type { TaskOverviewRow } from "@/lib/tasks/overview";
 import { formatDate, formatHours, formatTime, formatTimeOfDay } from "@/lib/time/format";
-
-/** First non-empty line of the instructions: the short description in lists (design B2). */
-export function firstLine(instructions: string): string {
-  return (
-    instructions
-      .split(/\r?\n/)
-      .map((line) => line.trim())
-      .find((line) => line !== "") ?? ""
-  );
-}
 
 /** Where a task leads to. The task detail (B3) is built in BT-10. */
 export function taskHref(row: Pick<TaskOverviewRow, "number">): string {

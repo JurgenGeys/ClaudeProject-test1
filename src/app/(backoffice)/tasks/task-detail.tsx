@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 
 import { StatusBadge } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
+import { telHref } from "@/lib/phone";
 import type { TaskDetail } from "@/lib/tasks/detail";
 import { formatTaskNumber, workTypeLabel } from "@/lib/tasks/labels";
 import { buildTimeline, formatMoment, type TimelineItem } from "@/lib/tasks/timeline";
@@ -192,10 +193,7 @@ export function TaskDetailView({ task, saved = false }: { task: TaskDetail; save
               <p className="mt-2 font-medium">{task.customer.name}</p>
               {task.customer.phone ? (
                 <p className="text-sm">
-                  <a
-                    href={`tel:${task.customer.phone.replace(/[^\d+]/g, "")}`}
-                    className="underline underline-offset-4"
-                  >
+                  <a href={telHref(task.customer.phone)} className="underline underline-offset-4">
                     {task.customer.phone}
                   </a>
                 </p>
