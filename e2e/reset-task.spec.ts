@@ -13,6 +13,7 @@ import {
   removeCustomersNamed,
   removeTasksOf,
   removeUser,
+  setProfileActive,
 } from "./support/users";
 
 // "Terugzetten" (BT-14) in B3: the office puts a picked up task back to Toegewezen, for the same
@@ -282,6 +283,36 @@ test.describe("Terugzetten (B3)", () => {
     await dialog(page).getByRole("button", { name: "Terugzetten" }).click();
     await expect(page.getByRole("status")).toContainText("Taak teruggezet.");
     expect((await readTaskPickUp(number)).status).toBe("assigned");
+  });
+
+  test("the chosen technician is switched off meanwhile: the choice becomes 'Kies een technieker'", async ({
+    page,
+    token,
+    technicians: { kevin, jens },
+  }) => {
+    const number = await pickedUpTask(token, kevin);
+    await openTask(page, number);
+    await openButton(page).click();
+    await dialog(page).getByLabel("Technieker").selectOption({ label: jens.fullName });
+    await setProfileActive(jens.email, false);
+
+    await dialog(page).getByRole("button", { name: "Terugzetten" }).click();
+    await expect(
+      dialog(page).getByText(`${jens.fullName} is niet meer actief. Kies een andere technieker.`),
+    ).toBeVisible();
+    // The refreshed list no longer has Jens, and the select does not silently show another one.
+    const select = dialog(page).getByLabel("Technieker");
+    await expect(select).toHaveValue("");
+    await expect(select.locator("option:checked")).toHaveText("Kies een technieker");
+    expect((await readTaskPickUp(number)).status).toBe("picked_up");
+
+    // A second click asks for a choice; it does not give the task to somebody else.
+    await dialog(page).getByRole("button", { name: "Terugzetten" }).click();
+    await expect(dialog(page).getByText("Kies een technieker uit de lijst.")).toBeVisible();
+    expect(await readTaskPickUp(number)).toMatchObject({
+      status: "picked_up",
+      assigneeEmail: kevin.email.toLowerCase(),
+    });
   });
 
   test("a task that is not picked up has no Terugzetten", async ({

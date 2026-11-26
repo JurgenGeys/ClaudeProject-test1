@@ -100,7 +100,13 @@ function ResetForm({
 
   const failed = state && !state.ok ? state : null;
   const errors = failed?.fieldErrors ?? {};
-  const currentIsChoosable = technicians.some((technician) => technician.id === currentAssigneeId);
+  // The technician is a controlled value: when the server refreshes the list and the chosen
+  // technician is gone (switched off), the browser would silently show the first one. Then the
+  // choice is empty again ("Kies een technieker") and the server asks for a choice.
+  const [chosenAssignee, setChosenAssignee] = useState(currentAssigneeId ?? "");
+  const assignee = technicians.some((technician) => technician.id === chosenAssignee)
+    ? chosenAssignee
+    : "";
 
   useEffect(() => {
     pendingRef.current = pending;
@@ -163,12 +169,13 @@ function ResetForm({
         <NativeSelect
           id="reset-assignee"
           name="assigneeId"
-          defaultValue={currentIsChoosable ? (currentAssigneeId ?? "") : ""}
+          value={assignee}
+          onChange={(event) => setChosenAssignee(event.target.value)}
           aria-invalid={errors.assigneeId ? true : undefined}
           aria-describedby={describedBy(errors.assigneeId && "reset-assignee-error")}
           className="mt-1 h-11 md:h-10"
         >
-          {currentIsChoosable ? null : <option value="">{RESET_MESSAGES.chooseTechnician}</option>}
+          {assignee === "" ? <option value="">{RESET_MESSAGES.chooseTechnician}</option> : null}
           {technicians.map((technician) => (
             <option key={technician.id} value={technician.id}>
               {technician.fullName}

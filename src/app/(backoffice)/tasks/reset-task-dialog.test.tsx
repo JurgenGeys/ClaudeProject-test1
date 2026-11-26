@@ -65,6 +65,34 @@ describe("the dialog Terugzetten", () => {
     expect(within(select).getAllByRole("option")[0]).toHaveTextContent("Kies een technieker");
   });
 
+  it("shows 'Kies een technieker' when the chosen technician is gone from the refreshed list", async () => {
+    resetTask.mockResolvedValue({
+      ok: false,
+      fieldErrors: {
+        assigneeId: "Jens Maes is niet meer actief. Kies een andere technieker.",
+      },
+    });
+    const view = render(<ResetTaskDialog {...props} />);
+    fireEvent.click(screen.getByRole("button", { name: "Terugzetten" }));
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.change(within(dialog).getByLabelText("Technieker"), { target: { value: JENS } });
+    await submit(dialog);
+    await within(dialog).findByText(/Jens Maes is niet meer actief/);
+
+    // The server refreshed the page: Jens is no longer offered.
+    view.rerender(
+      <ResetTaskDialog {...props} technicians={[{ id: KEVIN, fullName: "Kevin Wouters" }]} />,
+    );
+    const select = within(screen.getByRole("dialog")).getByLabelText("Technieker");
+    expect(select).toHaveValue("");
+    expect(within(select).getAllByRole("option")[0]).toHaveTextContent("Kies een technieker");
+
+    // A second click asks for a choice again; it does not save Kevin unnoticed.
+    resetTask.mockClear();
+    await submit(screen.getByRole("dialog"));
+    expect((resetTask.mock.calls[0][1] as FormData).get("assigneeId")).toBe("");
+  });
+
   it("has tap targets of 44 px on a phone", async () => {
     const dialog = await openDialog();
     for (const element of [
