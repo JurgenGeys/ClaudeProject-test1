@@ -29,7 +29,7 @@ export default async function TaskDetailPage({
   if (!task) {
     notFound();
   }
-  const { saved, reset, invoiced } = await searchParams;
+  const { saved, reset, cancelled, invoiced } = await searchParams;
   // Only "Terugzetten" (Opgepikt) needs the choice list of technicians.
   const technicians = task.status === "picked_up" ? await listAssignableTechnicians() : [];
 
@@ -38,6 +38,7 @@ export default async function TaskDetailPage({
       task={task}
       saved={saved === "1"}
       reset={reset === "1"}
+      cancelled={cancelled === "1"}
       invoiced={invoiced === "marked" || invoiced === "unmarked" ? invoiced : null}
       technicians={technicians}
     />
