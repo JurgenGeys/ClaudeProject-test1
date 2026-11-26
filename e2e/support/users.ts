@@ -742,3 +742,67 @@ export async function invoiceTaskAsOffice(number: number, officeEmail: string): 
       .where(eq(tasks.number, number));
   });
 }
+
+/** What the database holds about the hours of a task (BT-15): the original, the correction and who made it. */
+export async function readTaskHours(number: number): Promise<{
+  status: string;
+  workedMinutes: number;
+  correctedMinutes: number | null;
+  correctionReason: string | null;
+  correctedByEmail: string | null;
+  updatedAt: Date;
+}> {
+  assertLocalSupabase(process.env);
+  return withDb(async (db) => {
+    const corrector = alias(profiles, "corrector");
+    const [row] = await db
+      .select({
+        status: tasks.status,
+        workedMinutes: taskCompletions.workedMinutes,
+        correctedMinutes: taskCompletions.correctedMinutes,
+        correctionReason: taskCompletions.correctionReason,
+        correctedByEmail: corrector.email,
+        updatedAt: tasks.updatedAt,
+      })
+      .from(tasks)
+      .innerJoin(taskCompletions, eq(taskCompletions.taskId, tasks.id))
+      .leftJoin(corrector, eq(corrector.id, taskCompletions.correctedBy))
+      .where(eq(tasks.number, number));
+    if (!row) {
+      throw new Error(`readTaskHours: no completed task ${number}`);
+    }
+    return row;
+  });
+}
+
+/**
+ * A colleague corrects the hours behind the back of an open page (BT-15): the correction is
+ * written and the task row is touched, so `updated_at` moves like it does for `correctHours`.
+ */
+export async function correctHoursAsOffice(
+  number: number,
+  officeEmail: string,
+  correctedMinutes: number,
+): Promise<void> {
+  assertLocalSupabase(process.env);
+  await withDb(async (db) => {
+    const [office] = await db
+      .select({ id: profiles.id })
+      .from(profiles)
+      .where(eq(profiles.email, officeEmail.toLowerCase()));
+    const [task] = await db.select({ id: tasks.id }).from(tasks).where(eq(tasks.number, number));
+    if (!office || !task) {
+      throw new Error("correctHoursAsOffice: backoffice user or task not found");
+    }
+    await db
+      .update(taskCompletions)
+      .set({
+        correctedMinutes,
+        correctionReason: "E2E-collega",
+        correctedBy: office.id,
+        correctedAt: new Date(),
+      })
+      .where(eq(taskCompletions.taskId, task.id));
+    await db.update(tasks).set({ updatedBy: office.id }).where(eq(tasks.id, task.id));
+  });
+}
