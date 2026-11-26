@@ -314,20 +314,23 @@ test.describe("a customer (B6)", () => {
     await page.getByRole("link", { name: "Nieuwe taak voor deze klant" }).click();
     await expect(page).toHaveURL(`/tasks/new?customer=${id}`);
     await expect(page.getByRole("heading", { level: 1, name: "Nieuwe taak" })).toBeVisible();
-    await page.locator('form[data-hydrated="true"]:visible').waitFor();
+    // The page of the customer stays in the document, hidden, while the task form is shown; its
+    // fields have the same labels, so look inside the visible form only.
+    const form = page.locator('form[data-hydrated="true"]:visible');
+    await form.waitFor();
 
     await expect(
       page.getByRole("region", { name: /^1\. Klant/ }).getByText(`${token} Bakkerij`),
     ).toBeVisible();
     await expect(page.getByRole("button", { name: "Andere klant kiezen" })).toBeVisible();
-    await expect(page.getByLabel("Straat en nummer")).toHaveValue("Gasthuisstraat 23");
-    await expect(page.getByLabel("Postcode")).toHaveValue("2300");
-    await expect(page.getByLabel("Gemeente")).toHaveValue("Turnhout");
+    await expect(form.getByLabel("Straat en nummer")).toHaveValue("Gasthuisstraat 23");
+    await expect(form.getByLabel("Postcode")).toHaveValue("2300");
+    await expect(form.getByLabel("Gemeente")).toHaveValue("Turnhout");
 
     await page.getByRole("radio", { name: "Nazicht" }).check();
-    await page.getByLabel("Instructies").fill("Nazicht koeling");
-    await page.getByLabel(/^Datum/).fill("2030-03-15");
-    await page.getByLabel(/^Startuur/).fill("09:00");
+    await form.getByLabel("Instructies").fill("Nazicht koeling");
+    await form.getByLabel(/^Datum/).fill("2030-03-15");
+    await form.getByLabel(/^Startuur/).fill("09:00");
     await page.getByRole("button", { name: "Taak bewaren" }).click();
     await expect(page).toHaveURL(/\/tasks\/\d+(\?saved=1)?$/);
 
