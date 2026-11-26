@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { unstable_rethrow, useRouter } from "next/navigation";
 import {
   startTransition,
   useActionState,
@@ -96,7 +96,10 @@ export function CompleteTaskForm({
           router.replace(`/my-tasks/${taskNumber}`);
         }
         return result;
-      } catch {
+      } catch (error) {
+        // A finished task redirects: Next lets the action promise fail with a redirect error.
+        // That is a success, not a connection problem.
+        unstable_rethrow(error);
         // No connection: nothing was sent that we know of. What he typed stays.
         return { ok: false, kind: "error", message: LOGIN_MESSAGES.technicalProblem };
       }

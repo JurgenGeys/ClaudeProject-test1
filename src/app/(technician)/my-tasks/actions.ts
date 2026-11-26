@@ -219,7 +219,9 @@ export async function completeTask(
     case "inactive":
       return refusedCompletion("error", LOGIN_MESSAGES.accountDisabled);
     case "refused":
-      // An active technician with valid hours is not refused for another reason.
+      // An active technician with valid hours is not refused for another reason. Only the
+      // reason is logged: no names, hours or notes.
+      console.error("Completing a task was refused:", outcome.reason);
       return refusedCompletion("error", LOGIN_MESSAGES.technicalProblem);
   }
 }

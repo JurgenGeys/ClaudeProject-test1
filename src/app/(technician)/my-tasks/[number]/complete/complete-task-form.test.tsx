@@ -7,7 +7,15 @@ const { completeTask, refresh, replace } = vi.hoisted(() => ({
   replace: vi.fn(),
 }));
 vi.mock("../../actions", () => ({ completeTask }));
-vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh, replace }) }));
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ refresh, replace }),
+  // Like Next: rethrows its own control-flow errors (a redirect), ignores any other error.
+  unstable_rethrow: (error: unknown) => {
+    if (error instanceof Error && error.message.startsWith("NEXT_REDIRECT")) {
+      throw error;
+    }
+  },
+}));
 
 import { CompleteTaskForm } from "./complete-task-form";
 
@@ -226,6 +234,27 @@ describe("T3: sending", () => {
     await waitFor(() => expect(submit()).toBeEnabled());
     await send();
     await waitFor(() => expect(replace).toHaveBeenCalledWith("/my-tasks/1042"));
+  });
+
+  it("a redirect after a finished task is no error message", async () => {
+    completeTask.mockRejectedValue(new Error("NEXT_REDIRECT"));
+    show();
+    await waitFor(() => expect(submit()).toBeEnabled());
+    fireEvent.click(screen.getByRole("button", { name: "1u00" }));
+    const rejections: unknown[] = [];
+    const onRejection = (event: PromiseRejectionEvent) => {
+      rejections.push(event.reason);
+      event.preventDefault();
+    };
+    window.addEventListener("unhandledrejection", onRejection);
+    try {
+      await send().catch(() => {});
+    } catch {
+      // The redirect error goes on to Next, which navigates.
+    }
+    expect(screen.queryByText(/Dat is niet gelukt/)).not.toBeInTheDocument();
+    expect(document.getElementById("complete-problem")).toBeNull();
+    window.removeEventListener("unhandledrejection", onRejection);
   });
 
   it("a connection problem keeps what was typed and says so", async () => {

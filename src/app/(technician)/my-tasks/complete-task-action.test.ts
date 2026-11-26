@@ -175,6 +175,13 @@ describe("completeTask: the transaction", () => {
     expect(await completeTask(null, valid())).toEqual({ ok: false, kind, message });
   });
 
+  it("logs only the reason of an unexpected refusal, nothing personal", async () => {
+    completeTaskInTransaction.mockResolvedValue({ kind: "refused", reason: "wrong_role" });
+    expect(await completeTask(null, valid())).toMatchObject({ ok: false, kind: "error" });
+    expect(consoleError).toHaveBeenCalledWith("Completing a task was refused:", "wrong_role");
+    expect(JSON.stringify(consoleError.mock.calls)).not.toContain("Filter vervangen");
+  });
+
   it("does not revalidate when the task is not his any more (the message must stay)", async () => {
     completeTaskInTransaction.mockResolvedValue({ kind: "not-assigned" });
     await completeTask(null, valid());
