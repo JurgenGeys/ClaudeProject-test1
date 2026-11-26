@@ -50,8 +50,8 @@ test.describe("sign in", () => {
       await expect(page).toHaveURL("/tasks");
     });
 
-    await test.step("a menu item whose page is not built yet shows the Dutch 404 page", async () => {
-      await page.getByRole("link", { name: "Klanten" }).click();
+    await test.step("an address that does not exist shows the Dutch 404 page", async () => {
+      await page.goto("/bestaat-niet");
       await expect(
         page.getByRole("heading", { level: 1, name: "Deze pagina bestaat (nog) niet" }),
       ).toBeVisible();

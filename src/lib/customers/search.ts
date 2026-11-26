@@ -22,9 +22,17 @@ export function escapeLike(text: string): string {
   return text.replace(/[\\%_]/g, (character) => `\\${character}`);
 }
 
-/** Every kind of white space in a text, for the comparison of phone numbers. */
+/**
+ * The white space that is ignored in phone numbers: space, tab, line breaks and the
+ * non-breaking space. `PHONE_SPACE_JS` and `PHONE_SPACE_SQL` list exactly the same characters,
+ * so the typed text and the stored number are normalized alike (a database test checks it).
+ */
+const PHONE_SPACE_JS = /[ \t\n\r\f\v\u00a0]+/g;
+const PHONE_SPACE_SQL = "[ \\t\\n\\r\\f\\v\\u00a0]";
+
+/** A text without the white space that phone numbers are compared without. */
 export function withoutSpaces(text: string): string {
-  return text.replace(/\s+/g, "");
+  return text.replace(PHONE_SPACE_JS, "");
 }
 
 /**
@@ -40,7 +48,7 @@ export function customerMatchCondition(text: string): SQL {
   const conditions = [ilike(customers.name, pattern), ilike(customers.city, pattern)];
   if (phoneTerm !== "") {
     conditions.push(
-      sql`regexp_replace(${customers.phone}, '[[:space:]]', '', 'g') ilike ${`%${escapeLike(phoneTerm)}%`}`,
+      sql`regexp_replace(${customers.phone}, ${sql.raw(`'${PHONE_SPACE_SQL}'`)}, '', 'g') ilike ${`%${escapeLike(phoneTerm)}%`}`,
     );
   }
   return or(...conditions) as SQL;

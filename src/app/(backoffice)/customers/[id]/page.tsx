@@ -2,13 +2,13 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { SavedNotice } from "@/components/saved-notice";
 import { Button } from "@/components/ui/button";
 import { checkRoleAccess } from "@/lib/auth/role-access";
 import { getCustomerDetail } from "@/lib/customers/list";
 import { CUSTOMER_ACTION_MESSAGES } from "@/lib/customers/messages";
 import { parseCustomerId } from "@/lib/validation/customer-list";
 
-import { SavedNotice } from "../../tasks/saved-notice";
 import { CustomerForm } from "../customer-form";
 
 import { CustomerTasks } from "./customer-tasks";
@@ -42,7 +42,9 @@ export default async function CustomerPage({ params, searchParams }: PageProps<"
       <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-semibold tracking-tight">{customer.name}</h1>
         <Button asChild variant="outline" className="h-11 px-4 md:h-10">
-          <Link href={`/tasks/new?customer=${customer.id}`}>+ Nieuwe taak voor deze klant</Link>
+          <Link href={`/tasks/new?customer=${customer.id}`}>
+            <span aria-hidden="true">+ </span>Nieuwe taak voor deze klant
+          </Link>
         </Button>
       </div>
       <p className="mt-1 text-sm text-muted-foreground">

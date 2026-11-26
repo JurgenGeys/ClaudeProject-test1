@@ -8,8 +8,8 @@ vi.mock("@/lib/auth/session", async (importOriginal) => ({
   requireRole: (...args: unknown[]) => requireRole(...args),
 }));
 vi.mock("@/lib/supabase/server", () => ({ createSupabaseServerClient: vi.fn() }));
-const db = { marker: "db" };
-vi.mock("@/db/client", () => ({ getDb: () => db }));
+const getDb = vi.fn();
+vi.mock("@/db/client", () => ({ getDb: () => getDb() }));
 
 import { AuthError } from "@/lib/auth/session";
 
@@ -50,12 +50,14 @@ describe("getCustomerForNewTask", () => {
     requireRole.mockRejectedValue(new AuthError("forbidden"));
     await expect(getCustomerForNewTask(ID)).rejects.toBeInstanceOf(AuthError);
     expect(requireRole).toHaveBeenCalledWith("backoffice");
+    expect(getDb).not.toHaveBeenCalled();
   });
 
   it.each([undefined, "", "abc", ["a", "b"], "1; drop table customers"])(
     "gives null for the parameter %j, without reading the database",
     async (value) => {
       expect(await getCustomerForNewTask(value)).toBeNull();
+      expect(getDb).not.toHaveBeenCalled();
     },
   );
 });

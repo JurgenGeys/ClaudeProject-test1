@@ -22,7 +22,10 @@ export type CustomerListRow = {
   phone: string | null;
   /** All tasks of the customer, cancelled ones included (as in B6). */
   taskCount: number;
-  /** The planned day of the latest task as `2026-11-24`, or `null` without tasks. */
+  /**
+   * The planned day of the latest task that was carried out (Afgewerkt or Gefactureerd) as
+   * `2026-11-24`, or `null` when there is none. Cancelled and not yet carried out tasks do not count.
+   */
   lastTaskDate: string | null;
 };
 
@@ -64,7 +67,9 @@ export async function queryCustomerList(
       city: customers.city,
       phone: customers.phone,
       taskCount: sql<number>`count(${tasks.id})::int`,
-      lastTaskDate: sql<string | null>`max(${tasks.scheduledDate})`,
+      lastTaskDate: sql<
+        string | null
+      >`max(${tasks.scheduledDate}) filter (where ${tasks.status} in ('completed', 'invoiced'))`,
     })
     .from(customers)
     .leftJoin(tasks, eq(tasks.customerId, customers.id))

@@ -82,6 +82,7 @@ test.describe("the customer list (B5)", () => {
       phone: "0485 33 19 08",
     });
     await createTasksWithStatus(technician.email, BACKOFFICE.email, bakkerij, [
+      { status: "completed", scheduledDate: "2029-09-04" },
       { status: "assigned", scheduledDate: "2030-03-15" },
       { status: "cancelled", scheduledDate: "2030-05-02" },
     ]);
@@ -98,11 +99,15 @@ test.describe("the customer list (B5)", () => {
     });
 
     await test.step("the line shows the address, the phone number and the tasks", async () => {
-      // On a laptop a table row, on a phone a card: both show the same facts as text.
-      await expect(page.getByText("Gasthuisstraat 23, 2300 Turnhout").first()).toBeVisible();
-      await expect(page.getByText("014 41 22 87").first()).toBeVisible();
-      // Two tasks (a cancelled one counts), the latest planned on 02/05/2030.
-      await expect(page.getByText(/02\/05\/2030/).first()).toBeVisible();
+      // On a laptop a table row, on a phone a card: both show the same facts as text, and only
+      // one of them is visible.
+      await expect(
+        page.locator("text=Gasthuisstraat 23, 2300 Turnhout >> visible=true"),
+      ).toBeVisible();
+      await expect(page.locator("text=014 41 22 87 >> visible=true")).toBeVisible();
+      // Three tasks, but "last task" is the latest one that was carried out (the completed one).
+      await expect(page.locator("text=/04\\/09\\/2029/ >> visible=true")).toBeVisible();
+      await expect(page.locator("text=/(15\\/03|02\\/05)\\/2030/ >> visible=true")).toHaveCount(0);
     });
 
     await test.step("the phone number is found without the spaces", async () => {
@@ -306,12 +311,14 @@ test.describe("a customer (B6)", () => {
     });
     await signInAsBackoffice(page);
     await page.goto(`/customers/${id}`);
-    await page.getByRole("link", { name: "+ Nieuwe taak voor deze klant" }).click();
+    await page.getByRole("link", { name: "Nieuwe taak voor deze klant" }).click();
     await expect(page).toHaveURL(`/tasks/new?customer=${id}`);
     await expect(page.getByRole("heading", { level: 1, name: "Nieuwe taak" })).toBeVisible();
     await page.locator('form[data-hydrated="true"]:visible').waitFor();
 
-    await expect(page.getByText(`${token} Bakkerij`)).toBeVisible();
+    await expect(
+      page.getByRole("region", { name: /^1\. Klant/ }).getByText(`${token} Bakkerij`),
+    ).toBeVisible();
     await expect(page.getByRole("button", { name: "Andere klant kiezen" })).toBeVisible();
     await expect(page.getByLabel("Straat en nummer")).toHaveValue("Gasthuisstraat 23");
     await expect(page.getByLabel("Postcode")).toHaveValue("2300");

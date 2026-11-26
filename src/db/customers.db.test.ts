@@ -87,22 +87,25 @@ async function createTask(
   spec: {
     date: string;
     time?: string;
-    status?: "open" | "assigned" | "cancelled";
+    status?: "open" | "assigned" | "picked_up" | "completed" | "invoiced" | "cancelled";
     assignee?: string;
     instructions?: string;
   },
 ): Promise<number> {
   const status = spec.status ?? "open";
   const stamp = "2026-11-23T07:48:00Z";
+  const pickedUp = ["picked_up", "completed", "invoiced"].includes(status);
   const [task] = await tx.execute<{ number: number }>(sql`
     insert into public.tasks (
       customer_id, location_street, location_postal_code, location_city, work_type, instructions,
-      scheduled_date, start_time, assignee_id, status, cancelled_at, cancelled_by,
-      created_by, updated_by
+      scheduled_date, start_time, assignee_id, status, picked_up_at, cancelled_at, cancelled_by,
+      invoiced_at, invoiced_by, created_by, updated_by
     ) values (
       ${customerId}, 'Straat 1', '9000', 'Gent', 'repair', ${spec.instructions ?? "Herstellen"},
       ${spec.date}, ${spec.time ?? "09:00"}, ${spec.assignee ?? null}, ${status},
-      ${status === "cancelled" ? stamp : null}, ${status === "cancelled" ? office : null},
+      ${pickedUp ? stamp : null}, ${status === "cancelled" ? stamp : null},
+      ${status === "cancelled" ? office : null}, ${status === "invoiced" ? stamp : null},
+      ${status === "invoiced" ? office : null},
       ${office}, ${office}
     ) returning number
   `);
@@ -134,6 +137,18 @@ describe("searching customers by phone number (BT-08 follow-up)", () => {
       expect(await ids("0485 33 19 08")).toEqual([plain]);
       expect(await ids("485331")).toEqual([plain]);
       expect(await ids("0144 13")).toEqual([]);
+    });
+  });
+
+  it("ignores a non-breaking space and other white space in the stored number and in the text", async () => {
+    await inRolledBackTransaction(async (tx) => {
+      const office = await createProfile(tx, "Sofie Peeters");
+      const id = await insertCustomer(tx, office, customerData({ phone: "014\u00a041\t22 87" }));
+      const ids = async (text: string) =>
+        (await findCustomers(asDb(tx), text)).map((customer) => customer.id);
+      expect(await ids("014412287")).toEqual([id]);
+      expect(await ids("014\u00a041 22")).toEqual([id]);
+      expect(await ids("0144\t12")).toEqual([id]);
     });
   });
 
@@ -180,22 +195,42 @@ describe("searching customers by phone number (BT-08 follow-up)", () => {
 });
 
 describe("the customer list (B5)", () => {
-  it("counts the tasks (cancelled ones too) and gives the day of the latest one", async () => {
+  it("counts every task, and gives the day of the latest task that was carried out", async () => {
     await inRolledBackTransaction(async (tx) => {
       const office = await createProfile(tx, "Sofie Peeters");
+      const kevin = await createProfile(tx, "Kevin Wouters", "technician");
       const busy = await insertCustomer(tx, office, customerData({ name: `${TOKEN} Druk` }));
+      const planned = await insertCustomer(tx, office, customerData({ name: `${TOKEN} Gepland` }));
       const quiet = await insertCustomer(tx, office, customerData({ name: `${TOKEN} Rustig` }));
-      await createTask(tx, office, busy, { date: "2026-11-20" });
+      await createTask(tx, office, busy, {
+        date: "2026-10-01",
+        status: "invoiced",
+        assignee: kevin,
+      });
+      await createTask(tx, office, busy, {
+        date: "2026-11-20",
+        status: "completed",
+        assignee: kevin,
+      });
+      // These do not count as "carried out": later cancelled, planned, open or still busy.
       await createTask(tx, office, busy, { date: "2026-12-05", status: "cancelled" });
-      await createTask(tx, office, busy, { date: "2026-10-01" });
+      await createTask(tx, office, busy, { date: "2027-01-10" });
+      await createTask(tx, office, busy, {
+        date: "2026-11-25",
+        status: "picked_up",
+        assignee: kevin,
+      });
+      await createTask(tx, office, planned, { date: "2026-12-05", status: "cancelled" });
+      await createTask(tx, office, planned, { date: "2027-01-10" });
 
       const list = await queryCustomerList(asDb(tx), { q: TOKEN, page: 1 });
       expect(list.rows.map((row) => [row.name, row.taskCount, row.lastTaskDate])).toEqual([
-        [`${TOKEN} Druk`, 3, "2026-12-05"],
+        [`${TOKEN} Druk`, 5, "2026-11-20"],
+        [`${TOKEN} Gepland`, 2, null],
         [`${TOKEN} Rustig`, 0, null],
       ]);
-      expect(list.rows.map((row) => row.id)).toEqual([busy, quiet]);
-      expect(list.total).toBe(2);
+      expect(list.rows.map((row) => row.id)).toEqual([busy, planned, quiet]);
+      expect(list.total).toBe(3);
       expect(list.pageCount).toBe(1);
       expect(list.hasAnyCustomer).toBe(true);
     });

@@ -119,7 +119,8 @@ describe("the customers page (B5)", () => {
     const row = within(screen.getByRole("table", { name: "Klanten" })).getByRole("row", {
       name: /Fam. Hermans/,
     });
-    expect(within(row).getAllByText("onbekend")).toHaveLength(3);
+    expect(within(row).getAllByText("onbekend")).toHaveLength(2);
+    expect(within(row).getByText("Nog geen")).toBeInTheDocument();
   });
 
   it("also has a list of cards for a phone", async () => {
@@ -127,7 +128,7 @@ describe("the customers page (B5)", () => {
     const cards = screen.getByRole("list", { name: "Klanten" });
     const card = within(cards).getByRole("link", { name: /Bakkerij De Gouden Korst/ });
     expect(card).toHaveAttribute("href", "/customers/c1");
-    expect(card).toHaveTextContent("5 taken · laatste ma 23/11/2026");
+    expect(card).toHaveTextContent("5 taken · laatste uitgevoerd ma 23/11/2026");
     expect(within(cards).getByRole("link", { name: /Fam. Hermans/ })).toHaveTextContent("1 taak");
   });
 

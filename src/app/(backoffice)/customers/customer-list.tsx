@@ -76,7 +76,11 @@ export function CustomerList({ rows }: { rows: CustomerListRow[] }) {
                 <TableCell className="whitespace-nowrap">{row.phone ?? <Unknown />}</TableCell>
                 <TableCell className="text-right tabular-nums">{row.taskCount}</TableCell>
                 <TableCell className="whitespace-nowrap">
-                  {row.lastTaskDate ? formatDate(row.lastTaskDate) : <Unknown />}
+                  {row.lastTaskDate ? (
+                    formatDate(row.lastTaskDate)
+                  ) : (
+                    <span className="text-muted-foreground">Nog geen</span>
+                  )}
                 </TableCell>
               </TableRow>
             ))}
@@ -88,24 +92,25 @@ export function CustomerList({ rows }: { rows: CustomerListRow[] }) {
         aria-label="Klanten"
         className="divide-y divide-border rounded-lg border border-border bg-card md:hidden"
       >
-        {rows.map((row) => (
-          <li key={row.id}>
-            <Link
-              href={customerHref(row)}
-              className="grid gap-1 px-4 py-3 outline-none hover:bg-muted/50 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:ring-inset"
-            >
-              <span className="font-medium">{row.name}</span>
-              {formatAddress(row) ? (
-                <span className="text-sm text-muted-foreground">{formatAddress(row)}</span>
-              ) : null}
-              {row.phone ? <span className="text-sm">{row.phone}</span> : null}
-              <span className="text-sm text-muted-foreground">
-                {row.taskCount === 1 ? "1 taak" : `${row.taskCount} taken`}
-                {row.lastTaskDate ? ` · laatste ${formatDate(row.lastTaskDate)}` : ""}
-              </span>
-            </Link>
-          </li>
-        ))}
+        {rows.map((row) => {
+          const address = formatAddress(row);
+          return (
+            <li key={row.id}>
+              <Link
+                href={customerHref(row)}
+                className="grid gap-1 px-4 py-3 outline-none hover:bg-muted/50 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:ring-inset"
+              >
+                <span className="font-medium">{row.name}</span>
+                {address ? <span className="text-sm text-muted-foreground">{address}</span> : null}
+                {row.phone ? <span className="text-sm">{row.phone}</span> : null}
+                <span className="text-sm text-muted-foreground">
+                  {row.taskCount === 1 ? "1 taak" : `${row.taskCount} taken`}
+                  {row.lastTaskDate ? ` · laatste uitgevoerd ${formatDate(row.lastTaskDate)}` : ""}
+                </span>
+              </Link>
+            </li>
+          );
+        })}
       </ul>
     </div>
   );

@@ -86,7 +86,7 @@ describe("the customer page (B6)", () => {
 
   it("links to a new task for this customer", async () => {
     render(await page(ID));
-    expect(screen.getByRole("link", { name: "+ Nieuwe taak voor deze klant" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Nieuwe taak voor deze klant" })).toHaveAttribute(
       "href",
       `/tasks/new?customer=${ID}`,
     );

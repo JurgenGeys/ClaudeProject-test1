@@ -19,6 +19,7 @@ describe("escapeLike", () => {
 describe("withoutSpaces", () => {
   it("removes every kind of white space, inside and around the text", () => {
     expect(withoutSpaces(" 014 41\u00a022\t87 ")).toBe("014412287");
+    expect(withoutSpaces("014\n41\r22\f87\v")).toBe("014412287");
     expect(withoutSpaces("014412287")).toBe("014412287");
     expect(withoutSpaces("   ")).toBe("");
   });
@@ -31,7 +32,7 @@ describe("customerMatchCondition", () => {
   it("compares the phone number without spaces on both sides", () => {
     const { sql, params } = render("014 41 22");
     expect(sql).toContain("regexp_replace");
-    expect(sql).toContain("[[:space:]]");
+    expect(sql).toContain("'[ \\t\\n\\r\\f\\v\\u00a0]'");
     // The name and the city keep the spaces that were typed; the phone number does not.
     expect(params).toEqual(["%014 41 22%", "%014 41 22%", "%0144122%"]);
   });
