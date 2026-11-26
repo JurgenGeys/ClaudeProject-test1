@@ -26,7 +26,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
 import { Textarea } from "@/components/ui/textarea";
-import { MAX_CORRECTED_MINUTES } from "@/lib/tasks/limits";
+import { CORRECTION_REASON_MAX_LENGTH, MAX_CORRECTED_MINUTES } from "@/lib/tasks/limits";
 import { CORRECT_HOURS_MESSAGES, TASK_ACTION_MESSAGES } from "@/lib/tasks/messages";
 import { formatHours, QUARTER_MINUTES } from "@/lib/time/format";
 
@@ -116,6 +116,8 @@ function CorrectForm({
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const data = new FormData(event.currentTarget);
+    // Already now, not after the next render: the dialog must not close while the answer is on its way.
+    pendingRef.current = true;
     startTransition(() => dispatch(data));
   }
 
@@ -199,6 +201,7 @@ function CorrectForm({
           id="correct-reason"
           ref={reasonRef}
           name="reason"
+          maxLength={CORRECTION_REASON_MAX_LENGTH}
           rows={3}
           placeholder={CORRECT_HOURS_MESSAGES.reasonPlaceholder}
           aria-invalid={errors.reason ? true : undefined}

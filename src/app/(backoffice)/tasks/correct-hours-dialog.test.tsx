@@ -144,6 +144,21 @@ describe("the dialog Uren corrigeren", () => {
     expect(within(await screen.findByRole("dialog")).getByLabelText(/Reden/)).toHaveValue("");
   });
 
+  it("limits the reason to 500 characters in the field", async () => {
+    const dialog = await openDialog();
+    expect(within(dialog).getByLabelText(/Reden/)).toHaveAttribute("maxlength", "500");
+  });
+
+  it("does not close on Escape while the answer is on its way", async () => {
+    let answer!: (value: null) => void;
+    correctHours.mockReturnValue(new Promise((resolve) => (answer = resolve)));
+    const dialog = await openDialog();
+    await submit(dialog);
+    fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    await act(async () => answer(null));
+  });
+
   it("closes with Escape", async () => {
     await openDialog();
     fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });

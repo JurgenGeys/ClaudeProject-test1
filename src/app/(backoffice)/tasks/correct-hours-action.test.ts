@@ -204,6 +204,9 @@ describe("correctHours: what the transaction refuses", () => {
   it("answers a refusal of the actor with a technical problem", async () => {
     correctHoursInTransaction.mockResolvedValue({ kind: "refused", reason: "wrong_role" });
     expect((await run()).result).toMatchObject({ ok: false, fieldErrors: {} });
+    // Only the reason is logged, not the form (the reason of the correction is free text).
+    expect(consoleError).toHaveBeenCalledWith("Correcting hours was refused:", "wrong_role");
+    expect(JSON.stringify(consoleError.mock.calls)).not.toContain("Pauze niet afgetrokken");
   });
 
   it("answers a failing transaction with a technical problem, and logs only the kind of error", async () => {

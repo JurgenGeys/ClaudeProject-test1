@@ -365,7 +365,9 @@ export async function correctHours(
     case "changed":
       return { ok: false, fieldErrors: {}, formError: TASK_ACTION_MESSAGES.changed, reload: true };
     case "refused":
-      // The actor is a signed-in, active backoffice user and the input was validated: not expected.
+      // The actor is a signed-in, active backoffice user and the input was validated: not
+      // expected. Log only the reason (a code), never form data.
+      console.error("Correcting hours was refused:", outcome.reason);
       return { ok: false, fieldErrors: {}, formError: LOGIN_MESSAGES.technicalProblem };
   }
 
