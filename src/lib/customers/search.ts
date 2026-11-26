@@ -1,6 +1,6 @@
 import "server-only";
 
-import { asc, ilike, or, sql } from "drizzle-orm";
+import { asc, ilike, or, sql, type SQL } from "drizzle-orm";
 
 import type { Database } from "@/db/client";
 import { customers } from "@/db/schema";
@@ -23,6 +23,38 @@ export function escapeLike(text: string): string {
 }
 
 /**
+ * The white space that is ignored in phone numbers: space, tab, line breaks and the
+ * non-breaking space. `PHONE_SPACE_JS` and `PHONE_SPACE_SQL` list exactly the same characters,
+ * so the typed text and the stored number are normalized alike (a database test checks it).
+ */
+const PHONE_SPACE_JS = /[ \t\n\r\f\v\u00a0]+/g;
+const PHONE_SPACE_SQL = "[ \\t\\n\\r\\f\\v\\u00a0]";
+
+/** A text without the white space that phone numbers are compared without. */
+export function withoutSpaces(text: string): string {
+  return text.replace(PHONE_SPACE_JS, "");
+}
+
+/**
+ * The condition "this customer matches the typed text" of the picker (B2) and the list (B5):
+ * the name or the city contains the text (any case), or the phone number does. A phone number is
+ * compared without spaces on both sides, so `014412287` finds `014 41 22 87` and `014 41`
+ * finds `014412287`. The text is a plain value in the query; `%` and `_` are taken literally.
+ */
+export function customerMatchCondition(text: string): SQL {
+  const term = text.trim();
+  const pattern = `%${escapeLike(term)}%`;
+  const phoneTerm = withoutSpaces(term);
+  const conditions = [ilike(customers.name, pattern), ilike(customers.city, pattern)];
+  if (phoneTerm !== "") {
+    conditions.push(
+      sql`regexp_replace(${customers.phone}, ${sql.raw(`'${PHONE_SPACE_SQL}'`)}, '', 'g') ilike ${`%${escapeLike(phoneTerm)}%`}`,
+    );
+  }
+  return or(...conditions) as SQL;
+}
+
+/**
  * Customers whose name, phone number or city contains the text (any case), sorted by name, at
  * most `CUSTOMER_SEARCH_LIMIT` (design B2). Returns nothing for a text that is too short.
  * Exported with the database as a parameter for the database test; the Server Action adds the
@@ -33,7 +65,6 @@ export async function findCustomers(db: Pick<Database, "select">, text: string) 
   if (term.length < CUSTOMER_SEARCH_MIN_LENGTH) {
     return [];
   }
-  const pattern = `%${escapeLike(term)}%`;
   return db
     .select({
       id: customers.id,
@@ -44,13 +75,7 @@ export async function findCustomers(db: Pick<Database, "select">, text: string) 
       phone: customers.phone,
     })
     .from(customers)
-    .where(
-      or(
-        ilike(customers.name, pattern),
-        ilike(customers.phone, pattern),
-        ilike(customers.city, pattern),
-      ),
-    )
+    .where(customerMatchCondition(term))
     .orderBy(asc(sql`lower(${customers.name})`), asc(customers.id))
     .limit(CUSTOMER_SEARCH_LIMIT);
 }
