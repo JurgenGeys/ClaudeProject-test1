@@ -103,6 +103,13 @@ describe("contrast of the design tokens (WCAG 2.2 AA)", () => {
     );
   });
 
+  it("the text of the status tabs (foreground at 80%) is at least 4.5 : 1 on the muted background", () => {
+    const muted = token("--muted");
+    expect(contrast(over(token("--foreground"), 0.8, muted), muted)).toBeGreaterThanOrEqual(4.5);
+    // The reason for the choice: muted text on the muted background is below 4.5 : 1.
+    expect(contrast(token("--muted-foreground"), muted)).toBeLessThan(4.5);
+  });
+
   it("the button text is at least 4.5 : 1 on the primary color", () => {
     expect(contrast(token("--primary-foreground"), token("--primary"))).toBeGreaterThanOrEqual(4.5);
   });

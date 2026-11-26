@@ -203,6 +203,12 @@ De link in de mail bepaalt welke tekst getoond wordt.
 - **Tab Afgewerkt** (facturatie): extra kolom met selectievakjes en een vak "Alles selecteren". Zodra iets geselecteerd is, verschijnt een balk: "3 taken geselecteerd — **Markeer als gefactureerd**". Bevestiging: "3 taken markeren als gefactureerd? De uren kunnen daarna niet meer gewijzigd worden." Ook hier staan taaknummer en soort werk in elke rij.
 - **Acties**: rij aanklikken → B3; Nieuwe taak → B2; Exporteren → B4; markeren als gefactureerd.
 - **Lege toestand**: zonder taken: "Er zijn nog geen taken. Maak je eerste taak aan." + knop **Nieuwe taak**. Met filter zonder resultaat: "Geen taken gevonden voor deze filter." + knop "Filters wissen". Tab Geannuleerd leeg: "Er zijn geen geannuleerde taken."
+- **Zoals gebouwd (BT-09)**: `/tasks`, met alles in de URL: `?status=` (tab; zonder = Actief), `?technician=<id>`, `?from=` en `?to=` (geplande datum, grenzen inbegrepen) en `?page=`. Elke parameter wordt apart met Zod gevalideerd; een ongeldige waarde (of een onbekend technieker-id) wordt genegeerd alsof ze er niet stond. De aantallen op de tabs volgen het technieker- en periodefilter. De gebruiker stuurt het filterformulier met de knop **Filteren**; "Filters wissen" behoudt de tab.
+  - **Taak-URL (beslist door Jurgen, 25/11/2026)**: een rij linkt naar `/tasks/<taaknummer>` (nummer, klantnaam en op gsm de hele kaart), niet naar een uuid. B3 komt in BT-10; tot dan geeft die link een 404.
+  - **Paginering (beslist door Jurgen, 25/11/2026)**: 50 taken per pagina, met **Vorige** en **Volgende** onder de lijst (gewone links die alle filters behouden). Het aantal op de tab blijft het totaal. Een ongeldige pagina geeft pagina 1, een te hoge pagina de laatste. Een andere tab start weer op pagina 1.
+  - **Einddatum voor de begindatum (beslist door Jurgen, 25/11/2026)**: bij het veld "Tot en met" staat "De einddatum ligt vóór de begindatum." (`aria-invalid`, `aria-describedby`). Zo'n onmogelijke periode wordt niet toegepast: de lijst en de aantallen tonen de taken zonder periodefilter, en de ingevulde datums blijven in het formulier staan.
+  - **"Te laat" (beslist door Jurgen, 25/11/2026)**: het label "Te laat" uit de mockup komt **niet** in B1; het bestaat enkel in T1 (Mijn taken).
+  - Zolang er geen taken zijn, staat enkel in het lege vak een knop **Nieuwe taak** (niet ook in de kop). De knoppen **Exporteren** en de selectie voor "Markeer als gefactureerd" volgen in BT-16 en BT-17.
 - **Rechten**: enkel backoffice.
 
 ### B2 Taak aanmaken / bewerken (backoffice)
@@ -510,8 +516,8 @@ src/
       layout.tsx                   # requireRole('backoffice'); menubalk
       tasks/page.tsx               # B1 (filters via searchParams, ?status=cancelled)
       tasks/new/page.tsx           # B2
-      tasks/[id]/page.tsx          # B3
-      tasks/[id]/edit/page.tsx     # B2 in bewerkmodus
+      tasks/[number]/page.tsx      # B3 (het taaknummer in de URL: /tasks/1042)
+      tasks/[number]/edit/page.tsx # B2 in bewerkmodus
       tasks/export/page.tsx        # B4 (formulier)
       tasks/export/download/route.ts   # GET: levert het CSV-bestand
       tasks/actions.ts             # createTask (BT-08), updateTask, cancelTask, resetTask, correctHours, markInvoiced, unmarkInvoiced
