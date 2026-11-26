@@ -16,11 +16,17 @@ import {
 
 import { countsPerTab, type TabCounts } from "./overview-counts";
 import { taskStatuses, type TaskStatus, type WorkType } from "./types";
+import { taskVersion } from "./version";
 
 /** One line of the task overview (design B1). */
 export type TaskOverviewRow = {
   id: string;
   number: number;
+  /**
+   * `updated_at` as a version (`2026-11-25T18:44:00.123456Z`). The selection for "Markeer als
+   * gefactureerd" sends it back, so a task that changed meanwhile is not marked blindly.
+   */
+  version: string;
   /** Planned day as `2026-11-24` and start time as `14:00:00` (Belgian wall clock, A22). */
   scheduledDate: string;
   startTime: string;
@@ -155,6 +161,7 @@ export async function queryTaskOverview(
     .select({
       id: tasks.id,
       number: tasks.number,
+      version: taskVersion,
       scheduledDate: tasks.scheduledDate,
       startTime: tasks.startTime,
       customerName: customers.name,

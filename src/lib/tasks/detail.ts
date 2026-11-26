@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 
 import { getDb, type Database } from "@/db/client";
@@ -8,6 +8,7 @@ import { customers, profiles, taskCompletions, tasks } from "@/db/schema";
 import { requireRole } from "@/lib/auth/session";
 
 import type { TaskStatus, WorkType } from "./types";
+import { taskVersion } from "./version";
 
 /** The hours report of a task from Afgewerkt on (design B3, block "Afmelding"). */
 export type TaskDetailCompletion = {
@@ -84,9 +85,7 @@ export async function queryTaskDetail(
       id: tasks.id,
       number: tasks.number,
       status: tasks.status,
-      // An explicit UTC format with microseconds: `updated_at::text` would follow the DateStyle and
-      // TimeZone of the session. `to_char` does not, and `...Z` is read back exactly.
-      version: sql<string>`to_char(${tasks.updatedAt} at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`,
+      version: taskVersion,
       workType: tasks.workType,
       instructions: tasks.instructions,
       scheduledDate: tasks.scheduledDate,
