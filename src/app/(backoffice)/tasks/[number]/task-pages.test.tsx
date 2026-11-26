@@ -14,7 +14,8 @@ const { checkRoleAccess, getTaskDetail, listAssignableTechnicians, notFound } = 
 vi.mock("@/lib/auth/role-access", () => ({ checkRoleAccess }));
 vi.mock("@/lib/tasks/detail", () => ({ getTaskDetail }));
 vi.mock("@/lib/technicians/queries", () => ({ listAssignableTechnicians }));
-vi.mock("next/navigation", () => ({ notFound }));
+vi.mock("next/navigation", () => ({ notFound, useSearchParams: () => null }));
+vi.mock("../invoice-actions", () => ({ markInvoiced: vi.fn(), unmarkInvoiced: vi.fn() }));
 vi.mock("../actions", () => ({ createTask: vi.fn(), updateTask: vi.fn() }));
 vi.mock("../../customers/actions", () => ({ searchCustomers: vi.fn() }));
 

@@ -1,6 +1,7 @@
 import { Plus } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
+import type { ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
 import { checkRoleAccess } from "@/lib/auth/role-access";
@@ -9,15 +10,30 @@ import { hasExtraFilters, taskOverviewHref } from "@/lib/validation/task-overvie
 
 import { StatusTabs } from "./status-tabs";
 import { TaskFilters } from "./task-filters";
+import { InvoicingNoticeProvider } from "./invoicing-notice";
+import { SelectableTaskList } from "./selectable-task-list";
 import { TaskList } from "./task-list";
 import { TaskPagination } from "./task-pagination";
 
 export const metadata: Metadata = { title: "Taken" };
 
 /**
+ * The area under the heading. On the tab Afgewerkt it sits in the provider of the message "N taken
+ * gemarkeerd als gefactureerd" (client state, see `InvoicingNoticeProvider`); the other tabs have
+ * nothing to mark and render the content as it is.
+ */
+function ListArea({ selectable, children }: { selectable: boolean; children: ReactNode }) {
+  return selectable ? (
+    <InvoicingNoticeProvider>{children}</InvoicingNoticeProvider>
+  ) : (
+    <>{children}</>
+  );
+}
+
+/**
  * The task overview (B1): status tabs with counts, filters on technician and period (all in the
- * URL), and the tasks as a table or, on a phone, as cards. "Exporteren" and the selection for
- * "Markeer als gefactureerd" follow in BT-16 and BT-17.
+ * URL), and the tasks as a table or, on a phone, as cards. On the tab Afgewerkt the rows have
+ * checkboxes for "Markeer als gefactureerd" (BT-17). "Exporteren" follows in BT-16.
  */
 export default async function TasksPage({ searchParams }: PageProps<"/tasks">) {
   // Every page checks the role itself (ADR-0002, rule 3); the layout only handles the display.
@@ -31,6 +47,10 @@ export default async function TasksPage({ searchParams }: PageProps<"/tasks">) {
     await getTaskOverview(params);
   // Cancelled has its own message when nothing else narrows the list down.
   const noCancelledTasks = filters.tab === "cancelled" && !hasExtraFilters(filters);
+
+  const pagination = (
+    <TaskPagination filters={filters} pageCount={pageCount} total={counts[filters.tab]} />
+  );
 
   const newTaskButton = (
     <Button asChild className="h-11 px-4 md:h-10">
@@ -58,7 +78,7 @@ export default async function TasksPage({ searchParams }: PageProps<"/tasks">) {
           <div className="mt-4 flex justify-center">{newTaskButton}</div>
         </div>
       ) : (
-        <>
+        <ListArea key={taskOverviewHref(filters)} selectable={filters.tab === "completed"}>
           <StatusTabs filters={filters} counts={counts} />
           <TaskFilters
             filters={filters}
@@ -85,11 +105,17 @@ export default async function TasksPage({ searchParams }: PageProps<"/tasks">) {
             </div>
           ) : (
             <>
-              <TaskList rows={rows} />
-              <TaskPagination filters={filters} pageCount={pageCount} total={counts[filters.tab]} />
+              {filters.tab === "completed" ? (
+                <SelectableTaskList rows={rows}>{pagination}</SelectableTaskList>
+              ) : (
+                <>
+                  <TaskList rows={rows} />
+                  {pagination}
+                </>
+              )}
             </>
           )}
-        </>
+        </ListArea>
       )}
     </>
   );

@@ -8,10 +8,13 @@ import type { TaskDetail } from "@/lib/tasks/detail";
 import { formatTaskNumber, workTypeLabel } from "@/lib/tasks/labels";
 import { buildTimeline, formatMoment, type TimelineItem } from "@/lib/tasks/timeline";
 import { canEditTask } from "@/lib/tasks/transitions";
+import { INVOICE_MESSAGES } from "@/lib/tasks/invoice-messages";
 import { formatDate, formatHours, formatTimeOfDay } from "@/lib/time/format";
 import { cn } from "@/lib/utils";
 
+import { InvoicedNotice } from "./invoiced-notice";
 import { SavedNotice } from "./saved-notice";
+import { TaskInvoiceActions } from "./task-invoice-actions";
 
 const CARD = "rounded-lg border border-border bg-card p-5";
 
@@ -74,13 +77,20 @@ function Completion({ task, now }: { task: TaskDetail; now: Date }) {
     return null;
   }
   const corrected = completion.correctedMinutes !== null;
+  const invoiced = task.status === "invoiced";
   return (
-    <Block id="heading-completion" title="Afmelding" className="border-green-200">
+    <Block
+      id="heading-completion"
+      title="Afmelding"
+      className={invoiced ? "border-violet-200" : "border-green-200"}
+    >
       <div className="mt-2 flex flex-wrap items-baseline gap-x-3">
         <p className="text-3xl font-semibold">
           {formatHours(completion.correctedMinutes ?? completion.workedMinutes)}
         </p>
-        <p className="text-sm text-muted-foreground">gewerkte uren, zonder verplaatsing</p>
+        <p className="text-sm text-muted-foreground">
+          {invoiced ? INVOICE_MESSAGES.lockedHours : "gewerkte uren, zonder verplaatsing"}
+        </p>
       </div>
       {corrected && completion.correctedAt ? (
         <div className="mt-3 rounded-md border border-border bg-muted/50 p-3 text-sm">
@@ -106,6 +116,9 @@ function Completion({ task, now }: { task: TaskDetail; now: Date }) {
       ) : (
         <p className="mt-1 text-muted-foreground italic">Geen notities.</p>
       )}
+      {invoiced ? (
+        <p className="mt-3 text-sm text-muted-foreground">{INVOICE_MESSAGES.lockedHoursHint}</p>
+      ) : null}
       <p className="mt-3 text-sm text-muted-foreground">
         Afgemeld door {completion.completedByName} op {formatMoment(completion.completedAt, now)}.
       </p>
@@ -130,6 +143,7 @@ export function TaskDetailView({ task, saved = false }: { task: TaskDetail; save
   return (
     <>
       {saved ? <SavedNotice>{`Taak ${number} bewaard.`}</SavedNotice> : null}
+      <InvoicedNotice />
       <Link href="/tasks" className="text-sm underline-offset-4 hover:underline">
         ← Taken
       </Link>
@@ -149,11 +163,14 @@ export function TaskDetailView({ task, saved = false }: { task: TaskDetail; save
             {task.assignee ? ` · ${task.assignee.fullName}` : ""}
           </p>
         </div>
-        {editable ? (
-          <Button asChild className="h-11 px-4 md:h-10">
-            <Link href={`/tasks/${task.number}/edit`}>Bewerken</Link>
-          </Button>
-        ) : null}
+        <div className="flex flex-wrap gap-2">
+          {editable ? (
+            <Button asChild className="h-11 px-4 md:h-10">
+              <Link href={`/tasks/${task.number}/edit`}>Bewerken</Link>
+            </Button>
+          ) : null}
+          <TaskInvoiceActions number={task.number} version={task.version} status={task.status} />
+        </div>
       </div>
 
       {task.status === "cancelled" && task.cancelledAt ? (

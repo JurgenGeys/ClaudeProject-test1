@@ -25,6 +25,7 @@ function row(overrides: Partial<TaskOverviewRow> = {}): TaskOverviewRow {
   return {
     id: "t1",
     number: 1042,
+    version: "2026-11-23T08:00:00.123456Z",
     scheduledDate: "2026-11-23",
     startTime: "08:00:00",
     customerName: "Bakkerij De Gouden Korst",
