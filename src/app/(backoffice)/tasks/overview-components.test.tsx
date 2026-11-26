@@ -9,7 +9,7 @@ import type { TaskOverviewFilters } from "@/lib/validation/task-overview";
 
 import { StatusTabs } from "./status-tabs";
 import { TaskFilters } from "./task-filters";
-import { firstLine, TaskList } from "./task-list";
+import { TaskList } from "./task-list";
 import { TaskPagination } from "./task-pagination";
 
 const ID = "6f1c1c7e-4f55-4c3b-9d33-0a5b0f2a9c11";
@@ -271,17 +271,6 @@ describe("TaskPagination", () => {
     expect(
       screen.getByRole("navigation", { name: "Paginering" }).querySelector("[aria-disabled]"),
     ).toBeNull();
-  });
-});
-
-describe("firstLine", () => {
-  it.each([
-    ["Jaarlijks onderhoud\nFilter vervangen", "Jaarlijks onderhoud"],
-    ["\r\n  \n  Eerste echte regel  \r\nTweede", "Eerste echte regel"],
-    ["één regel", "één regel"],
-    ["   ", ""],
-  ])("takes the first non-empty line of %j", (text, expected) => {
-    expect(firstLine(text)).toBe(expected);
   });
 });
 

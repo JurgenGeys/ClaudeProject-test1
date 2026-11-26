@@ -22,3 +22,49 @@ export const TASK_ACTION_MESSAGES = {
   searchFailed: "Zoeken is niet gelukt. Probeer opnieuw.",
   noCustomerFound: (term: string) => `Geen klant gevonden voor '${term}'.`,
 } as const;
+
+/** Messages of picking up a task (design T2, "Foutmeldingen" and chapter 3). Dutch, for end users. */
+export const PICK_UP_MESSAGES = {
+  /** The task was moved back, given to a colleague or set to "Nog niet toewijzen" meanwhile. */
+  notAssigned: "Deze taak is niet meer aan jou toegewezen.",
+  /** Followed by ":" and the phone number of the office as a link when it is set, else by ".". */
+  callOfficeIfWrong: "Bel kantoor als dit niet klopt",
+  backToMyTasks: "Terug naar mijn taken",
+  /** The task page itself says it when the task was cancelled; this is for the action result. */
+  cancelled: "Deze taak is geannuleerd door kantoor. Je hoeft niets meer te doen.",
+  button: "Oppikken",
+  buttonHint: "Tik hierop als je vertrekt naar de klant.",
+  dialogTitle: "Taak oppikken?",
+  confirm: "Ja, ik vertrek",
+  confirming: "Bezig met oppikken…",
+  cancel: "Annuleren",
+} as const;
+
+/** Texts of finishing a task (design T1, T2 and T3). Dutch, for end users. */
+export const COMPLETE_MESSAGES = {
+  /** The button at the bottom of T2 (a link to T3) and its hint. */
+  button: "Afmelden",
+  buttonHint: "Tik hierop als het werk klaar is.",
+  /** Added to the "Opgepikt om" notice of T2. */
+  pickedUpNoticeHint: "Meld af als je klaar bent.",
+  /** On the card "Bezig" of T1, after "Opgepikt om 07:48 · ". */
+  cardHint: "tik om af te melden",
+  heading: "Taak afmelden",
+  backToTask: "← Terug naar de taak",
+  hoursLegend: "Gewerkte uren",
+  hoursHelp: "Enkel de tijd bij de klant. De verplaatsing telt niet mee.",
+  lessLabel: "Kwartier minder",
+  moreLabel: "Kwartier meer",
+  perQuarter: "Per kwartier",
+  quickGroup: "Snelkeuze",
+  notesLabel: "Notities",
+  notesOptional: "(niet verplicht)",
+  notesPlaceholder: "Bv. filter vervangen, toestel lekt licht aan binnenunit",
+  notesHint: "Kantoor leest dit bij het factureren.",
+  summaryHours: "Vul de gewerkte uren in om af te melden.",
+  submit: "Taak afmelden",
+  submitting: "Bezig met afmelden…",
+  cancel: "Annuleren",
+  /** Shown on T1 after finishing (`/my-tasks?completed=1`). */
+  done: "Taak afgemeld. Bedankt!",
+} as const;

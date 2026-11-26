@@ -91,10 +91,21 @@ interface MinutesMessages {
  * (`"90"`) is read as a number; an empty field counts as missing. The maximum is passed in
  * because each form has its own (see `src/lib/tasks/limits.ts`).
  */
+/**
+ * Text of a form field to a number: only plain digits count. `"0x3C"`, `" 60 "`, `"1e3"` and
+ * `"-15"` are not numbers of minutes (they become `NaN`, which gets the "required" message);
+ * an empty field is missing.
+ */
+function minutesFromText(text: string): number | undefined {
+  if (text === "") {
+    return undefined;
+  }
+  return /^\d+$/.test(text) ? Number(text) : Number.NaN;
+}
+
 export function quarterMinutes(max: number, messages: MinutesMessages) {
   return z.preprocess(
-    (value) =>
-      typeof value === "string" ? (value.trim() === "" ? undefined : Number(value)) : value,
+    (value) => (typeof value === "string" ? minutesFromText(value) : value),
     z.number({ error: messages.required }).superRefine((value, context) => {
       // One message per value: first "nothing", then "no whole quarter", then "too much".
       let message: string | null = null;

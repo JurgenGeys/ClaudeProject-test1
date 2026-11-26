@@ -124,4 +124,26 @@ describe("contrast of the design tokens (WCAG 2.2 AA)", () => {
     }
     expect(contrast(tailwindColor(text), tailwindColor(background))).toBeGreaterThanOrEqual(4.5);
   });
+  // The text colors of the technician screens (T1 and T2, BT-11): section headings, card text,
+  // the report of a finished task and the messages. `white` is the page and card background.
+  it.each([
+    ["red-700", "white", "the heading and the day of a late task"],
+    ["amber-900", "white", "the heading Bezig"],
+    ["amber-900", "amber-50", "the picked up notice"],
+    ["slate-600", "white", "secondary text on a card"],
+    ["slate-600", "amber-50", "secondary text on the Bezig card"],
+    ["slate-700", "muted", "the remark of the customer"],
+    ["slate-700", "green-50", "the labels of the report"],
+    ["green-900", "green-50", "the sub heading of the report"],
+    ["green-800", "white", "the label Afgewerkt in the list"],
+    ["red-900", "red-50", "the message of a cancelled task"],
+  ])("%s on %s is at least 4.5 : 1 (%s)", (text, background) => {
+    const colorOf = (name: string): Rgb =>
+      name === "white"
+        ? token("--background")
+        : name === "muted"
+          ? token("--muted")
+          : tailwindColor(name);
+    expect(contrast(colorOf(text), colorOf(background))).toBeGreaterThanOrEqual(4.5);
+  });
 });

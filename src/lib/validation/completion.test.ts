@@ -24,6 +24,14 @@ describe("completionSchema", () => {
     }
   });
 
+  it("reads only plain digits from a form field: no hex, spaces, exponent or sign", () => {
+    for (const workedMinutes of ["0x3C", " 60 ", "1e2", "-15", "+60", "6 0", "60.0"]) {
+      expect(fieldErrors(completionSchema, { workedMinutes })).toEqual({
+        workedMinutes: ["Vul de gewerkte uren in. Dat moet minstens 0u15 zijn."],
+      });
+    }
+  });
+
   it("refuses hours that are no whole quarters", () => {
     for (const workedMinutes of [20, 100, 7.5, 959]) {
       expect(fieldErrors(completionSchema, { workedMinutes })).toEqual({
