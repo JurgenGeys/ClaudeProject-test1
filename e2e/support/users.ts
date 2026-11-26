@@ -742,3 +742,90 @@ export async function invoiceTaskAsOffice(number: number, officeEmail: string): 
       .where(eq(tasks.number, number));
   });
 }
+
+/** An Open task (no technician) of this customer, planned on `scheduledDate`. Returns its number. */
+export async function createOpenTask(
+  createdByEmail: string,
+  customerId: string,
+  scheduledDate: string,
+): Promise<number> {
+  assertLocalSupabase(process.env);
+  return withDb(async (db) => {
+    const [office] = await db
+      .select({ id: profiles.id })
+      .from(profiles)
+      .where(eq(profiles.email, createdByEmail.toLowerCase()));
+    if (!office) {
+      throw new Error("createOpenTask: backoffice user not found");
+    }
+    const [task] = await db
+      .insert(tasks)
+      .values({
+        customerId,
+        locationStreet: "Teststraat 1",
+        locationPostalCode: "9000",
+        locationCity: "Gent",
+        workType: "inspection",
+        instructions: "E2E-taak",
+        scheduledDate,
+        startTime: "09:00",
+        assigneeId: null,
+        status: "open",
+        createdBy: office.id,
+        updatedBy: office.id,
+      })
+      .returning({ number: tasks.number });
+    return task.number;
+  });
+}
+
+/** What the database holds about the cancellation of a task (BT-14b), with the people as e-mail addresses. */
+export async function readTaskCancellation(number: number): Promise<{
+  status: string;
+  cancelledAt: Date | null;
+  cancelledByEmail: string | null;
+  cancellationReason: string | null;
+  assigneeEmail: string | null;
+  pickedUpAt: Date | null;
+  updatedByEmail: string;
+}> {
+  assertLocalSupabase(process.env);
+  return withDb(async (db) => {
+    const canceller = alias(profiles, "canceller");
+    const assignee = alias(profiles, "assignee");
+    const updater = alias(profiles, "updater");
+    const [row] = await db
+      .select({
+        status: tasks.status,
+        cancelledAt: tasks.cancelledAt,
+        cancelledByEmail: canceller.email,
+        cancellationReason: tasks.cancellationReason,
+        assigneeEmail: assignee.email,
+        pickedUpAt: tasks.pickedUpAt,
+        updatedByEmail: updater.email,
+      })
+      .from(tasks)
+      .innerJoin(updater, eq(updater.id, tasks.updatedBy))
+      .leftJoin(canceller, eq(canceller.id, tasks.cancelledBy))
+      .leftJoin(assignee, eq(assignee.id, tasks.assigneeId))
+      .where(eq(tasks.number, number));
+    if (!row) {
+      throw new Error(`readTaskCancellation: no task ${number}`);
+    }
+    return row;
+  });
+}
+
+/**
+ * The technician picks a Toegewezen task up behind the back of an open page (BT-14b): the status
+ * becomes Opgepikt, through Drizzle, so `updated_at` moves like it does for every writer.
+ */
+export async function pickUpTaskBehindTheBack(number: number): Promise<void> {
+  assertLocalSupabase(process.env);
+  await withDb(async (db) => {
+    await db
+      .update(tasks)
+      .set({ status: "picked_up", pickedUpAt: new Date() })
+      .where(eq(tasks.number, number));
+  });
+}
