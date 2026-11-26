@@ -56,7 +56,7 @@ export type MyTasks = { tab: "todo"; tasks: MyOpenTask[] } | { tab: "done"; task
  * - "todo": Toegewezen and Opgepikt, oldest planned day and start time first (the grouping into
  *   Bezig, Te laat and days is `groupMyTasks`).
  * - "done": Afgewerkt and Gefactureerd (both are "Afgewerkt" for the technician) that were
- *   finished in the last 30 days, counted in Belgian days including today; newest first.
+ *   finished in the last 30 calendar days (Belgian days, today included); newest first.
  */
 export async function queryMyTasks(
   db: Pick<Database, "select">,
@@ -95,7 +95,8 @@ export async function queryMyTasks(
     };
   }
 
-  const firstDay = addDays(brusselsDayKey(now), -DONE_DAYS);
+  // 30 calendar days including today: today and the 29 days before it.
+  const firstDay = addDays(brusselsDayKey(now), -(DONE_DAYS - 1));
   const rows = await db
     .select({
       id: tasks.id,

@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { cleanup, render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import type { TaskDetail } from "@/lib/tasks/detail";
@@ -180,9 +180,14 @@ describe("T2 for a finished task", () => {
 describe("T2 for a task cancelled by the office", () => {
   it("shows only the message and a way back, nothing about the task", () => {
     view({ status: "cancelled", cancelledAt: new Date("2026-11-22T10:00:00Z") });
-    expect(screen.getByRole("alert")).toHaveTextContent(
-      "Deze taak is geannuleerd door kantoor.Je hoeft niets meer te doen.",
-    );
+    // A plain section with the heading as page title, not an alert that is read out on load.
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { level: 1, name: "Deze taak is geannuleerd door kantoor." }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("region", { name: "Deze taak is geannuleerd door kantoor." }),
+    ).toHaveTextContent("Je hoeft niets meer te doen.");
     expect(screen.getByText("Taak #1042")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Terug naar mijn taken" })).toHaveAttribute(
       "href",
@@ -191,5 +196,45 @@ describe("T2 for a task cancelled by the office", () => {
     expect(screen.queryByText("Bakkerij De Gouden Korst")).not.toBeInTheDocument();
     expect(screen.queryByRole("region", { name: "Instructies" })).not.toBeInTheDocument();
     expect(screen.queryByRole("region", { name: "Locatie" })).not.toBeInTheDocument();
+  });
+});
+
+describe("the sentences about calling the office (COMPANY_PHONE)", () => {
+  const office = (overrides: Partial<TaskDetail>, officePhone?: string) =>
+    render(<MyTaskView task={{ ...base, ...overrides }} now={NOW} officePhone={officePhone} />);
+
+  it("shows 'Bel kantoor op' with a tel: link of at least 44 px on a picked up task", () => {
+    office({ status: "picked_up", pickedUpAt: new Date("2026-11-23T06:48:00Z") }, "014 00 00 00");
+    const link = screen.getByRole("link", { name: "014 00 00 00" });
+    expect(link).toHaveAttribute("href", "tel:014000000");
+    expect(link).toHaveClass("min-h-11");
+    expect(link.closest("p")).toHaveTextContent(
+      "Kan je de taak niet uitvoeren, bv. omdat de klant niet thuis is? Bel kantoor op 014 00 00 00. Kantoor zet de taak dan terug.",
+    );
+  });
+
+  it("shows it on a finished task too", () => {
+    office({ status: "completed", completion }, "+32 14 00 00 00");
+    const report = screen.getByRole("region", { name: "Jouw afmelding" });
+    expect(report).toHaveTextContent("Klopt er iets niet? Bel kantoor op +32 14 00 00 00.");
+    expect(within(report).getByRole("link", { name: "+32 14 00 00 00" })).toHaveAttribute(
+      "href",
+      "tel:+3214000000",
+    );
+  });
+
+  it.each([[undefined], [""]])("leaves the sentences out without a number (%j)", (phone) => {
+    office({ status: "picked_up", pickedUpAt: new Date("2026-11-23T06:48:00Z") }, phone);
+    expect(screen.queryByText(/Bel kantoor/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/niet thuis/)).not.toBeInTheDocument();
+    cleanup();
+    office({ status: "completed", completion }, phone);
+    expect(screen.queryByText(/Bel kantoor/)).not.toBeInTheDocument();
+    expect(screen.getByText(/Een afgemelde taak kan je niet meer wijzigen\./)).toBeInTheDocument();
+  });
+
+  it("does not show it on a task that is only assigned", () => {
+    office({}, "014 00 00 00");
+    expect(screen.queryByText(/Bel kantoor/)).not.toBeInTheDocument();
   });
 });

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { checkRoleAccess } from "@/lib/auth/role-access";
+import { getCompanyPhone } from "@/lib/company";
 import { getMyTaskDetail } from "@/lib/tasks/detail";
 import { parseTaskNumber } from "@/lib/validation/task-number";
 
@@ -28,5 +29,5 @@ export default async function MyTaskPage({ params }: PageProps<"/my-tasks/[numbe
     notFound();
   }
   // After the session and the task were read: "now" must not be taken before the request is known.
-  return <MyTaskView task={task} now={new Date()} />;
+  return <MyTaskView task={task} now={new Date()} officePhone={getCompanyPhone()} />;
 }

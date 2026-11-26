@@ -65,6 +65,22 @@ function BackLink({ href, children }: { href: string; children: ReactNode }) {
   );
 }
 
+/** `Bel kantoor op 014 00 00 00`, the number being a `tel:` link of at least 44 px high. */
+function CallOffice({ phone }: { phone: string }) {
+  return (
+    <>
+      Bel kantoor op{" "}
+      <a
+        href={telHref(phone)}
+        className="inline-flex min-h-11 items-center font-medium underline underline-offset-4"
+      >
+        {phone}
+      </a>
+      .
+    </>
+  );
+}
+
 /**
  * T2 for a task that is cancelled meanwhile (design T2, "Foutmeldingen"): only the message,
  * no details of a task that does not need doing any more.
@@ -77,16 +93,19 @@ function CancelledTask({ task }: { task: TaskDetail }) {
         <StatusBadge status="cancelled" />
         <span className="text-sm text-slate-600">Taak {formatTaskNumber(task.number)}</span>
       </div>
-      <div
-        role="alert"
+      {/* A plain section, not an alert: this is the page itself on load, not a change to announce. */}
+      <section
+        aria-labelledby="heading-cancelled"
         className="mt-4 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900"
       >
-        <h1 className="font-medium">Deze taak is geannuleerd door kantoor.</h1>
+        <h1 id="heading-cancelled" className="font-medium">
+          Deze taak is geannuleerd door kantoor.
+        </h1>
         <p className="mt-1">Je hoeft niets meer te doen.</p>
         <Button asChild variant="outline" className="mt-3 h-11 bg-white px-4">
           <Link href={myTasksHref("todo")}>Terug naar mijn taken</Link>
         </Button>
-      </div>
+      </section>
     </>
   );
 }
@@ -98,7 +117,16 @@ function CancelledTask({ task }: { task: TaskDetail }) {
  * A finished task (Afgewerkt or Gefactureerd, both "Afgewerkt" here) shows the technician's
  * own report, with the hours he filled in. A cancelled task shows only that message.
  */
-export function MyTaskView({ task, now }: { task: TaskDetail; now: Date }) {
+export function MyTaskView({
+  task,
+  now,
+  officePhone,
+}: {
+  task: TaskDetail;
+  now: Date;
+  /** Phone number of the office (`COMPANY_PHONE`); without it the sentences about calling are left out. */
+  officePhone?: string;
+}) {
   if (task.status === "cancelled") {
     return <CancelledTask task={task} />;
   }
@@ -164,7 +192,13 @@ export function MyTaskView({ task, now }: { task: TaskDetail; now: Date }) {
             <p className="mt-1 text-sm text-slate-700 italic">Geen notities.</p>
           )}
           <p className="mt-3 text-xs text-slate-700">
-            Een afgemelde taak kan je niet meer wijzigen. Klopt er iets niet? Bel kantoor.
+            Een afgemelde taak kan je niet meer wijzigen.
+            {officePhone ? (
+              <>
+                {" "}
+                Klopt er iets niet? <CallOffice phone={officePhone} />
+              </>
+            ) : null}
           </p>
         </Block>
       ) : null}
@@ -201,6 +235,13 @@ export function MyTaskView({ task, now }: { task: TaskDetail; now: Date }) {
       <Block id="heading-instructions" title="Instructies">
         <Multiline text={task.instructions} className="text-base leading-relaxed" />
       </Block>
+
+      {task.status === "picked_up" && officePhone ? (
+        <p className="mt-4 text-sm text-slate-600">
+          Kan je de taak niet uitvoeren, bv. omdat de klant niet thuis is?{" "}
+          <CallOffice phone={officePhone} /> Kantoor zet de taak dan terug.
+        </p>
+      ) : null}
     </>
   );
 }

@@ -183,6 +183,8 @@ De link in de mail bepaalt welke tekst getoond wordt.
   - Taak intussen geannuleerd (P2): "Deze taak is geannuleerd door kantoor. Je hoeft niets meer te doen." met een knop "Terug naar mijn taken". Ook als hij op dat moment op Oppikken tikt.
 - **Rechten**: enkel eigen taken; andere id → "Deze taak bestaat niet of is niet aan jou toegewezen." (geen verschil tonen tussen beide, zodat niets uitlekt).
 
+- **Zoals gebouwd (BT-11)**: T1 staat op `/my-tasks` (`?tab=done`), T2 op `/my-tasks/<taaknummer>` (beslist door Jurgen). Een taak van een collega, een niet-toegewezen taak en een onbestaand nummer geven dezelfde pagina "Deze taak bestaat niet of is niet aan jou toegewezen." De tab Afgewerkt toont de laatste 30 kalenderdagen (vandaag inbegrepen) op de dag van afmelden, met de uren die de technieker zelf invulde. **Kantoornummer (beslist door Jurgen, 26/11/2026)**: instelling per klant in de server-only variabele `COMPANY_PHONE` (gevalideerd met Zod). Ingevuld: "Bel kantoor op 014 00 00 00" als `tel:`-link in T2 (opgepikt en afgewerkt). Leeg of ongeldig: die zinnen verschijnen niet.
+
 ### T3 Afmelden (technieker, gsm)
 
 - **Inhoud**: taaknummer, klantnaam en datum ter herkenning; **Gewerkte uren** met grote knoppen **−** en **+** per kwartier, de waarde groot in het midden (`1u30`) en snelkeuzes `0u30`, `1u00`, `1u30`, `2u00`. Hulptekst: "Enkel de tijd bij de klant. De verplaatsing telt niet mee." **Notities** (niet verplicht), groot tekstvak met voorbeeldtekst "Bv. filter vervangen, toestel lekt licht aan binnenunit". Knop **Taak afmelden**, link **Annuleren**.
@@ -515,8 +517,8 @@ src/
     (technician)/
       layout.tsx                   # requireRole('technician'); smalle gsm-layout
       my-tasks/page.tsx            # T1 (?tab=done)
-      my-tasks/[id]/page.tsx       # T2
-      my-tasks/[id]/complete/page.tsx  # T3
+      my-tasks/[number]/page.tsx   # T2 (het taaknummer in de URL: /my-tasks/1042)
+      my-tasks/[number]/complete/page.tsx  # T3
       my-tasks/actions.ts          # pickUpTask, completeTask
     (backoffice)/
       layout.tsx                   # requireRole('backoffice'); menubalk

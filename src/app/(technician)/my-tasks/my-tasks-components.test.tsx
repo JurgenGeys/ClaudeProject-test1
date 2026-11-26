@@ -135,6 +135,25 @@ describe("MyTaskCard", () => {
       />,
     );
     expect(screen.getByRole("link")).toHaveTextContent("Opgepikt");
+    // 06:48 UTC on 23/11 is 07:48 in Belgium (UTC+1); no "tik om af te melden" before BT-13.
+    expect(screen.getByRole("link")).toHaveTextContent("Opgepikt om 07:48");
+    expect(screen.getByRole("link")).not.toHaveTextContent("tik om af te melden");
+  });
+
+  it("shows the picked up time in Belgian summer time too", () => {
+    render(
+      <MyTaskCard
+        task={open({ status: "picked_up", pickedUpAt: new Date("2026-07-06T06:48:00Z") })}
+        now={NOW}
+        when="day"
+      />,
+    );
+    expect(screen.getByRole("link")).toHaveTextContent("Opgepikt om 08:48");
+  });
+
+  it("shows no picked up time on a task that is not picked up", () => {
+    render(<MyTaskCard task={open()} now={NOW} when="time" />);
+    expect(screen.getByRole("link")).not.toHaveTextContent("Opgepikt om");
   });
 });
 

@@ -5,7 +5,7 @@ import { firstLine } from "@/lib/tasks/instructions";
 import { formatTaskNumber, workTypeLabel } from "@/lib/tasks/labels";
 import type { MyDoneTask, MyOpenTask } from "@/lib/tasks/my-tasks";
 import { relativeDay } from "@/lib/tasks/my-tasks-groups";
-import { formatDate, formatHours, formatTimeOfDay } from "@/lib/time/format";
+import { formatDate, formatHours, formatTime, formatTimeOfDay } from "@/lib/time/format";
 import { cn } from "@/lib/utils";
 
 /** Where a task leads to: T2, by its number. */
@@ -86,6 +86,11 @@ export function MyTaskCard({
         <span className="font-semibold text-foreground">{workTypeLabel(task.workType)}</span>
         {description ? ` · ${description}` : ""}
       </p>
+      {busy && task.pickedUpAt ? (
+        <p className="mt-2 text-sm font-medium text-amber-900">
+          Opgepikt om {formatTime(task.pickedUpAt)}
+        </p>
+      ) : null}
     </Link>
   );
 }

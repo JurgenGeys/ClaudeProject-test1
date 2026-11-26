@@ -15,6 +15,8 @@ vi.mock("@/lib/auth/role-access", () => ({ checkRoleAccess }));
 vi.mock("@/lib/tasks/my-tasks", () => ({ getMyTasks }));
 vi.mock("@/lib/tasks/detail", () => ({ getMyTaskDetail }));
 vi.mock("next/navigation", () => ({ notFound }));
+const { getCompanyPhone } = vi.hoisted(() => ({ getCompanyPhone: vi.fn() }));
+vi.mock("@/lib/company", () => ({ getCompanyPhone }));
 
 import type { TaskDetail } from "@/lib/tasks/detail";
 
@@ -125,6 +127,20 @@ describe("Taak (T2)", () => {
     expect(
       screen.getByRole("heading", { level: 1, name: "Bakkerij De Gouden Korst" }),
     ).toBeInTheDocument();
+  });
+
+  it("passes the office number of the company on to the page", async () => {
+    getCompanyPhone.mockReturnValue("014 00 00 00");
+    getMyTaskDetail.mockResolvedValue({
+      ...task,
+      status: "picked_up",
+      pickedUpAt: new Date("2026-11-23T06:48:00Z"),
+    });
+    render(await taskPage("1042"));
+    expect(screen.getByRole("link", { name: "014 00 00 00" })).toHaveAttribute(
+      "href",
+      "tel:014000000",
+    );
   });
 
   it.each([["abc"], ["0"], ["-1"], ["1e3"], ["01042"], ["1042abc"], ["9999999999"], [""]])(

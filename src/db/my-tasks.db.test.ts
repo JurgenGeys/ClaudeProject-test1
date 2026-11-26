@@ -49,7 +49,7 @@ async function inRolledBackTransaction(work: (tx: Tx) => Promise<void>): Promise
 
 const asDb = (tx: Tx) => tx as unknown as Database;
 
-// Monday 23/11/2026, 10:00 in Belgium. The last 30 days start on 24/10/2026.
+// Monday 23/11/2026, 10:00 in Belgium. The last 30 days (today included) start on 25/10/2026.
 const NOW = new Date("2026-11-23T09:00:00Z");
 
 async function createProfile(tx: Tx, name: string, role = "technician"): Promise<string> {
@@ -284,9 +284,10 @@ describe("queryMyTasks, tab Afgewerkt", () => {
       const { kevin, make } = await seed(tx);
       const done = (completedAt: string) =>
         make({ status: "completed", date: "2026-10-01", assignee: kevin, worked: 60, completedAt });
-      // Today is 23/11, so the first day is 24/10 (summer time ends on 25/10: UTC+2 that day).
-      const lastMinuteBefore = await done("2026-10-23T21:59:00Z"); // 23:59 on 23/10 in Belgium
-      const firstMinute = await done("2026-10-23T22:00:00Z"); // 00:00 on 24/10 in Belgium
+      // Today is 23/11, so the first day is 25/10 (30 days with today). Summer time ends at
+      // 03:00 that day, so 00:00 on 25/10 is still UTC+2.
+      const lastMinuteBefore = await done("2026-10-24T21:59:00Z"); // 23:59 on 24/10 in Belgium
+      const firstMinute = await done("2026-10-24T22:00:00Z"); // 00:00 on 25/10 in Belgium
       const today = await done("2026-11-23T08:30:00Z");
 
       const numbers = (await queryMyTasks(asDb(tx), kevin, "done", NOW)).tasks.map((t) => t.number);

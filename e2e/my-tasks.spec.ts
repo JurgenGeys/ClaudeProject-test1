@@ -435,9 +435,10 @@ test.describe("Taak (T2), read only", () => {
       { status: "cancelled", scheduledDate: brusselsToday() },
     ]);
     await signInAs(page, kevin, `/my-tasks/${number}`);
-    await expect(page.getByRole("alert")).toContainText(
-      "Deze taak is geannuleerd door kantoor. Je hoeft niets meer te doen.",
-    );
+    await expect(
+      page.getByRole("heading", { level: 1, name: "Deze taak is geannuleerd door kantoor." }),
+    ).toBeVisible();
+    await expect(page.getByText("Je hoeft niets meer te doen.")).toBeVisible();
     await expect(page.getByText(`${token} Geannuleerd`)).toHaveCount(0);
     await page.getByRole("link", { name: "Terug naar mijn taken" }).click();
     await expect(page).toHaveURL("/my-tasks");
@@ -467,6 +468,28 @@ test.describe("Taak (T2), read only", () => {
     await expectTapTarget(page.getByRole("link", { name: "Naar mijn taken" }));
     await page.getByRole("link", { name: "Naar mijn taken" }).click();
     await expect(page).toHaveURL("/my-tasks");
+  });
+
+  test("a back office user is told the page is not meant for him, without any task data", async ({
+    page,
+    token,
+    technicians: { kevin },
+  }) => {
+    const customer = await customerOf(token, "Geheim");
+    const [number] = await createTasksWithStatus(kevin.email, BACKOFFICE.email, customer, [
+      { status: "assigned", scheduledDate: brusselsToday() },
+    ]);
+    await signIn(page, BACKOFFICE);
+    await expect(page).toHaveURL("/tasks");
+    for (const path of [`/my-tasks/${number}`, "/my-tasks/999999999", "/my-tasks"]) {
+      await page.goto(path);
+      await expect(
+        page.getByRole("heading", { level: 1, name: "Deze pagina is niet voor jou bedoeld" }),
+      ).toBeVisible();
+      await expect(page.getByText(token)).toHaveCount(0);
+      await expect(page.getByText(`Taak #${number}`)).toHaveCount(0);
+      await expect(page.getByText(NOT_FOUND)).toHaveCount(0);
+    }
   });
 
   test("a visitor without a session is sent to the login page", async ({ page }) => {
