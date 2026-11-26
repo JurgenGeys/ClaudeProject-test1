@@ -136,6 +136,17 @@ describe("pickUpTask: the result", () => {
     expect(paths).toEqual(["/my-tasks", "/my-tasks/1042", "/tasks", "/tasks/1042"]);
   });
 
+  it("treats a task that he picked up already as a silent success, like a fresh pick-up", async () => {
+    pickUpTaskInTransaction.mockResolvedValue({ kind: "already-picked-up" });
+    expect(await pickUpTask(null, valid())).toEqual({ ok: true });
+    expect(revalidatePath.mock.calls.map(([path]) => path)).toEqual([
+      "/my-tasks",
+      "/my-tasks/1042",
+      "/tasks",
+      "/tasks/1042",
+    ]);
+  });
+
   it("says the task is not his any more (moved, reassigned, unknown) and refreshes nothing", async () => {
     pickUpTaskInTransaction.mockResolvedValue({ kind: "not-assigned" });
     expect(await pickUpTask(null, valid())).toEqual({

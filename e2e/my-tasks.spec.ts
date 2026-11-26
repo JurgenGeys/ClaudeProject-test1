@@ -11,7 +11,7 @@ import {
   removeUser,
 } from "./support/users";
 
-// T1 "Mijn taken" and T2 (read only) are phone screens: this file only runs on the phone project.
+// T1 "Mijn taken" and T2 are phone screens: this file only runs on the phone project.
 // Every test makes its own technicians, customers and tasks, and removes them afterwards.
 
 const NOT_FOUND = "Deze taak bestaat niet of is niet aan jou toegewezen.";
@@ -331,8 +331,8 @@ test.describe("Mijn taken (T1), tab Afgewerkt", () => {
   });
 });
 
-test.describe("Taak (T2), read only", () => {
-  test("a card opens the task at its number, with everything to do the work and no buttons yet", async ({
+test.describe("Taak (T2)", () => {
+  test("a card opens the task at its number, with everything to do the work and the button Oppikken, but no Afmelden yet", async ({
     page,
     token,
     technicians: { kevin },
@@ -377,8 +377,11 @@ test.describe("Taak (T2), read only", () => {
     await expect(instructions).toContainText("Jaarlijks onderhoud 2 split-units");
     await expect(instructions).toContainText("Filters reinigen");
 
-    // BT-12 (Oppikken) and BT-13 (Afmelden) are not built yet.
-    await expect(page.getByRole("button", { name: /Oppikken|Afmelden/ })).toHaveCount(0);
+    // BT-12: a Toegewezen task has Oppikken; BT-13 (Afmelden) is not built yet.
+    await expect(
+      page.getByRole("button", { name: "Oppikken", exact: true }).filter({ visible: true }),
+    ).toBeVisible();
+    await expect(page.getByRole("button", { name: "Afmelden" })).toHaveCount(0);
 
     await test.step("the way back", async () => {
       const back = page.getByRole("link", { name: "← Mijn taken" });

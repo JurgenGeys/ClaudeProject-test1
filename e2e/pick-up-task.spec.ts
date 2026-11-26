@@ -112,9 +112,9 @@ async function openDialog(page: Page): Promise<Locator> {
 const pickedUpNotice = (page: Page) =>
   page.getByRole("status").filter({ hasText: "Opgepikt om" }).filter({ visible: true });
 
-/** A message of the page that is a `role="alert"`, found by its text (see above). */
+/** The message at the top of the page (focused, not a `role="alert"`), found by its text. */
 const alertWith = (page: Page, text: string) =>
-  page.getByRole("alert").filter({ hasText: text }).filter({ visible: true });
+  page.locator("#pick-up-problem").filter({ hasText: text }).filter({ visible: true });
 
 /** A tap target must be at least 44 px high (and wide). */
 async function expectTapTarget(locator: Locator): Promise<void> {

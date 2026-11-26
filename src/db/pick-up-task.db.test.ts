@@ -6,6 +6,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import * as schema from "@/db/schema";
 import { queryTaskDetail } from "@/lib/tasks/detail";
 import { pickUpTaskInTransaction } from "@/lib/tasks/pick-up";
+import { deactivateTechnicianProfile } from "@/lib/technicians/deactivate";
 
 // "Taak oppikken" (BT-12) against the real database (local Supabase in CI): what is saved, every
 // refusal, a second task picked up next to the first (K5), and what happens when the office
@@ -226,27 +227,49 @@ describe("pickUpTaskInTransaction", () => {
     });
   });
 
-  it("refuses a task that is not Toegewezen any more: picked up already, or finished", async () => {
+  it("confirms silently a task that he picked up already, even with an old version, and writes nothing", async () => {
     await inRolledBackTransaction(async (tx) => {
-      const { office, kevin, customerId } = await setUp(tx);
+      const { office, kevin, jens, customerId } = await setUp(tx);
       const picked = await seedTask(tx, office, customerId, {
         status: "picked_up",
         assignee: kevin,
       });
-      const done = await seedTask(tx, office, customerId, { status: "completed", assignee: kevin });
-      const pickedAt = (await readTask(tx, picked.id)).pickedUpAt;
+      const before = await readTask(tx, picked.id);
 
-      for (const task of [picked, done]) {
-        expect(
-          await pickUpTaskInTransaction(tx, {
-            actor: technician(kevin),
-            number: task.number,
-            version: task.version,
-          }),
-        ).toEqual({ kind: "changed" });
-      }
-      // The first pick-up time is not overwritten.
-      expect((await readTask(tx, picked.id)).pickedUpAt).toEqual(pickedAt);
+      expect(
+        await pickUpTaskInTransaction(tx, {
+          actor: technician(kevin),
+          number: picked.number,
+          version: "2020-01-01T00:00:00.000000Z",
+        }),
+      ).toEqual({ kind: "already-picked-up" });
+      // Not even `updated_at` or `updated_by` moved.
+      expect(await readTask(tx, picked.id)).toEqual(before);
+
+      // A colleague learns nothing about it.
+      expect(
+        await pickUpTaskInTransaction(tx, {
+          actor: technician(jens),
+          number: picked.number,
+          version: picked.version,
+        }),
+      ).toEqual({ kind: "not-assigned" });
+    });
+  });
+
+  it("refuses a task that is not Toegewezen any more: finished", async () => {
+    await inRolledBackTransaction(async (tx) => {
+      const { office, kevin, customerId } = await setUp(tx);
+      const done = await seedTask(tx, office, customerId, { status: "completed", assignee: kevin });
+
+      expect(
+        await pickUpTaskInTransaction(tx, {
+          actor: technician(kevin),
+          number: done.number,
+          version: done.version,
+        }),
+      ).toEqual({ kind: "changed" });
+      expect((await readTask(tx, done.id)).status).toBe("completed");
     });
   });
 
@@ -482,7 +505,7 @@ describe("pickUpTaskInTransaction: the office acts at the same moment", () => {
     }
   });
 
-  it("two pick-ups of the same task (two devices): one wins, the other is told 'changed'", async () => {
+  it("two pick-ups of the same task (two devices): one wins, the other is silently confirmed", async () => {
     const { kevin, task } = await setUpRace();
     try {
       const first = holdOpen((tx) =>
@@ -496,9 +519,88 @@ describe("pickUpTaskInTransaction: the office acts at the same moment", () => {
 
       first.release();
       expect(await first.result).toMatchObject({ kind: "picked-up" });
-      expect(await second.outcome).toEqual({ kind: "changed" });
+      expect(await second.outcome).toEqual({ kind: "already-picked-up" });
+      expect((await readTask(db, task.id)).status).toBe("picked_up");
+    } finally {
+      await removeTestData();
+    }
+  });
+
+  it("a switch-off that is under way: the pick-up waits, and (open tasks) the switch-off is refused", async () => {
+    const { kevin, task } = await setUpRace();
+    try {
+      const switchOff = holdOpen((tx) => deactivateTechnicianProfile(tx, kevin));
+      await switchOff.isReady;
+
+      const pickUp = startPickUp(kevin, task);
+      await sleep(400);
+      expect(pickUp.isFinished()).toBe(false); // Waits for the lock on his profile.
+
+      switchOff.release();
+      // He has an open task, so the switch-off refuses and he stays active.
+      expect(await switchOff.result).toMatchObject({ kind: "open-tasks", openTasks: 1 });
+      expect(await pickUp.outcome).toMatchObject({ kind: "picked-up" });
+      expect(await readProfileActive(kevin)).toBe(true);
+    } finally {
+      await removeTestData();
+    }
+  });
+
+  it("a pick-up that is under way: the switch-off waits, counts the picked up task and is refused", async () => {
+    const { kevin, task } = await setUpRace();
+    try {
+      const pickUp = holdOpen((tx) =>
+        pickUpTaskInTransaction(tx, { actor: technician(kevin), ...task }),
+      );
+      await pickUp.isReady;
+
+      let finished = false;
+      const switchOff = connect()
+        .transaction((tx) => deactivateTechnicianProfile(tx, kevin))
+        .finally(() => (finished = true));
+      await sleep(400);
+      expect(finished).toBe(false); // Waits for the share lock of the pick-up.
+
+      pickUp.release();
+      expect(await pickUp.result).toMatchObject({ kind: "picked-up" });
+      expect(await switchOff).toMatchObject({ kind: "open-tasks", openTasks: 1 });
+      expect(await readProfileActive(kevin)).toBe(true);
+    } finally {
+      await removeTestData();
+    }
+  });
+
+  it("a technician who is switched off by other means while he picks up: the pick-up waits and is refused", async () => {
+    const { kevin, task } = await setUpRace();
+    try {
+      // The switch-off rule for open tasks is bypassed on purpose (for example repaired by hand):
+      // the pick-up must still not go through.
+      const switchOff = holdOpen(async (tx) => {
+        await tx
+          .update(schema.profiles)
+          .set({ isActive: false, deactivatedAt: new Date() })
+          .where(eq(schema.profiles.id, kevin));
+      });
+      await switchOff.isReady;
+
+      const pickUp = startPickUp(kevin, task);
+      await sleep(400);
+      expect(pickUp.isFinished()).toBe(false);
+
+      switchOff.release();
+      await switchOff.result;
+      expect(await pickUp.outcome).toEqual({ kind: "inactive" });
+      expect(await readTask(db, task.id)).toMatchObject({ status: "assigned", pickedUpAt: null });
     } finally {
       await removeTestData();
     }
   });
 });
+
+async function readProfileActive(id: string): Promise<boolean> {
+  const [row] = await db
+    .select({ isActive: schema.profiles.isActive })
+    .from(schema.profiles)
+    .where(eq(schema.profiles.id, id));
+  return row.isActive;
+}

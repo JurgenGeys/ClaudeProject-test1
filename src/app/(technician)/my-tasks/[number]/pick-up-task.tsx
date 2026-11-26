@@ -49,6 +49,8 @@ function usePickUp(): PickUpContext {
 
 /** Id of the "Opgepikt om" notice (set in the page when the task is picked up). */
 export const PICKED_UP_NOTICE_ID = "picked-up-notice";
+/** Id of the message that the page shows when the task moved or changed. */
+export const PICK_UP_PROBLEM_ID = "pick-up-problem";
 /** Id of the heading of a cancelled task. */
 export const CANCELLED_HEADING_ID = "heading-cancelled";
 
@@ -78,7 +80,7 @@ export function PickUpTask({ children }: { children: ReactNode }) {
 
 /**
  * The message when the task was moved or changed meanwhile (design T2, chapter 3). The focus
- * goes to it, and it is a `role="alert"`, so it is read out. Buttons are at least 44 px high.
+ * goes to it (and no `role="alert"`, so it is not announced twice, like the other messages). Buttons are at least 44 px high.
  */
 export function PickUpAlert({ officePhone }: { officePhone?: string }) {
   const { problem, setProblem } = usePickUp();
@@ -97,25 +99,29 @@ export function PickUpAlert({ officePhone }: { officePhone?: string }) {
   return (
     <div
       ref={ref}
+      id={PICK_UP_PROBLEM_ID}
       tabIndex={-1}
-      role="alert"
       className="mt-2 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900 outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
     >
       {problem === "not-assigned" ? (
         <>
           <p className="font-medium">{PICK_UP_MESSAGES.notAssigned}</p>
-          {officePhone ? (
-            <p className="mt-1">
-              {PICK_UP_MESSAGES.callOfficeIfWrong}{" "}
-              <a
-                href={telHref(officePhone)}
-                className="inline-flex min-h-11 items-center font-medium underline underline-offset-4"
-              >
-                {officePhone}
-              </a>
-              .
-            </p>
-          ) : null}
+          <p className="mt-1">
+            {officePhone ? (
+              <>
+                {PICK_UP_MESSAGES.callOfficeIfWrong}:{" "}
+                <a
+                  href={telHref(officePhone)}
+                  className="inline-flex min-h-11 items-center font-medium underline underline-offset-4"
+                >
+                  {officePhone}
+                </a>
+                .
+              </>
+            ) : (
+              `${PICK_UP_MESSAGES.callOfficeIfWrong}.`
+            )}
+          </p>
           <Button
             asChild
             variant="outline"

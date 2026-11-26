@@ -25,6 +25,17 @@ function screenWith(officePhone?: string) {
   );
 }
 
+/** The message at the top of the page: focused, not a `role="alert"`. */
+async function findProblem() {
+  return waitFor(() => {
+    const element = document.getElementById("pick-up-problem");
+    if (!element) {
+      throw new Error("no message yet");
+    }
+    return element;
+  });
+}
+
 async function openDialog() {
   fireEvent.click(screen.getByRole("button", { name: "Oppikken" }));
   return screen.findByRole("dialog");
@@ -142,7 +153,7 @@ describe("when the task was moved meanwhile", () => {
     pickUpTask.mockResolvedValue(notAssigned);
     screenWith("014 00 00 00");
     await confirm();
-    const alert = await screen.findByRole("alert");
+    const alert = await findProblem();
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(alert).toHaveTextContent("Deze taak is niet meer aan jou toegewezen.");
     expect(alert).toHaveTextContent("Bel kantoor als dit niet klopt: 014 00 00 00.");
@@ -158,13 +169,14 @@ describe("when the task was moved meanwhile", () => {
     expect(screen.queryByRole("button", { name: "Oppikken" })).not.toBeInTheDocument();
   });
 
-  it("leaves the sentence about calling out when the office number is not set", async () => {
+  it("says only 'Bel kantoor als dit niet klopt.' when the office number is not set", async () => {
     pickUpTask.mockResolvedValue(notAssigned);
     screenWith(undefined);
     await confirm();
-    const alert = await screen.findByRole("alert");
+    const alert = await findProblem();
     expect(alert).toHaveTextContent("Deze taak is niet meer aan jou toegewezen.");
-    expect(alert).not.toHaveTextContent("Bel kantoor");
+    expect(alert).toHaveTextContent("Bel kantoor als dit niet klopt.");
+    expect(within(alert).queryByRole("link", { name: /^\d/ })).not.toBeInTheDocument();
   });
 
   it("offers a reload when the task changed, and that clears the message and refreshes the page", async () => {
@@ -175,13 +187,13 @@ describe("when the task was moved meanwhile", () => {
     });
     screenWith();
     await confirm();
-    const alert = await screen.findByRole("alert");
+    const alert = await findProblem();
     expect(alert).toHaveTextContent("Deze taak is intussen gewijzigd. Bekijk de taak opnieuw.");
     const reload = within(alert).getByRole("button", { name: "Pagina herladen" });
     expect(reload).toHaveClass("h-11");
     fireEvent.click(reload);
     expect(refresh).toHaveBeenCalledTimes(1);
-    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(screen.queryByText(/niet meer aan jou|intussen gewijzigd/)).not.toBeInTheDocument();
     // With a fresh page the button is back.
     expect(screen.getByRole("button", { name: "Oppikken" })).toBeInTheDocument();
   });

@@ -11,6 +11,8 @@ import { checkTransition, type TaskUser, type TransitionDenial } from "./transit
 /** What `pickUpTaskInTransaction` did, or why it refused. */
 export type PickUpOutcome =
   | { kind: "picked-up"; id: string; number: number; pickedUpAt: Date }
+  /** His own task was picked up already (second tap, other device): nothing is written. */
+  | { kind: "already-picked-up" }
   /**
    * The task does not exist, is not assigned to this technician (any more) or he is not a
    * technician. One outcome for all of them, so a number from somebody else leaks nothing.
@@ -41,6 +43,7 @@ export type PickUpTransaction = Pick<Database, "select" | "update">;
  *    "not-assigned", whatever the reason; then a cancelled task gives "cancelled";
  * 3. the technician's own profile is read with `FOR SHARE` (the rule of BT-07), so a technician
  *    that is switched off meanwhile is refused;
+ *    A task that this technician picked up already is a silent success (`already-picked-up`);
  * 4. `checkTransition` (`pickUpTask`: Toegewezen to Opgepikt, own task, active technician);
  *    other picked up tasks of the same technician do not matter (K5);
  * 5. **version**: the page carries the `updated_at` it was opened with. Does it differ, the
@@ -78,6 +81,12 @@ export async function pickUpTaskInTransaction(
   const locked = await lockAssignee(tx, actor.id);
   if (!locked || !locked.user.isActive) {
     return { kind: "inactive" };
+  }
+
+  if (current.status === "picked_up") {
+    // A second tap or another device: the wish is fulfilled. Nothing is updated, so the first
+    // `picked_up_at` stays, whatever the version of this page.
+    return { kind: "already-picked-up" };
   }
 
   const decision = checkTransition({

@@ -28,12 +28,10 @@ describe("parsePickUpTaskForm", () => {
     expect(parsed).toEqual({ ok: true, data: { number: 1042, version: VERSION } });
   });
 
-  it.each([["", "0", "01042", "-5", "10 42", "1e3", "9999999999", "abc"]])(
+  it.each(["", "0", "01042", "-5", "10 42", "1e3", "9999999999", "abc"])(
     "refuses a task number that is not plain digits: %j",
-    (...numbers) => {
-      for (const taskNumber of numbers) {
-        expect(parsePickUpTaskForm(form({ taskNumber, version: VERSION }))).toEqual({ ok: false });
-      }
+    (taskNumber) => {
+      expect(parsePickUpTaskForm(form({ taskNumber, version: VERSION }))).toEqual({ ok: false });
     },
   );
 

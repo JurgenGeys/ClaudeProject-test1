@@ -88,6 +88,8 @@ export async function pickUpTask(
 
   switch (outcome.kind) {
     case "picked-up":
+    case "already-picked-up":
+      // (Already picked up by him: the same, the page shows the original "Opgepikt om".)
       // The office sees the new status in the overview and on the task page.
       revalidatePath(MY_TASKS_PATH);
       revalidatePath(`${MY_TASKS_PATH}/${number}`);

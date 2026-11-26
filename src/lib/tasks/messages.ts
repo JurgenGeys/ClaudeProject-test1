@@ -27,8 +27,8 @@ export const TASK_ACTION_MESSAGES = {
 export const PICK_UP_MESSAGES = {
   /** The task was moved back, given to a colleague or set to "Nog niet toewijzen" meanwhile. */
   notAssigned: "Deze taak is niet meer aan jou toegewezen.",
-  /** Followed by the phone number of the office as a link, and a full stop. */
-  callOfficeIfWrong: "Bel kantoor als dit niet klopt:",
+  /** Followed by ":" and the phone number of the office as a link when it is set, else by ".". */
+  callOfficeIfWrong: "Bel kantoor als dit niet klopt",
   backToMyTasks: "Terug naar mijn taken",
   /** The task page itself says it when the task was cancelled; this is for the action result. */
   cancelled: "Deze taak is geannuleerd door kantoor. Je hoeft niets meer te doen.",
