@@ -91,6 +91,14 @@ async function signInAs(page: Page, user: TestUser, path = "/my-tasks"): Promise
   }
 }
 
+/**
+ * A tab of "Mijn taken", found inside the tab navigation and by its exact name: a card in the
+ * Afgewerkt list also has "Afgewerkt" in its name (its label), and Next keeps the previous page
+ * in the DOM (hidden) after a navigation, so a loose search finds more than the tab.
+ */
+const tab = (page: Page, name: "Te doen" | "Afgewerkt") =>
+  page.getByRole("navigation", { name: "Mijn taken" }).getByRole("link", { name, exact: true });
+
 /** A tap target must be at least 44 px high (and wide). */
 async function expectTapTarget(locator: Locator): Promise<void> {
   const box = await locator.boundingBox();
@@ -210,8 +218,8 @@ test.describe("Mijn taken (T1), tab Te doen", () => {
     });
 
     await test.step("tap targets are at least 44 px", async () => {
-      await expectTapTarget(page.getByRole("link", { name: "Te doen" }));
-      await expectTapTarget(page.getByRole("link", { name: "Afgewerkt" }));
+      await expectTapTarget(tab(page, "Te doen"));
+      await expectTapTarget(tab(page, "Afgewerkt"));
       await expectTapTarget(page.getByRole("button", { name: "Uitloggen" }));
       await expectTapTarget(page.getByRole("region", { name: "Bezig" }).getByRole("link").first());
     });
@@ -281,12 +289,9 @@ test.describe("Mijn taken (T1), tab Afgewerkt", () => {
     ]);
 
     await signInAs(page, kevin);
-    await page.getByRole("link", { name: "Afgewerkt" }).click();
+    await tab(page, "Afgewerkt").click();
     await expect(page).toHaveURL("/my-tasks?tab=done");
-    await expect(page.getByRole("link", { name: "Afgewerkt" })).toHaveAttribute(
-      "aria-current",
-      "page",
-    );
+    await expect(tab(page, "Afgewerkt")).toHaveAttribute("aria-current", "page");
     await expect(page.getByText("Je afgemelde taken van de laatste 30 dagen.")).toBeVisible();
 
     const items = page.getByRole("listitem");
@@ -305,7 +310,7 @@ test.describe("Mijn taken (T1), tab Afgewerkt", () => {
     await expectTapTarget(items.nth(0).getByRole("link"));
 
     await test.step("the tab Te doen brings him back", async () => {
-      await page.getByRole("link", { name: "Te doen" }).click();
+      await tab(page, "Te doen").click();
       await expect(page).toHaveURL("/my-tasks");
       await expect(page.getByRole("heading", { level: 2 })).toHaveText([
         `Vandaag · ${shortDate(today)}`,
@@ -318,7 +323,7 @@ test.describe("Mijn taken (T1), tab Afgewerkt", () => {
     technicians: { kevin },
   }) => {
     await signInAs(page, kevin);
-    await page.getByRole("link", { name: "Afgewerkt" }).click();
+    await tab(page, "Afgewerkt").click();
     await expect(page).toHaveURL("/my-tasks?tab=done");
     await expect(
       page.getByText("Je hebt de laatste 30 dagen nog geen taken afgemeld."),
@@ -354,9 +359,15 @@ test.describe("Taak (T2), read only", () => {
 
     await expect(page).toHaveURL(`/my-tasks/${number}`);
     await expect(page.getByRole("heading", { level: 1, name: `${token} Bakkerij` })).toBeVisible();
-    await expect(page.getByText(`Taak #${number}`, { exact: true })).toBeVisible();
-    await expect(page.getByText("Toegewezen", { exact: true })).toBeVisible();
-    await expect(page.getByText("Onderhoud", { exact: true })).toBeVisible();
+    await expect(
+      page.getByText(`Taak #${number}`, { exact: true }).filter({ visible: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByText("Toegewezen", { exact: true }).filter({ visible: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByText("Onderhoud", { exact: true }).filter({ visible: true }),
+    ).toBeVisible();
     await expect(page.getByText(`Vandaag, ${shortDate(today)} om 08:00`)).toBeVisible();
     await expect(page.getByRole("region", { name: "Locatie" })).toContainText("Teststraat 1");
     const phone = page.getByRole("region", { name: "Klant" }).getByRole("link");
@@ -414,7 +425,9 @@ test.describe("Taak (T2), read only", () => {
     ]);
     await signInAs(page, kevin, `/my-tasks/${number}`);
     await expect(page.getByRole("heading", { level: 1, name: `${token} Klaar` })).toBeVisible();
-    await expect(page.getByText("Afgewerkt", { exact: true }).first()).toBeVisible();
+    await expect(
+      page.getByText("Afgewerkt", { exact: true }).filter({ visible: true }).first(),
+    ).toBeVisible();
     await expect(page.getByText("Gefactureerd")).toHaveCount(0);
     const report = page.getByRole("region", { name: "Jouw afmelding" });
     await expect(report).toContainText("1u30");
