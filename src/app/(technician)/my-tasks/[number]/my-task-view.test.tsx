@@ -119,11 +119,22 @@ describe("T2 for a task that is Toegewezen", () => {
 });
 
 describe("T2 for a task that is Opgepikt", () => {
-  it("shows when it was picked up, in Belgian time, and no Oppikken button (Afmelden is BT-13)", () => {
+  it("shows when it was picked up, in Belgian time, and no Oppikken button", () => {
     view({ status: "picked_up", pickedUpAt: new Date("2026-11-23T06:48:00Z") });
     expect(screen.getByRole("status")).toHaveTextContent("Opgepikt om 07:48");
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "Kantoor ziet dat je onderweg of bezig bent. Meld af als je klaar bent.",
+    );
     expect(screen.getAllByText("Opgepikt").length).toBeGreaterThan(0);
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
+  });
+
+  it("has the big link Afmelden (48 px) to T3, with its hint", () => {
+    view({ status: "picked_up", pickedUpAt: new Date("2026-11-23T06:48:00Z") });
+    const link = screen.getByRole("link", { name: "Afmelden" });
+    expect(link).toHaveAttribute("href", "/my-tasks/1042/complete");
+    expect(link).toHaveClass("h-12", "w-full");
+    expect(screen.getByText("Tik hierop als het werk klaar is.")).toBeInTheDocument();
   });
 });
 

@@ -4,6 +4,7 @@ import { checkRoleAccess } from "@/lib/auth/role-access";
 import { getMyTasks } from "@/lib/tasks/my-tasks";
 import { parseMyTasksTab } from "@/lib/validation/my-tasks";
 
+import { CompletedNotice } from "./completed-notice";
 import { MyTaskTabs } from "./my-task-tabs";
 import { DoneList, TodoList } from "./my-task-lists";
 
@@ -20,13 +21,15 @@ export default async function MyTasksPage({ searchParams }: PageProps<"/my-tasks
   if (access.kind !== "allowed") {
     return null; // The layout shows the "not for you" or "unavailable" message.
   }
-  const tab = parseMyTasksTab((await searchParams).tab);
+  const query = await searchParams;
+  const tab = parseMyTasksTab(query.tab);
   // After the session was read: "now" must not be taken before the request is known.
   const now = new Date();
   const result = await getMyTasks(tab, now);
 
   return (
     <>
+      {query.completed === "1" ? <CompletedNotice /> : null}
       <h1 className="text-2xl font-semibold tracking-tight">Mijn taken</h1>
       <MyTaskTabs current={tab} />
       {result.tab === "todo" ? (

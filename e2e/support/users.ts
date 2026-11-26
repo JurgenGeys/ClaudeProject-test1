@@ -603,3 +603,47 @@ export async function reassignTask(number: number, technicianEmail: string): Pro
     await db.update(tasks).set({ assigneeId: technician.id }).where(eq(tasks.number, number));
   });
 }
+
+/** What the database holds of the completion of a task (BT-13): the status and every `task_completions` row. */
+export async function readTaskCompletion(number: number): Promise<{
+  status: string;
+  completions: {
+    workedMinutes: number;
+    notes: string | null;
+    completedAt: Date;
+    completedByEmail: string;
+  }[];
+}> {
+  assertLocalSupabase(process.env);
+  return withDb(async (db) => {
+    const [task] = await db
+      .select({ id: tasks.id, status: tasks.status })
+      .from(tasks)
+      .where(eq(tasks.number, number));
+    if (!task) {
+      throw new Error(`readTaskCompletion: no task ${number}`);
+    }
+    const completions = await db
+      .select({
+        workedMinutes: taskCompletions.workedMinutes,
+        notes: taskCompletions.notes,
+        completedAt: taskCompletions.completedAt,
+        completedByEmail: profiles.email,
+      })
+      .from(taskCompletions)
+      .innerJoin(profiles, eq(profiles.id, taskCompletions.completedBy))
+      .where(eq(taskCompletions.taskId, task.id));
+    return { status: task.status, completions };
+  });
+}
+
+/** The office puts a picked up task back to Toegewezen behind the back of an open page (Terugzetten). */
+export async function resetTaskAsOffice(number: number): Promise<void> {
+  assertLocalSupabase(process.env);
+  await withDb(async (db) => {
+    await db
+      .update(tasks)
+      .set({ status: "assigned", pickedUpAt: null })
+      .where(eq(tasks.number, number));
+  });
+}

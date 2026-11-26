@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { telHref } from "@/lib/phone";
 import type { TaskDetail } from "@/lib/tasks/detail";
 import { formatTaskNumber, workTypeLabel } from "@/lib/tasks/labels";
+import { COMPLETE_MESSAGES } from "@/lib/tasks/messages";
 import { relativeDay } from "@/lib/tasks/my-tasks-groups";
 import { formatMoment } from "@/lib/tasks/timeline";
 import { formatDate, formatHours, formatTime, formatTimeOfDay } from "@/lib/time/format";
@@ -13,6 +14,7 @@ import { myTasksHref } from "@/lib/validation/my-tasks";
 import { cn } from "@/lib/utils";
 
 import { CallOffice } from "./call-office";
+import { CompleteBar } from "./complete-bar";
 import {
   CANCELLED_HEADING_ID,
   PICKED_UP_NOTICE_ID,
@@ -105,7 +107,7 @@ function CancelledTask({ task }: { task: TaskDetail }) {
 
 /**
  * T2 (design chapter 3): what the technician needs to do the task. A Toegewezen task has the
- * button Oppikken with its confirmation (BT-12); Afmelden (BT-13) comes with its own build task. Phone and maps links
+ * button Oppikken with its confirmation (BT-12); an Opgepikt task has the button Afmelden, a link to T3 (BT-13). Phone and maps links
  * with their own buttons come with BT-19; the phone number is already a plain `tel:` link.
  * A finished task (Afgewerkt or Gefactureerd, both "Afgewerkt" here) shows the technician's
  * own report, with the hours he filled in. A cancelled task shows only that message.
@@ -143,7 +145,7 @@ export function MyTaskView({
           className="mt-2 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
         >
           <p className="font-medium">Opgepikt om {formatTime(task.pickedUpAt)}</p>
-          <p>Kantoor ziet dat je onderweg of bezig bent.</p>
+          <p>Kantoor ziet dat je onderweg of bezig bent. {COMPLETE_MESSAGES.pickedUpNoticeHint}</p>
         </div>
       ) : null}
 
@@ -239,6 +241,7 @@ export function MyTaskView({
           <CallOffice phone={officePhone} /> Kantoor zet de taak dan terug.
         </p>
       ) : null}
+      {task.status === "picked_up" ? <CompleteBar taskNumber={task.number} /> : null}
       {canPickUp ? (
         <PickUpBar
           taskNumber={task.number}
