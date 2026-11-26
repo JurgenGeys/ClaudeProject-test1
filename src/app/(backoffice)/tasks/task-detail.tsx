@@ -9,12 +9,14 @@ import { formatTaskNumber, workTypeLabel } from "@/lib/tasks/labels";
 import { buildTimeline, formatMoment, type TimelineItem } from "@/lib/tasks/timeline";
 import { RESET_MESSAGES } from "@/lib/tasks/messages";
 import { canEditTask } from "@/lib/tasks/transitions";
+import { INVOICE_MESSAGES } from "@/lib/tasks/invoice-messages";
 import { formatDate, formatHours, formatTimeOfDay } from "@/lib/time/format";
 import { cn } from "@/lib/utils";
 
 import { SavedNotice } from "@/components/saved-notice";
 
 import { ResetTaskDialog } from "./reset-task-dialog";
+import { TaskInvoiceActions } from "./task-invoice-actions";
 
 const CARD = "rounded-lg border border-border bg-card p-5";
 
@@ -77,13 +79,20 @@ function Completion({ task, now }: { task: TaskDetail; now: Date }) {
     return null;
   }
   const corrected = completion.correctedMinutes !== null;
+  const invoiced = task.status === "invoiced";
   return (
-    <Block id="heading-completion" title="Afmelding" className="border-green-200">
+    <Block
+      id="heading-completion"
+      title="Afmelding"
+      className={invoiced ? "border-violet-200" : "border-green-200"}
+    >
       <div className="mt-2 flex flex-wrap items-baseline gap-x-3">
         <p className="text-3xl font-semibold">
           {formatHours(completion.correctedMinutes ?? completion.workedMinutes)}
         </p>
-        <p className="text-sm text-muted-foreground">gewerkte uren, zonder verplaatsing</p>
+        <p className="text-sm text-muted-foreground">
+          {invoiced ? INVOICE_MESSAGES.lockedHours : "gewerkte uren, zonder verplaatsing"}
+        </p>
       </div>
       {corrected && completion.correctedAt ? (
         <div className="mt-3 rounded-md border border-border bg-muted/50 p-3 text-sm">
@@ -109,6 +118,9 @@ function Completion({ task, now }: { task: TaskDetail; now: Date }) {
       ) : (
         <p className="mt-1 text-muted-foreground italic">Geen notities.</p>
       )}
+      {invoiced ? (
+        <p className="mt-3 text-sm text-muted-foreground">{INVOICE_MESSAGES.lockedHoursHint}</p>
+      ) : null}
       <p className="mt-3 text-sm text-muted-foreground">
         Afgemeld door {completion.completedByName} op {formatMoment(completion.completedAt, now)}.
       </p>
@@ -128,6 +140,7 @@ export function TaskDetailView({
   task,
   saved = false,
   reset = false,
+  invoiced = null,
   technicians = [],
 }: {
   task: TaskDetail;
@@ -136,6 +149,8 @@ export function TaskDetailView({
   reset?: boolean;
   /** The technicians that "Terugzetten" offers; only needed for an Opgepikt task. */
   technicians?: readonly { id: string; fullName: string }[];
+  /** `?invoiced=` of the address after marking or unmarking (BT-17). */
+  invoiced?: "marked" | "unmarked" | null;
 }) {
   const now = new Date();
   const number = formatTaskNumber(task.number);
@@ -152,6 +167,11 @@ export function TaskDetailView({
             task.assignee.fullName,
             `${formatDate(task.scheduledDate, { omitCurrentYear: true, now })} om ${formatTimeOfDay(task.startTime)}`,
           )}
+        </SavedNotice>
+      ) : null}
+      {invoiced ? (
+        <SavedNotice param="invoiced">
+          {invoiced === "marked" ? INVOICE_MESSAGES.taskMarked : INVOICE_MESSAGES.unmarked}
         </SavedNotice>
       ) : null}
       <Link href="/tasks" className="text-sm underline-offset-4 hover:underline">
@@ -173,30 +193,33 @@ export function TaskDetailView({
             {task.assignee ? ` · ${task.assignee.fullName}` : ""}
           </p>
         </div>
-        {editable ? (
-          <div className="flex flex-wrap gap-2">
-            <Button
-              asChild
-              variant={task.status === "picked_up" ? "outline" : "default"}
-              className="h-11 px-4 md:h-10"
-            >
-              <Link href={`/tasks/${task.number}/edit`}>Bewerken</Link>
-            </Button>
-            {task.status === "picked_up" ? (
-              // The version in the key: after a reset the page has a new version and the dialog
-              // starts closed again.
-              <ResetTaskDialog
-                key={task.version}
-                taskNumber={task.number}
-                version={task.version}
-                technicians={technicians}
-                currentAssigneeId={task.assignee?.id ?? null}
-                scheduledDate={task.scheduledDate}
-                startTime={formatTimeOfDay(task.startTime)}
-              />
-            ) : null}
-          </div>
-        ) : null}
+        <div className="flex flex-wrap gap-2">
+          {editable ? (
+            <>
+              <Button
+                asChild
+                variant={task.status === "picked_up" ? "outline" : "default"}
+                className="h-11 px-4 md:h-10"
+              >
+                <Link href={`/tasks/${task.number}/edit`}>Bewerken</Link>
+              </Button>
+              {task.status === "picked_up" ? (
+                // The version in the key: after a reset the page has a new version and the dialog
+                // starts closed again.
+                <ResetTaskDialog
+                  key={task.version}
+                  taskNumber={task.number}
+                  version={task.version}
+                  technicians={technicians}
+                  currentAssigneeId={task.assignee?.id ?? null}
+                  scheduledDate={task.scheduledDate}
+                  startTime={formatTimeOfDay(task.startTime)}
+                />
+              ) : null}
+            </>
+          ) : null}
+          <TaskInvoiceActions number={task.number} version={task.version} status={task.status} />
+        </div>
       </div>
 
       {task.status === "cancelled" && task.cancelledAt ? (

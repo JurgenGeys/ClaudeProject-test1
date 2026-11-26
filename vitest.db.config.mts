@@ -17,5 +17,11 @@ export default defineConfig({
   test: {
     environment: "node",
     include: ["src/**/*.db.test.{ts,tsx}"],
+    // One database, shared by all files. Most tests run in a transaction that is rolled back, but
+    // the race tests (two connections that see each other's locks) commit their tasks and remove
+    // them afterwards. A test that counts tasks in the whole table (`task-overview.db.test.ts`,
+    // before and after its own seed) sees those commits when files run side by side, and fails
+    // now and then, depending on timing. So the files run one after the other.
+    fileParallelism: false,
   },
 });

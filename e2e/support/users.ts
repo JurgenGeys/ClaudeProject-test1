@@ -694,3 +694,51 @@ export async function completeTaskBehindTheBack(number: number, workedMinutes = 
     });
   });
 }
+
+/** What the database holds about the invoicing of a task: status, when, and by whom (as an e-mail address). */
+export async function readTaskInvoicing(number: number): Promise<{
+  status: string;
+  invoicedAt: Date | null;
+  invoicedByEmail: string | null;
+}> {
+  assertLocalSupabase(process.env);
+  return withDb(async (db) => {
+    const invoicer = alias(profiles, "invoicer");
+    const [row] = await db
+      .select({
+        status: tasks.status,
+        invoicedAt: tasks.invoicedAt,
+        invoicedByEmail: invoicer.email,
+      })
+      .from(tasks)
+      .leftJoin(invoicer, eq(invoicer.id, tasks.invoicedBy))
+      .where(eq(tasks.number, number));
+    if (!row) {
+      throw new Error(`readTaskInvoicing: no task ${number}`);
+    }
+    return row;
+  });
+}
+
+/** A colleague marks a task as invoiced behind the back of an open page (the list is out of date). */
+export async function invoiceTaskAsOffice(number: number, officeEmail: string): Promise<void> {
+  assertLocalSupabase(process.env);
+  await withDb(async (db) => {
+    const [office] = await db
+      .select({ id: profiles.id })
+      .from(profiles)
+      .where(eq(profiles.email, officeEmail.toLowerCase()));
+    if (!office) {
+      throw new Error("invoiceTaskAsOffice: backoffice user not found");
+    }
+    await db
+      .update(tasks)
+      .set({
+        status: "invoiced",
+        invoicedAt: new Date(),
+        invoicedBy: office.id,
+        updatedBy: office.id,
+      })
+      .where(eq(tasks.number, number));
+  });
+}

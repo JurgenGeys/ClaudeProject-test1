@@ -1,6 +1,8 @@
 import { render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+vi.mock("./invoice-actions", () => ({ markInvoiced: vi.fn(), unmarkInvoiced: vi.fn() }));
+
 import type { TaskDetail } from "@/lib/tasks/detail";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
@@ -334,4 +336,53 @@ describe("TaskDetailView (B3)", () => {
     );
     expect(screen.getByText(/ma 10\/03\/2031 om 09:00/)).toBeInTheDocument();
   });
+});
+
+describe("TaskDetailView (B3): invoicing (BT-17)", () => {
+  const completed: TaskDetail = {
+    ...task,
+    status: "completed",
+    pickedUpAt: new Date("2026-11-20T14:00:00Z"),
+    completion,
+  };
+  const invoiced: TaskDetail = {
+    ...completed,
+    status: "invoiced",
+    invoicedAt: new Date("2026-11-24T10:00:00Z"),
+    invoicedByName: "Sofie Peeters",
+  };
+
+  it("offers 'Markeer als gefactureerd' for an Afgewerkt task, and not the unmark button", () => {
+    render(<TaskDetailView task={completed} />);
+    expect(screen.getByRole("button", { name: "Markeer als gefactureerd" })).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Markering ongedaan maken" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("offers 'Markering ongedaan maken' for a Gefactureerd task, and locks the hours", () => {
+    render(<TaskDetailView task={invoiced} />);
+    expect(screen.getByRole("button", { name: "Markering ongedaan maken" })).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Markeer als gefactureerd" }),
+    ).not.toBeInTheDocument();
+    const block = screen.getByRole("region", { name: "Afmelding" });
+    expect(block).toHaveTextContent("gefactureerde uren · vergrendeld");
+    expect(block).toHaveTextContent("Maak eerst de markering ongedaan");
+  });
+
+  it("does not talk about locked hours for an Afgewerkt task", () => {
+    render(<TaskDetailView task={completed} />);
+    expect(screen.getByRole("region", { name: "Afmelding" })).not.toHaveTextContent("vergrendeld");
+  });
+
+  it.each(["open", "assigned", "picked_up"] as const)(
+    "has no invoicing button for %s",
+    (status) => {
+      render(<TaskDetailView task={{ ...task, status }} />);
+      expect(
+        screen.queryByRole("button", { name: /gefactureerd|ongedaan/ }),
+      ).not.toBeInTheDocument();
+    },
+  );
 });

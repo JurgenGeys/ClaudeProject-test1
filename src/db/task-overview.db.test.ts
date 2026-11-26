@@ -76,6 +76,8 @@ type TaskSpec = {
   /** Worked minutes, for completed and invoiced tasks; `corrected` is the corrected value. */
   worked?: number;
   corrected?: number;
+  /** When it was completed (`task_completions.completed_at`); the database default when absent. */
+  completedAt?: string;
 };
 
 /** A task that obeys the check constraints of its status. Returns its number. */
@@ -104,9 +106,9 @@ async function createTask(
   `);
   if (spec.worked !== undefined) {
     await tx.execute(sql`
-      insert into public.task_completions (task_id, worked_minutes, completed_by,
+      insert into public.task_completions (task_id, worked_minutes, completed_by, completed_at,
         corrected_minutes, correction_reason, corrected_by, corrected_at)
-      values (${task.id}, ${spec.worked}, ${spec.assignee},
+      values (${task.id}, ${spec.worked}, ${spec.assignee}, coalesce(${spec.completedAt ?? null}::timestamptz, now()),
         ${spec.corrected ?? null}, ${spec.corrected ? "Klant bevestigde" : null},
         ${spec.corrected ? office : null}, ${spec.corrected ? stamp : null})
     `);
@@ -160,6 +162,7 @@ async function seed(tx: Tx) {
       date: "2026-11-20",
       assignee: jens,
       worked: 120,
+      completedAt: "2026-11-24T10:00:00Z",
     }),
     completedCorrected: await make({
       status: "completed",
@@ -167,12 +170,13 @@ async function seed(tx: Tx) {
       assignee: kevin,
       worked: 120,
       corrected: 90,
+      completedAt: "2026-11-23T09:00:00Z",
     }),
     invoiced: await make({ status: "invoiced", date: "2026-11-10", assignee: kevin, worked: 60 }),
     cancelled: await make({ status: "cancelled", date: "2026-11-25", assignee: kevin }),
     cancelledUnassigned: await make({ status: "cancelled", date: "2026-11-27" }),
   };
-  return { office, kevin, jens, t, numbers: Object.values(t) };
+  return { office, kevin, jens, customerId: customer.id, t, numbers: Object.values(t) };
 }
 
 describe("queryTaskOverview", () => {
@@ -230,7 +234,7 @@ describe("queryTaskOverview", () => {
 
   it("sorts the oldest first, by day and then start time, except for Afgewerkt, Gefactureerd and Geannuleerd", async () => {
     await inRolledBackTransaction(async (tx) => {
-      const { numbers, t } = await seed(tx);
+      const { numbers, t, office, kevin, customerId } = await seed(tx);
       const active = await overviewOf(tx, numbers);
       expect(active.rows.map((r) => r.number)).toEqual([
         t.completed, // 20/11
@@ -242,8 +246,20 @@ describe("queryTaskOverview", () => {
         t.assignedJens, // 05/12
       ]);
 
+      // Afgewerkt: by the moment of completing, newest first, not by the planned day (`completed`
+      // was planned earlier but completed later). The highest number goes first on a tie.
       const completed = await overviewOf(tx, numbers, { tab: "completed" });
-      expect(completed.rows.map((r) => r.number)).toEqual([t.completedCorrected, t.completed]);
+      expect(completed.rows.map((r) => r.number)).toEqual([t.completed, t.completedCorrected]);
+      const tie = await createTask(tx, office, customerId, {
+        status: "completed",
+        date: "2026-11-01",
+        assignee: kevin,
+        worked: 60,
+        completedAt: "2026-11-24T10:00:00Z",
+      });
+      const withTie = await overviewOf(tx, [...numbers, tie], { tab: "completed" });
+      expect(withTie.rows.map((r) => r.number)).toEqual([tie, t.completed, t.completedCorrected]);
+      expect(withTie.rows[0].completedAt).toEqual(new Date("2026-11-24T10:00:00Z"));
       const cancelled = await overviewOf(tx, numbers, { tab: "cancelled" });
       expect(cancelled.rows.map((r) => r.number)).toEqual([t.cancelledUnassigned, t.cancelled]);
     });

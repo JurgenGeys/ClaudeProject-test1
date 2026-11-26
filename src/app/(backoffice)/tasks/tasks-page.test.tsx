@@ -7,6 +7,7 @@ const { checkRoleAccess } = vi.hoisted(() => ({ checkRoleAccess: vi.fn() }));
 vi.mock("@/lib/auth/role-access", () => ({ checkRoleAccess }));
 const { getTaskOverview } = vi.hoisted(() => ({ getTaskOverview: vi.fn() }));
 vi.mock("@/lib/tasks/overview", () => ({ getTaskOverview }));
+vi.mock("./invoice-actions", () => ({ markInvoiced: vi.fn(), unmarkInvoiced: vi.fn() }));
 
 import { countsPerTab } from "@/lib/tasks/overview-counts";
 import type { TaskOverview, TaskOverviewRow } from "@/lib/tasks/overview";
@@ -19,6 +20,7 @@ const ID = "6f1c1c7e-4f55-4c3b-9d33-0a5b0f2a9c11";
 const aRow: TaskOverviewRow = {
   id: "t1",
   number: 1042,
+  version: "2026-11-23T08:00:00.123456Z",
   scheduledDate: "2026-11-23",
   startTime: "08:00:00",
   customerName: "Bakkerij De Gouden Korst",
@@ -28,6 +30,7 @@ const aRow: TaskOverviewRow = {
   status: "assigned",
   technicianName: "Kevin Wouters",
   pickedUpAt: null,
+  completedAt: null,
   minutes: null,
   corrected: false,
 };
@@ -214,5 +217,71 @@ describe("the tasks page (B1)", () => {
     render((await TasksPage({ searchParams: Promise.resolve({}) } as never)) ?? <></>);
     expect(screen.queryByRole("heading")).not.toBeInTheDocument();
     expect(getTaskOverview).not.toHaveBeenCalled();
+  });
+});
+
+describe("the tasks page (B1): the selection for invoicing (BT-17)", () => {
+  const completedRow: TaskOverviewRow = { ...aRow, status: "completed", minutes: 90 };
+
+  it("has checkboxes on the tab Afgewerkt", async () => {
+    getTaskOverview.mockResolvedValue(
+      overview({
+        filters: { tab: "completed", technician: null, from: null, to: null, page: 1 },
+        counts: countsPerTab({ completed: 1 }),
+        rows: [completedRow],
+      }),
+    );
+    await renderPage({ status: "completed" });
+    expect(
+      screen.getAllByRole("checkbox", { name: /^Selecteer taak #1042, Bakkerij/ }),
+    ).not.toHaveLength(0);
+    expect(
+      screen.getAllByRole("checkbox", { name: "Alles selecteren op deze pagina" }),
+    ).not.toHaveLength(0);
+  });
+
+  it.each(["active", "open", "invoiced", "all"] as const)(
+    "has no checkboxes on the tab %s",
+    async (tab) => {
+      getTaskOverview.mockResolvedValue(
+        overview({ filters: { tab, technician: null, from: null, to: null, page: 1 } }),
+      );
+      await renderPage({ status: tab });
+      expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
+    },
+  );
+
+  it("keeps the pagination of 50 per page working next to the selection", async () => {
+    getTaskOverview.mockResolvedValue(
+      overview({
+        filters: { tab: "completed", technician: null, from: null, to: null, page: 2 },
+        counts: countsPerTab({ completed: 120 }),
+        rows: [completedRow],
+        page: 2,
+        pageCount: 3,
+      }),
+    );
+    await renderPage({ status: "completed", page: "2" });
+    const pagination = screen.getByRole("navigation", { name: "Paginering" });
+    expect(within(pagination).getByRole("link", { name: "Vorige" })).toHaveAttribute(
+      "href",
+      "/tasks?status=completed",
+    );
+    expect(within(pagination).getByRole("link", { name: "Volgende" })).toHaveAttribute(
+      "href",
+      "/tasks?status=completed&page=3",
+    );
+  });
+
+  it("has no checkboxes on an empty Afgewerkt tab, and no bar", async () => {
+    getTaskOverview.mockResolvedValue(
+      overview({
+        filters: { tab: "completed", technician: null, from: null, to: null, page: 1 },
+        rows: [],
+      }),
+    );
+    await renderPage({ status: "completed" });
+    expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
+    expect(screen.getByText("Geen taken gevonden voor deze filter.")).toBeInTheDocument();
   });
 });
