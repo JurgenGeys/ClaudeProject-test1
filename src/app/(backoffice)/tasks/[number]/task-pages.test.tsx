@@ -14,8 +14,8 @@ const { checkRoleAccess, getTaskDetail, listAssignableTechnicians, notFound } = 
 vi.mock("@/lib/auth/role-access", () => ({ checkRoleAccess }));
 vi.mock("@/lib/tasks/detail", () => ({ getTaskDetail }));
 vi.mock("@/lib/technicians/queries", () => ({ listAssignableTechnicians }));
-vi.mock("next/navigation", () => ({ notFound }));
-vi.mock("../actions", () => ({ createTask: vi.fn(), updateTask: vi.fn() }));
+vi.mock("next/navigation", () => ({ notFound, useRouter: () => ({ refresh: vi.fn() }) }));
+vi.mock("../actions", () => ({ createTask: vi.fn(), updateTask: vi.fn(), resetTask: vi.fn() }));
 vi.mock("../../customers/actions", () => ({ searchCustomers: vi.fn() }));
 
 import type { TaskDetail } from "@/lib/tasks/detail";
@@ -91,6 +91,26 @@ describe("the task page (B3)", () => {
   it("shows the confirmation only for ?saved=1", async () => {
     render(await detailPage("1043", { saved: "1" }));
     expect(screen.getByRole("status")).toHaveTextContent("Taak #1043 bewaard.");
+  });
+
+  it("reads the technicians for Terugzetten only for an Opgepikt task", async () => {
+    render(await detailPage("1043"));
+    expect(listAssignableTechnicians).not.toHaveBeenCalled();
+    expect(screen.queryByRole("button", { name: "Terugzetten" })).not.toBeInTheDocument();
+
+    getTaskDetail.mockResolvedValue({
+      ...task,
+      status: "picked_up",
+      pickedUpAt: new Date("2026-11-23T06:48:00Z"),
+    });
+    render(await detailPage("1043"));
+    expect(listAssignableTechnicians).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("button", { name: "Terugzetten" })).toBeInTheDocument();
+  });
+
+  it("shows the reset confirmation only for ?reset=1", async () => {
+    render(await detailPage("1043", { reset: "1" }));
+    expect(screen.getByRole("status")).toHaveTextContent("Taak teruggezet.");
   });
 
   it.each([["abc"], ["0"], ["-1"], ["1e3"], ["01043"], ["1043abc"], ["9999999999"], [""]])(

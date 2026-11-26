@@ -647,3 +647,27 @@ export async function resetTaskAsOffice(number: number): Promise<void> {
       .where(eq(tasks.number, number));
   });
 }
+
+/**
+ * The technician finishes a picked up task behind the back of an open page (BT-14): the status
+ * becomes Afgewerkt and the hours are saved, through Drizzle, so `updated_at` moves like it does
+ * for every writer.
+ */
+export async function completeTaskBehindTheBack(number: number, workedMinutes = 90): Promise<void> {
+  assertLocalSupabase(process.env);
+  await withDb(async (db) => {
+    const [task] = await db
+      .select({ id: tasks.id, assigneeId: tasks.assigneeId })
+      .from(tasks)
+      .where(eq(tasks.number, number));
+    if (!task?.assigneeId) {
+      throw new Error(`completeTaskBehindTheBack: no assigned task ${number}`);
+    }
+    await db.update(tasks).set({ status: "completed" }).where(eq(tasks.id, task.id));
+    await db.insert(taskCompletions).values({
+      taskId: task.id,
+      workedMinutes,
+      completedBy: task.assigneeId,
+    });
+  });
+}

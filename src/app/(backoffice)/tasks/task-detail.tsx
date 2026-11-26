@@ -7,10 +7,12 @@ import { telHref } from "@/lib/phone";
 import type { TaskDetail } from "@/lib/tasks/detail";
 import { formatTaskNumber, workTypeLabel } from "@/lib/tasks/labels";
 import { buildTimeline, formatMoment, type TimelineItem } from "@/lib/tasks/timeline";
+import { RESET_MESSAGES } from "@/lib/tasks/messages";
 import { canEditTask } from "@/lib/tasks/transitions";
 import { formatDate, formatHours, formatTimeOfDay } from "@/lib/time/format";
 import { cn } from "@/lib/utils";
 
+import { ResetTaskDialog } from "./reset-task-dialog";
 import { SavedNotice } from "./saved-notice";
 
 const CARD = "rounded-lg border border-border bg-card p-5";
@@ -117,10 +119,23 @@ function Completion({ task, now }: { task: TaskDetail; now: Date }) {
  * B3 (design chapter 3): the task for the back office, read only. Shows the status and the
  * number, the customer, location, instructions and technician, the timeline and, from
  * Afgewerkt on, the completion. A cancelled task shows a grey bar with who, when and why.
- * The only action is "Bewerken" (Open, Toegewezen, Opgepikt); the other actions of the design
- * (Terugzetten, annuleren, uren corrigeren, factureren) come with their own build tasks.
+ * The actions: "Bewerken" (Open, Toegewezen, Opgepikt) and "Terugzetten" with its dialog
+ * (Opgepikt, BT-14); the other actions of the design (annuleren, uren corrigeren, factureren)
+ * come with their own build tasks.
  */
-export function TaskDetailView({ task, saved = false }: { task: TaskDetail; saved?: boolean }) {
+export function TaskDetailView({
+  task,
+  saved = false,
+  reset = false,
+  technicians = [],
+}: {
+  task: TaskDetail;
+  saved?: boolean;
+  /** The task was just reset (`?reset=1`): shows the confirmation. */
+  reset?: boolean;
+  /** The technicians that "Terugzetten" offers; only needed for an Opgepikt task. */
+  technicians?: readonly { id: string; fullName: string }[];
+}) {
   const now = new Date();
   const number = formatTaskNumber(task.number);
   const editable = canEditTask(task.status);
@@ -130,6 +145,14 @@ export function TaskDetailView({ task, saved = false }: { task: TaskDetail; save
   return (
     <>
       {saved ? <SavedNotice>{`Taak ${number} bewaard.`}</SavedNotice> : null}
+      {reset && task.status === "assigned" && task.assignee ? (
+        <SavedNotice param="reset">
+          {RESET_MESSAGES.done(
+            task.assignee.fullName,
+            `${formatDate(task.scheduledDate, { omitCurrentYear: true, now })} om ${formatTimeOfDay(task.startTime)}`,
+          )}
+        </SavedNotice>
+      ) : null}
       <Link href="/tasks" className="text-sm underline-offset-4 hover:underline">
         ← Taken
       </Link>
@@ -150,9 +173,28 @@ export function TaskDetailView({ task, saved = false }: { task: TaskDetail; save
           </p>
         </div>
         {editable ? (
-          <Button asChild className="h-11 px-4 md:h-10">
-            <Link href={`/tasks/${task.number}/edit`}>Bewerken</Link>
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            {task.status === "picked_up" ? (
+              // The version in the key: after a reset the page has a new version and the dialog
+              // starts closed again.
+              <ResetTaskDialog
+                key={task.version}
+                taskNumber={task.number}
+                version={task.version}
+                technicians={technicians}
+                currentAssigneeId={task.assignee?.id ?? null}
+                scheduledDate={task.scheduledDate}
+                startTime={formatTimeOfDay(task.startTime)}
+              />
+            ) : null}
+            <Button
+              asChild
+              variant={task.status === "picked_up" ? "outline" : "default"}
+              className="h-11 px-4 md:h-10"
+            >
+              <Link href={`/tasks/${task.number}/edit`}>Bewerken</Link>
+            </Button>
+          </div>
         ) : null}
       </div>
 

@@ -9,14 +9,21 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
  * once the message is shown the parameter is removed from the address, so that a reload or a
  * bookmark does not show the message again. The message itself stays on the page.
  */
-export function SavedNotice({ children }: { children: string }) {
+export function SavedNotice({
+  children,
+  param = "saved",
+}: {
+  children: string;
+  /** The address parameter that asked for this message; it is removed once shown. */
+  param?: string;
+}) {
   useEffect(() => {
     const url = new URL(window.location.href);
-    if (url.searchParams.has("saved")) {
-      url.searchParams.delete("saved");
+    if (url.searchParams.has(param)) {
+      url.searchParams.delete(param);
       window.history.replaceState(window.history.state, "", `${url.pathname}${url.search}`);
     }
-  }, []);
+  }, [param]);
 
   return (
     <Alert

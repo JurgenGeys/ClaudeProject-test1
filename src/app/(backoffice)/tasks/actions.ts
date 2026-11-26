@@ -11,7 +11,9 @@ import { createTaskInTransaction, type CreateTaskOutcome } from "@/lib/tasks/cre
 import { TASK_ACTION_MESSAGES } from "@/lib/tasks/messages";
 import { fieldErrorsOf } from "@/lib/tasks/refusals";
 import { taskStatusLabel } from "@/lib/tasks/labels";
+import { resetTaskInTransaction, type ResetTaskOutcome } from "@/lib/tasks/reset";
 import { updateTaskInTransaction, type UpdateTaskOutcome } from "@/lib/tasks/update";
+import { parseResetTaskForm, type ResetTaskFieldErrors } from "@/lib/validation/reset-task";
 import { parseUpdateTask, readUpdateTaskForm } from "@/lib/validation/update-task";
 import {
   parseCreateTask,
@@ -185,4 +187,96 @@ export async function updateTask(
   revalidatePath(TASKS_PATH);
   revalidatePath(`${TASKS_PATH}/${number}`);
   redirect(`${TASKS_PATH}/${number}?saved=1`);
+}
+
+/**
+ * Result of `resetTask` when the task was not reset. A reset task redirects instead. The dialog
+ * keeps what was chosen itself; nothing is echoed back.
+ */
+export type ResetTaskState = null | {
+  ok: false;
+  fieldErrors: ResetTaskFieldErrors;
+  /** A problem that does not belong to one field (technical problem, no access, changed). */
+  formError?: string;
+  /** The task changed meanwhile: the dialog offers a button that reloads the page. */
+  reload?: boolean;
+};
+
+/**
+ * Puts an Opgepikt task back to Toegewezen (design B3 "Terugzetten"; BT-14). Order of the steps:
+ * 1. `requireRole("backoffice")`;
+ * 2. Zod validation on the server (`parseResetTaskForm`): the task number, the version of the
+ *    page, the technician, the date and the start time. The status, `picked_up_at` and the user
+ *    are never read from the form. A form without a valid number or version is answered like a
+ *    task that changed: reload;
+ * 3. one transaction (`resetTaskInTransaction`): lock the task, check the status and version
+ *    again, check the technician under `FOR SHARE`, `checkTransition`, the conditional update;
+ * 4. a refusal gives a message under the field it belongs to, or one for the whole dialog (the
+ *    task changed or does not exist). A technician who finished or picked up meanwhile is
+ *    told so by his own screens (BT-12, BT-13);
+ * 5. after a reset the user continues to B3 with "Taak teruggezet. ...".
+ */
+export async function resetTask(
+  _previous: ResetTaskState,
+  formData: FormData,
+): Promise<ResetTaskState> {
+  let actor: CurrentUser;
+  try {
+    actor = await requireRole("backoffice");
+  } catch (error) {
+    if (error instanceof AuthError) {
+      return { ok: false, fieldErrors: {}, formError: authFailureMessage(error) };
+    }
+    throw error;
+  }
+
+  const parsed = parseResetTaskForm(formData);
+  if (!parsed.ok) {
+    return parsed.reason === "stale"
+      ? { ok: false, fieldErrors: {}, formError: TASK_ACTION_MESSAGES.changed, reload: true }
+      : { ok: false, fieldErrors: parsed.fieldErrors };
+  }
+  const { number } = parsed.data;
+
+  let outcome: ResetTaskOutcome;
+  try {
+    outcome = await getDb().transaction((tx) =>
+      resetTaskInTransaction(tx, {
+        actor: { id: actor.id, role: actor.role, isActive: true },
+        data: parsed.data,
+      }),
+    );
+  } catch (error) {
+    console.error("Resetting a task failed:", describeError(error));
+    return { ok: false, fieldErrors: {}, formError: LOGIN_MESSAGES.technicalProblem };
+  }
+
+  switch (outcome.kind) {
+    case "reset":
+      break;
+    case "not-found":
+      return { ok: false, fieldErrors: {}, formError: TASK_ACTION_MESSAGES.taskNotFound };
+    case "changed":
+      return { ok: false, fieldErrors: {}, formError: TASK_ACTION_MESSAGES.changed, reload: true };
+    default: {
+      if (outcome.kind === "assignee-inactive" || outcome.kind === "assignee-invited") {
+        // Refresh the choice list of the dialog: the technician must not be offered any more.
+        revalidatePath(`${TASKS_PATH}/${number}`);
+      }
+      const fieldErrors = fieldErrorsOf(outcome);
+      // Without a field it is the actor who was refused: he is a signed-in, active backoffice
+      // user, so this is not expected.
+      return fieldErrors
+        ? { ok: false, fieldErrors }
+        : { ok: false, fieldErrors: {}, formError: LOGIN_MESSAGES.technicalProblem };
+    }
+  }
+
+  revalidatePath(TASKS_PATH);
+  revalidatePath(`${TASKS_PATH}/${number}`);
+  // The technician sees the task as Toegewezen again, with the new date.
+  revalidatePath("/my-tasks");
+  revalidatePath(`/my-tasks/${number}`);
+  // `redirect()` throws, so it stays outside the try/catch above.
+  redirect(`${TASKS_PATH}/${number}?reset=1`);
 }
