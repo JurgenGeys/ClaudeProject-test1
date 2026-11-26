@@ -1,0 +1,80 @@
+name: Deploy database (test environment)
+
+# Manually started. Applies the Drizzle migrations to the real Supabase project of the test
+# environment and, optionally, creates the first backoffice user. Schema changes only ever
+# reach that project through this workflow (ADR-0002), never by hand in the dashboard.
+on:
+  workflow_dispatch:
+    inputs:
+      seed_backoffice:
+        description: "Also create the first backoffice user (safe to run again)"
+        type: boolean
+        default: false
+      seed_name:
+        description: "Full name of the backoffice user (only when seeding)"
+        type: string
+        required: false
+      seed_email:
+        description: "E-mail address of the backoffice user (only when seeding)"
+        type: string
+        required: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-db-test
+  cancel-in-progress: false
+
+jobs:
+  migrate:
+    name: Migrate (and seed) the test database
+    # Only code that is on main (so reviewed and merged) may use the secrets.
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # The secrets belong to this environment, so pull request runs never see them.
+    environment: test
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+
+      - name: Check that the secrets are set
+        # Only reports which names are missing, never a value.
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          set -euo pipefail
+          : "${DATABASE_URL:?Secret DATABASE_URL is not set in the environment 'test'}"
+
+      - name: Run Drizzle migrations
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: pnpm db:migrate
+
+      - name: Create the first backoffice user
+        if: ${{ inputs.seed_backoffice }}
+        # The inputs go through the environment and not into the script text (no injection).
+        # The password must be set: without it the script would print a generated one in the log.
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+          SEED_BACKOFFICE_PASSWORD: ${{ secrets.SEED_BACKOFFICE_PASSWORD }}
+          SEED_NAME: ${{ inputs.seed_name }}
+          SEED_EMAIL: ${{ inputs.seed_email }}
+        run: |
+          set -euo pipefail
+          : "${NEXT_PUBLIC_SUPABASE_URL:?Secret NEXT_PUBLIC_SUPABASE_URL is not set in the environment 'test'}"
+          : "${SUPABASE_SECRET_KEY:?Secret SUPABASE_SECRET_KEY is not set in the environment 'test'}"
+          : "${SEED_BACKOFFICE_PASSWORD:?Secret SEED_BACKOFFICE_PASSWORD is not set in the environment 'test'}"
+          : "${SEED_NAME:?Fill in seed_name}"
+          : "${SEED_EMAIL:?Fill in seed_email}"
+          pnpm seed:backoffice "$SEED_NAME" "$SEED_EMAIL"
