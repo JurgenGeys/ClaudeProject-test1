@@ -88,9 +88,12 @@ const RADIO_LABEL =
 export function TaskForm({
   technicians,
   edit,
+  customer,
 }: {
   technicians: readonly TechnicianOption[];
   edit?: TaskFormEdit;
+  /** A new task that starts with this customer chosen and his address as location ("Nieuwe taak voor deze klant"). */
+  customer?: CustomerSearchResult;
 }) {
   const [state, dispatch, pending] = useActionState<TaskFormState, FormData>(
     edit ? updateTask : createTask,
@@ -187,7 +190,11 @@ export function TaskForm({
         <h2 id="heading-customer" className="text-lg font-semibold">
           1. Klant <Required />
         </h2>
-        <CustomerPicker errors={errors} onChoose={fillLocation} initialCustomer={edit?.customer} />
+        <CustomerPicker
+          errors={errors}
+          onChoose={fillLocation}
+          initialCustomer={edit?.customer ?? customer}
+        />
       </section>
 
       <section className={SECTION} aria-labelledby="heading-location">
@@ -205,7 +212,7 @@ export function TaskForm({
             </Label>
             <Input
               ref={streetRef}
-              defaultValue={edit?.locationStreet}
+              defaultValue={edit?.locationStreet ?? customer?.street ?? undefined}
               id="location-street"
               name="locationStreet"
               aria-required="true"
@@ -222,7 +229,7 @@ export function TaskForm({
             </Label>
             <Input
               ref={postalCodeRef}
-              defaultValue={edit?.locationPostalCode}
+              defaultValue={edit?.locationPostalCode ?? customer?.postalCode ?? undefined}
               id="location-postal-code"
               name="locationPostalCode"
               aria-required="true"
@@ -243,7 +250,7 @@ export function TaskForm({
             </Label>
             <Input
               ref={cityRef}
-              defaultValue={edit?.locationCity}
+              defaultValue={edit?.locationCity ?? customer?.city ?? undefined}
               id="location-city"
               name="locationCity"
               aria-required="true"

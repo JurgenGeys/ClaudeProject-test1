@@ -290,6 +290,7 @@ Eén formulier in drie blokken. Verplichte velden met een sterretje en de legend
 - **Foutmeldingen**: "Vul de naam van de klant in." / "Dit e-mailadres is niet geldig. Controleer het of laat het leeg." / "Vul een geldige postcode in (4 cijfers)."
 - Een adreswijziging bij de klant past bestaande taken **niet** aan (de taak heeft een eigen locatie).
 - **Rechten**: enkel backoffice. Verwijderen of anonimiseren van klanten zit niet in deze versie (zie hoofdstuk 10, P8).
+- **Zoals gebouwd (BT-18)**: `/customers` (B5), `/customers/new` en `/customers/<id>` (B6). B5 zoekt via `?q=` (gewoon GET-formulier) op naam, gemeente en telefoon, sorteert op naam, toont 50 klanten per pagina, "Taken" telt alle taken inclusief geannuleerde en "Laatste taak" is de laatst geplande dag. Zoeken op telefoon negeert spaties aan beide kanten (`014412287` vindt `014 41 22 87`), ook in de klantenzoeker van het taakformulier (`customerMatchCondition`). `createCustomer` en `updateCustomer` (`requireRole("backoffice")` eerst, Zod `customerSchema`) bewaren zonder versiecontrole: bij gelijktijdig bewerken wint de laatste bewaring (het ontwerp vraagt niets anders; een trigger op `customers` zou een nieuwe ADR vragen). Bewaren leidt naar `/customers/<id>?saved=1` met "Klant bewaard.". "Nieuwe taak voor deze klant" opent `/tasks/new?customer=<id>` met de klant gekozen en zijn adres als locatie; een ongeldig of onbekend id geeft een leeg formulier.
 
 ### B7 Techniekers (backoffice)
 

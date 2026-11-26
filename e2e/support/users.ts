@@ -541,3 +541,26 @@ export async function createRevokedLeftover(email: string): Promise<void> {
     throw new Error(`Blocking test user ${email} failed: ${updated.error.message}`);
   }
 }
+
+/** The customers whose name starts with `prefix`, as saved (with the e-mail address of their creator), by name. */
+export async function readCustomersNamed(prefix: string) {
+  assertLocalSupabase(process.env);
+  return withDb(async (db) => {
+    return db
+      .select({
+        id: customers.id,
+        name: customers.name,
+        street: customers.street,
+        postalCode: customers.postalCode,
+        city: customers.city,
+        phone: customers.phone,
+        email: customers.email,
+        notes: customers.notes,
+        createdByEmail: profiles.email,
+      })
+      .from(customers)
+      .innerJoin(profiles, eq(profiles.id, customers.createdBy))
+      .where(sql`${customers.name} like ${prefix + "%"}`)
+      .orderBy(customers.name);
+  });
+}
