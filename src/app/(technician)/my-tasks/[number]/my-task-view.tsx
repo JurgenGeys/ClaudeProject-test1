@@ -12,6 +12,15 @@ import { formatDate, formatHours, formatTime, formatTimeOfDay } from "@/lib/time
 import { myTasksHref } from "@/lib/validation/my-tasks";
 import { cn } from "@/lib/utils";
 
+import { CallOffice } from "./call-office";
+import {
+  CANCELLED_HEADING_ID,
+  PICKED_UP_NOTICE_ID,
+  PickUpAlert,
+  PickUpBar,
+  PickUpTask,
+} from "./pick-up-task";
+
 const CARD = "mt-3 rounded-lg border border-border bg-card p-4";
 
 function Block({
@@ -65,22 +74,6 @@ function BackLink({ href, children }: { href: string; children: ReactNode }) {
   );
 }
 
-/** `Bel kantoor op 014 00 00 00`, the number being a `tel:` link of at least 44 px high. */
-function CallOffice({ phone }: { phone: string }) {
-  return (
-    <>
-      Bel kantoor op{" "}
-      <a
-        href={telHref(phone)}
-        className="inline-flex min-h-11 items-center font-medium underline underline-offset-4"
-      >
-        {phone}
-      </a>
-      .
-    </>
-  );
-}
-
 /**
  * T2 for a task that is cancelled meanwhile (design T2, "Foutmeldingen"): only the message,
  * no details of a task that does not need doing any more.
@@ -95,10 +88,10 @@ function CancelledTask({ task }: { task: TaskDetail }) {
       </div>
       {/* A plain section, not an alert: this is the page itself on load, not a change to announce. */}
       <section
-        aria-labelledby="heading-cancelled"
+        aria-labelledby={CANCELLED_HEADING_ID}
         className="mt-4 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900"
       >
-        <h1 id="heading-cancelled" className="font-medium">
+        <h1 id={CANCELLED_HEADING_ID} tabIndex={-1} className="font-medium outline-none">
           Deze taak is geannuleerd door kantoor.
         </h1>
         <p className="mt-1">Je hoeft niets meer te doen.</p>
@@ -111,8 +104,8 @@ function CancelledTask({ task }: { task: TaskDetail }) {
 }
 
 /**
- * T2 (design chapter 3), read only: what the technician needs to do the task. The buttons
- * Oppikken (BT-12) and Afmelden (BT-13) come with their own build tasks. Phone and maps links
+ * T2 (design chapter 3): what the technician needs to do the task. A Toegewezen task has the
+ * button Oppikken with its confirmation (BT-12); Afmelden (BT-13) comes with its own build task. Phone and maps links
  * with their own buttons come with BT-19; the phone number is already a plain `tel:` link.
  * A finished task (Afgewerkt or Gefactureerd, both "Afgewerkt" here) shows the technician's
  * own report, with the hours he filled in. A cancelled task shows only that message.
@@ -133,17 +126,21 @@ export function MyTaskView({
   const finished = task.status === "completed" || task.status === "invoiced";
   const status = finished ? "completed" : task.status;
   const completion = finished ? task.completion : null;
+  const canPickUp = task.status === "assigned";
 
-  return (
+  const content = (
     <>
       <BackLink href={myTasksHref(finished ? "done" : "todo")}>
         {finished ? "← Afgewerkt" : "← Mijn taken"}
       </BackLink>
+      {canPickUp ? <PickUpAlert officePhone={officePhone} /> : null}
 
       {task.status === "picked_up" && task.pickedUpAt ? (
         <div
+          id={PICKED_UP_NOTICE_ID}
+          tabIndex={-1}
           role="status"
-          className="mt-2 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900"
+          className="mt-2 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
         >
           <p className="font-medium">Opgepikt om {formatTime(task.pickedUpAt)}</p>
           <p>Kantoor ziet dat je onderweg of bezig bent.</p>
@@ -242,6 +239,15 @@ export function MyTaskView({
           <CallOffice phone={officePhone} /> Kantoor zet de taak dan terug.
         </p>
       ) : null}
+      {canPickUp ? (
+        <PickUpBar
+          taskNumber={task.number}
+          version={task.version}
+          customerName={task.customer.name}
+        />
+      ) : null}
     </>
   );
+
+  return canPickUp ? <PickUpTask>{content}</PickUpTask> : content;
 }

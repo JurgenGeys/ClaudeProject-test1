@@ -35,7 +35,7 @@ export type UpdateTaskParse =
  */
 const VERSION = /^(20\d{2}-\d{2}-\d{2})T([01]\d|2[0-3]):[0-5]\d:[0-5]\d\.\d{6}Z$/;
 
-const versionSchema = z
+export const versionSchema = z
   .string()
   .regex(VERSION, { abort: true })
   .refine((value) => {

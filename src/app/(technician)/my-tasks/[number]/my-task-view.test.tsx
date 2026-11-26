@@ -1,5 +1,9 @@
 import { cleanup, render, screen, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+// The button Oppikken imports the Server Action and the router; both have their own tests.
+vi.mock("../actions", () => ({ pickUpTask: vi.fn() }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
 
 import type { TaskDetail } from "@/lib/tasks/detail";
 
@@ -84,10 +88,14 @@ describe("T2 for a task that is Toegewezen", () => {
     expect(screen.getByRole("link", { name: "← Mijn taken" })).toHaveAttribute("href", "/my-tasks");
   });
 
-  it("is read only: no Oppikken and no Afmelden", () => {
+  it("has the big button Oppikken (48 px high) with its hint, and no Afmelden", () => {
     view();
-    expect(screen.queryByRole("button")).not.toBeInTheDocument();
-    expect(screen.queryByText(/Oppikken|Afmelden/)).not.toBeInTheDocument();
+    const button = screen.getByRole("button", { name: "Oppikken" });
+    expect(button).toHaveClass("h-12", "w-full");
+    expect(screen.getByText("Tik hierop als je vertrekt naar de klant.")).toBeInTheDocument();
+    expect(screen.queryByText(/Afmelden/)).not.toBeInTheDocument();
+    // The confirmation is closed until the button is tapped.
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
   it("says Morgen for tomorrow and a plain date for another day, with the year in another year", () => {
@@ -111,7 +119,7 @@ describe("T2 for a task that is Toegewezen", () => {
 });
 
 describe("T2 for a task that is Opgepikt", () => {
-  it("shows when it was picked up, in Belgian time, and still no button", () => {
+  it("shows when it was picked up, in Belgian time, and no Oppikken button (Afmelden is BT-13)", () => {
     view({ status: "picked_up", pickedUpAt: new Date("2026-11-23T06:48:00Z") });
     expect(screen.getByRole("status")).toHaveTextContent("Opgepikt om 07:48");
     expect(screen.getAllByText("Opgepikt").length).toBeGreaterThan(0);

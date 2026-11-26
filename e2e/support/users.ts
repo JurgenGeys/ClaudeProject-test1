@@ -541,3 +541,65 @@ export async function createRevokedLeftover(email: string): Promise<void> {
     throw new Error(`Blocking test user ${email} failed: ${updated.error.message}`);
   }
 }
+
+/** What the database holds about the pick-up of a task: status, the time, and who updated it last. */
+export async function readTaskPickUp(number: number): Promise<{
+  status: string;
+  pickedUpAt: Date | null;
+  assigneeEmail: string | null;
+  updatedByEmail: string;
+}> {
+  assertLocalSupabase(process.env);
+  return withDb(async (db) => {
+    const assignee = alias(profiles, "assignee");
+    const updater = alias(profiles, "updater");
+    const [row] = await db
+      .select({
+        status: tasks.status,
+        pickedUpAt: tasks.pickedUpAt,
+        assigneeEmail: assignee.email,
+        updatedByEmail: updater.email,
+      })
+      .from(tasks)
+      .innerJoin(updater, eq(updater.id, tasks.updatedBy))
+      .leftJoin(assignee, eq(assignee.id, tasks.assigneeId))
+      .where(eq(tasks.number, number));
+    if (!row) {
+      throw new Error(`readTaskPickUp: no task ${number}`);
+    }
+    return row;
+  });
+}
+
+/** The office cancels a task behind the back of an open page (the technician's screen is out of date). */
+export async function cancelTaskAsOffice(number: number, officeEmail: string): Promise<void> {
+  assertLocalSupabase(process.env);
+  await withDb(async (db) => {
+    const [office] = await db
+      .select({ id: profiles.id })
+      .from(profiles)
+      .where(eq(profiles.email, officeEmail.toLowerCase()));
+    if (!office) {
+      throw new Error("cancelTaskAsOffice: backoffice user not found");
+    }
+    await db
+      .update(tasks)
+      .set({ status: "cancelled", cancelledAt: new Date(), cancelledBy: office.id })
+      .where(eq(tasks.number, number));
+  });
+}
+
+/** The office gives a task to another technician behind the back of an open page. */
+export async function reassignTask(number: number, technicianEmail: string): Promise<void> {
+  assertLocalSupabase(process.env);
+  await withDb(async (db) => {
+    const [technician] = await db
+      .select({ id: profiles.id })
+      .from(profiles)
+      .where(eq(profiles.email, technicianEmail.toLowerCase()));
+    if (!technician) {
+      throw new Error("reassignTask: technician not found");
+    }
+    await db.update(tasks).set({ assigneeId: technician.id }).where(eq(tasks.number, number));
+  });
+}

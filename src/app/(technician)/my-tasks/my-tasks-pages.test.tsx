@@ -14,7 +14,9 @@ const { checkRoleAccess, getMyTasks, getMyTaskDetail, notFound } = vi.hoisted(()
 vi.mock("@/lib/auth/role-access", () => ({ checkRoleAccess }));
 vi.mock("@/lib/tasks/my-tasks", () => ({ getMyTasks }));
 vi.mock("@/lib/tasks/detail", () => ({ getMyTaskDetail }));
-vi.mock("next/navigation", () => ({ notFound }));
+vi.mock("next/navigation", () => ({ notFound, useRouter: () => ({ refresh: vi.fn() }) }));
+// The page renders the button Oppikken, which imports the Server Action; the action has its own tests.
+vi.mock("./actions", () => ({ pickUpTask: vi.fn() }));
 const { getCompanyPhone } = vi.hoisted(() => ({ getCompanyPhone: vi.fn() }));
 vi.mock("@/lib/company", () => ({ getCompanyPhone }));
 
