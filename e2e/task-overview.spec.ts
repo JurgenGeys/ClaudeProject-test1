@@ -268,12 +268,14 @@ test.describe("the task overview", () => {
     await expect(page.getByRole("link", { name: /#\d+/ }).first()).toBeVisible();
   });
 
-  test("the confirmation after saving and the 'Nieuwe taak' button keep working next to the overview", async ({
+  test("the 'Nieuwe taak' button works, and the overview no longer shows a confirmation from the address", async ({
     page,
   }) => {
     await signInAsBackoffice(page);
+    // The confirmation "Taak #N bewaard." now lives on the task page (BT-10).
     await page.goto("/tasks?saved=1051");
-    await expect(page.getByRole("status")).toHaveText("Taak #1051 bewaard.");
+    await expect(page.getByRole("heading", { level: 1, name: "Taken" })).toBeVisible();
+    await expect(page.getByText(/bewaard/)).toHaveCount(0);
     await page.getByRole("link", { name: "Nieuwe taak" }).click();
     await expect(page).toHaveURL("/tasks/new");
   });

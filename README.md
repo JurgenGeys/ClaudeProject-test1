@@ -205,7 +205,7 @@ technieker). Zonder technieker ("Nog niet toewijzen") wordt de taak **Open**, me
 keuzelijst staan enkel actieve techniekers die hun wachtwoord kozen. De server valideert alles met Zod en bewaart de
 taak (en een nieuwe klant) in één transactie; de technieker wordt daarin met `FOR SHARE` gelezen en op `is_active`
 gecontroleerd, zodat een technieker die op hetzelfde moment wordt uitgeschakeld nooit een taak krijgt. Het taaknummer
-komt van de database. Na het bewaren toont `/tasks` "Taak #1051 bewaard." (het taakdetail komt in BT-10). Details:
+komt van de database. Na het bewaren toont het taakdetail `/tasks/1051` "Taak #1051 bewaard." (BT-10; bewerken via `/tasks/1051/edit`). Details:
 ontwerp, scherm B2 en hoofdstuk 6.
 
 ### Wachtwoord vergeten

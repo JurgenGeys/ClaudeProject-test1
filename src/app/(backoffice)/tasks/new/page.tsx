@@ -4,11 +4,11 @@ import Link from "next/link";
 import { checkRoleAccess } from "@/lib/auth/role-access";
 import { listAssignableTechnicians } from "@/lib/technicians/queries";
 
-import { NewTaskForm } from "./new-task-form";
+import { TaskForm } from "../task-form";
 
 export const metadata: Metadata = { title: "Nieuwe taak" };
 
-/** B2 in create mode: the form for a new task (BT-08). Editing a task is BT-10. */
+/** B2 in create mode: the form for a new task (BT-08). Editing a task is `[number]/edit`. */
 export default async function NewTaskPage() {
   // Every page checks the role itself (ADR-0002, rule 3); the layout only handles the display.
   const access = await checkRoleAccess("backoffice");
@@ -26,7 +26,7 @@ export default async function NewTaskPage() {
       <p className="mt-1 text-sm text-muted-foreground">
         Velden met <span className="text-red-700">*</span> zijn verplicht.
       </p>
-      <NewTaskForm technicians={technicians} />
+      <TaskForm technicians={technicians} />
     </div>
   );
 }

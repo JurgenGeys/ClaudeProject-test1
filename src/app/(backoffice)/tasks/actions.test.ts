@@ -174,9 +174,9 @@ describe("createTask: validation", () => {
 });
 
 describe("createTask: saving", () => {
-  it("saves an Open task without a technician and goes to the overview with the number", async () => {
+  it("saves an Open task without a technician and goes to the task page (B3) with the confirmation", async () => {
     const { redirected } = await run(existingCustomer);
-    expect(redirected).toBe("/tasks?saved=1051");
+    expect(redirected).toBe("/tasks/1051?saved=1");
     expect(transaction).toHaveBeenCalledTimes(1);
     expect(createTaskInTransaction).toHaveBeenCalledWith(tx, {
       actor: { id: "s1", role: "backoffice", isActive: true },
@@ -202,7 +202,7 @@ describe("createTask: saving", () => {
       assigneeId: kevinId,
       estimatedMinutes: "90",
     });
-    expect(redirected).toBe("/tasks?saved=1052");
+    expect(redirected).toBe("/tasks/1052?saved=1");
     expect(createTaskInTransaction.mock.calls[0][1].data).toMatchObject({
       assigneeId: kevinId,
       estimatedMinutes: 90,
@@ -217,7 +217,7 @@ describe("createTask: saving", () => {
       newCustomerName: "Bakkerij De Gouden Korst",
       newCustomerPhone: "014 41 22 87",
     });
-    expect(redirected).toBe("/tasks?saved=1051");
+    expect(redirected).toBe("/tasks/1051?saved=1");
     expect(createTaskInTransaction.mock.calls[0][1].data.customer).toEqual({
       kind: "new",
       data: {

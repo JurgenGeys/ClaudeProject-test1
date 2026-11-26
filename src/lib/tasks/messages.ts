@@ -10,6 +10,15 @@ export const TASK_ACTION_MESSAGES = {
   /** An invited technician cannot sign in yet, so a task would never reach him. */
   assigneeInvited: (name: string) =>
     `${name} heeft de uitnodiging nog niet aanvaard. Kies een andere technieker.`,
+  /** Somebody else changed the task after the form was opened (design chapter 3). */
+  changed: "Deze taak is intussen gewijzigd. Bekijk de taak opnieuw.",
+  reload: "Pagina herladen",
+  taskNotFound: "Deze taak bestaat niet (meer).",
+  /** Afgewerkt, Gefactureerd or Geannuleerd (`status` in lower case: "afgewerkt"). */
+  notEditable: (status: string) => `Deze taak is ${status} en kan niet meer bewerkt worden.`,
+  /** The select of a picked up task is disabled; this is for a form that was forged. */
+  assigneeLocked:
+    "Deze taak is opgepikt. Gebruik 'Terugzetten' om een andere technieker te kiezen.",
   searchFailed: "Zoeken is niet gelukt. Probeer opnieuw.",
   noCustomerFound: (term: string) => `Geen klant gevonden voor '${term}'.`,
 } as const;

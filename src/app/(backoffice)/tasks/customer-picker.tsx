@@ -11,7 +11,7 @@ import type { CustomerSearchResult } from "@/lib/customers/search";
 import { TASK_ACTION_MESSAGES } from "@/lib/tasks/messages";
 import type { CreateTaskFieldErrors } from "@/lib/validation/create-task";
 
-import { searchCustomers } from "../../customers/actions";
+import { searchCustomers } from "../customers/actions";
 
 const SEARCH_DELAY_MS = 250;
 
@@ -35,11 +35,14 @@ function customerLine(customer: CustomerSearchResult): string {
 export function CustomerPicker({
   errors,
   onChoose,
+  initialCustomer,
 }: {
   errors: CreateTaskFieldErrors;
   onChoose: (customer: CustomerSearchResult) => void;
+  /** The customer the task already has (edit mode); the form does not fill in the location again. */
+  initialCustomer?: CustomerSearchResult;
 }) {
-  const [chosen, setChosen] = useState<CustomerSearchResult | null>(null);
+  const [chosen, setChosen] = useState<CustomerSearchResult | null>(initialCustomer ?? null);
   const [isNew, setIsNew] = useState(false);
   const [term, setTerm] = useState("");
   const [results, setResults] = useState<CustomerSearchResult[] | null>(null);

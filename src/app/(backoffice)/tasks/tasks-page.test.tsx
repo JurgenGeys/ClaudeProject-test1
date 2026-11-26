@@ -203,33 +203,10 @@ describe("the tasks page (B1)", () => {
     expect(screen.queryByText(/bewaard/)).not.toBeInTheDocument();
   });
 
-  it("confirms a saved task with its number, in a status message", async () => {
+  it("no longer shows a confirmation from the address: createTask continues to the task page", async () => {
     await renderPage({ saved: "1051" });
-    expect(screen.getByRole("status")).toHaveTextContent("Taak #1051 bewaard.");
-    // One live region, not a status around an alert.
-    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
-  });
-
-  it("keeps the confirmation next to a filter", async () => {
-    await renderPage({ saved: "1051", technician: ID });
-    expect(screen.getByRole("status")).toHaveTextContent("Taak #1051 bewaard.");
-    expect(
-      within(screen.getByRole("navigation", { name: "Status" })).getAllByRole("link"),
-    ).toHaveLength(8);
-  });
-
-  it.each([
-    ["abc"],
-    ["0"],
-    ["-5"],
-    ["1e3"],
-    ["<b>1</b>"],
-    ["1234567890"],
-    [["1051", "1052"]],
-    [""],
-  ])("shows nothing for a saved value that is not a task number (%j)", async (saved) => {
-    await renderPage({ saved });
     expect(screen.queryByText(/bewaard/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
   });
 
   it.each([["wrong-role"], ["unavailable"]])("renders nothing for access '%s'", async (kind) => {

@@ -1,12 +1,12 @@
 import "server-only";
 
-import { eq } from "drizzle-orm";
-
 import type { Database } from "@/db/client";
-import { customers, profiles, tasks } from "@/db/schema";
+import { tasks } from "@/db/schema";
 import type { CreateTaskData } from "@/lib/validation/create-task";
 
-import { checkTransition, type TaskUser, type TransitionDenial } from "./transitions";
+import { assigneeProblemOf, lockAssignee, type AssigneeProblem } from "./assignee";
+import { customerExists, resolveCustomerId } from "./customer";
+import { checkTransition, type TaskUser } from "./transitions";
 import type { TaskStatus } from "./types";
 
 /** What `createTaskInTransaction` did, or why it refused. */
@@ -19,13 +19,7 @@ export type CreateTaskOutcome =
     }
   /** The chosen existing customer is gone (nothing is deleted, so this is a forged id). */
   | { kind: "customer-not-found" }
-  /** No profile with this id, or it is not a technician. */
-  | { kind: "assignee-not-found" }
-  | { kind: "assignee-inactive"; fullName: string }
-  /** Invited, no password chosen yet: he cannot sign in, so he would never see the task. */
-  | { kind: "assignee-invited"; fullName: string }
-  /** The transition rules refused for another reason (for example the actor). */
-  | { kind: "refused"; reason: TransitionDenial };
+  | AssigneeProblem;
 
 /** The part of a Drizzle transaction that is needed here. */
 export type CreateTaskTransaction = Pick<Database, "select" | "insert">;
@@ -51,38 +45,21 @@ export async function createTaskInTransaction(
 ): Promise<CreateTaskOutcome> {
   const { actor, data } = input;
 
-  if (data.customer.kind === "existing") {
-    const [customer] = await tx
-      .select({ id: customers.id })
-      .from(customers)
-      .where(eq(customers.id, data.customer.id))
-      .limit(1);
-    if (!customer) {
-      return { kind: "customer-not-found" };
-    }
+  if (data.customer.kind === "existing" && !(await customerExists(tx, data.customer.id))) {
+    return { kind: "customer-not-found" };
   }
 
   let assignee: TaskUser | null = null;
   let assigneeName = "";
   let assigneeInvited = false;
   if (data.assigneeId) {
-    const [profile] = await tx
-      .select({
-        id: profiles.id,
-        fullName: profiles.fullName,
-        role: profiles.role,
-        isActive: profiles.isActive,
-        invitePending: profiles.invitePending,
-      })
-      .from(profiles)
-      .where(eq(profiles.id, data.assigneeId))
-      .for("share");
-    if (!profile) {
+    const locked = await lockAssignee(tx, data.assigneeId);
+    if (!locked) {
       return { kind: "assignee-not-found" };
     }
-    assignee = { id: profile.id, role: profile.role, isActive: profile.isActive };
-    assigneeName = profile.fullName;
-    assigneeInvited = profile.invitePending;
+    assignee = locked.user;
+    assigneeName = locked.fullName;
+    assigneeInvited = locked.invitePending;
   }
 
   const status = assignee ? "assigned" : "open";
@@ -94,29 +71,13 @@ export async function createTaskInTransaction(
     newAssignee: assignee,
   });
   if (!decision.allowed) {
-    switch (decision.reason) {
-      case "assignee_not_technician":
-        return { kind: "assignee-not-found" };
-      case "assignee_inactive":
-        return { kind: "assignee-inactive", fullName: assigneeName };
-      default:
-        return { kind: "refused", reason: decision.reason };
-    }
+    return assigneeProblemOf(decision.reason, assigneeName);
   }
   if (assigneeInvited) {
     return { kind: "assignee-invited", fullName: assigneeName };
   }
 
-  let customerId: string;
-  if (data.customer.kind === "new") {
-    const [created] = await tx
-      .insert(customers)
-      .values({ ...data.customer.data, createdBy: actor.id })
-      .returning({ id: customers.id });
-    customerId = created.id;
-  } else {
-    customerId = data.customer.id;
-  }
+  const customerId = await resolveCustomerId(tx, actor.id, data.customer);
 
   const [task] = await tx
     .insert(tasks)
