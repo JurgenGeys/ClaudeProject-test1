@@ -16,7 +16,12 @@ vi.mock("@/lib/tasks/detail", () => ({ getTaskDetail }));
 vi.mock("@/lib/technicians/queries", () => ({ listAssignableTechnicians }));
 vi.mock("next/navigation", () => ({ notFound, useRouter: () => ({ refresh: vi.fn() }) }));
 vi.mock("../invoice-actions", () => ({ markInvoiced: vi.fn(), unmarkInvoiced: vi.fn() }));
-vi.mock("../actions", () => ({ createTask: vi.fn(), updateTask: vi.fn(), resetTask: vi.fn() }));
+vi.mock("../actions", () => ({
+  createTask: vi.fn(),
+  updateTask: vi.fn(),
+  resetTask: vi.fn(),
+  correctHours: vi.fn(),
+}));
 vi.mock("../../customers/actions", () => ({ searchCustomers: vi.fn() }));
 
 import type { TaskDetail } from "@/lib/tasks/detail";
@@ -128,6 +133,30 @@ describe("the task page (B3)", () => {
   it("shows the reset confirmation only for ?reset=1", async () => {
     render(await detailPage("1043", { reset: "1" }));
     expect(screen.getByRole("status")).toHaveTextContent("Taak teruggezet.");
+  });
+
+  it("shows the correction confirmation only for ?corrected=1 and only for a corrected task", async () => {
+    const corrected: TaskDetail = {
+      ...task,
+      status: "completed",
+      pickedUpAt: new Date("2026-11-23T06:48:00Z"),
+      completion: {
+        workedMinutes: 120,
+        notes: null,
+        completedAt: new Date("2026-11-23T16:00:00Z"),
+        completedByName: "Kevin Wouters",
+        correctedMinutes: 90,
+        correctionReason: "Pauze",
+        correctedAt: new Date("2026-11-24T09:00:00Z"),
+        correctedByName: "Sofie Peeters",
+      },
+    };
+    getTaskDetail.mockResolvedValue(corrected);
+    const view = render(await detailPage("1043", { corrected: "1" }));
+    expect(screen.getByRole("status")).toHaveTextContent("Uren gecorrigeerd naar 1u30.");
+    view.unmount();
+    render(await detailPage("1043", { corrected: "yes" }));
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
   });
 
   it.each([["abc"], ["0"], ["-1"], ["1e3"], ["01043"], ["1043abc"], ["9999999999"], [""]])(

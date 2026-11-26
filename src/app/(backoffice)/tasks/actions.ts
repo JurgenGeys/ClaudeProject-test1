@@ -7,12 +7,17 @@ import { getDb } from "@/db/client";
 import { authFailureMessage } from "@/lib/auth/action-errors";
 import { LOGIN_MESSAGES } from "@/lib/auth/messages";
 import { AuthError, requireRole, type CurrentUser } from "@/lib/auth/session";
+import { correctHoursInTransaction, type CorrectHoursOutcome } from "@/lib/tasks/correct-hours";
 import { createTaskInTransaction, type CreateTaskOutcome } from "@/lib/tasks/create";
-import { TASK_ACTION_MESSAGES } from "@/lib/tasks/messages";
+import { CORRECT_HOURS_MESSAGES, TASK_ACTION_MESSAGES } from "@/lib/tasks/messages";
 import { fieldErrorsOf } from "@/lib/tasks/refusals";
 import { taskStatusLabel } from "@/lib/tasks/labels";
 import { resetTaskInTransaction, type ResetTaskOutcome } from "@/lib/tasks/reset";
 import { updateTaskInTransaction, type UpdateTaskOutcome } from "@/lib/tasks/update";
+import {
+  parseCorrectHoursForm,
+  type CorrectHoursFieldErrors,
+} from "@/lib/validation/hours-correction";
 import { parseResetTaskForm, type ResetTaskFieldErrors } from "@/lib/validation/reset-task";
 import { parseUpdateTask, readUpdateTaskForm } from "@/lib/validation/update-task";
 import {
@@ -281,4 +286,91 @@ export async function resetTask(
   revalidatePath(`/my-tasks/${number}`);
   // `redirect()` throws, so it stays outside the try/catch above.
   redirect(`${TASKS_PATH}/${number}?reset=1`);
+}
+
+/**
+ * Result of `correctHours` when the hours were not corrected. A saved correction redirects
+ * instead. Nothing is echoed back: the dialog sends its form by hand, so a refused dialog keeps
+ * what was typed.
+ */
+export type CorrectHoursState = null | {
+  ok: false;
+  fieldErrors: CorrectHoursFieldErrors;
+  /** A problem that does not belong to one field (technical problem, no access, changed). */
+  formError?: string;
+  /** The task changed meanwhile: the dialog offers a button that reloads the page. */
+  reload?: boolean;
+};
+
+/**
+ * Corrects the hours of an Afgewerkt task (design B3 "Uren corrigeren"; BT-15). Order of the steps:
+ * 1. `requireRole("backoffice")`;
+ * 2. Zod validation on the server (`parseCorrectHoursForm`): task number, version of the page,
+ *    new hours per quarter (at most 16u00) and a required reason. A form without a valid number
+ *    or version is answered like a task that changed: reload;
+ * 3. one transaction (`correctHoursInTransaction`): lock the task, check the status and version
+ *    again, `checkTransition`, touch the task row (so `updated_at` moves, ADR-0003) and write
+ *    the correction next to the original hours;
+ * 4. a refusal gives a message under the field or for the whole dialog; a task that became
+ *    Gefactureerd meanwhile says so and offers to reload;
+ * 5. after a save the user continues to B3 with "Uren gecorrigeerd naar 1u30.".
+ */
+export async function correctHours(
+  _previous: CorrectHoursState,
+  formData: FormData,
+): Promise<CorrectHoursState> {
+  let actor: CurrentUser;
+  try {
+    actor = await requireRole("backoffice");
+  } catch (error) {
+    if (error instanceof AuthError) {
+      return { ok: false, fieldErrors: {}, formError: authFailureMessage(error) };
+    }
+    throw error;
+  }
+
+  const parsed = parseCorrectHoursForm(formData);
+  if (!parsed.ok) {
+    return parsed.reason === "stale"
+      ? { ok: false, fieldErrors: {}, formError: TASK_ACTION_MESSAGES.changed, reload: true }
+      : { ok: false, fieldErrors: parsed.fieldErrors };
+  }
+  const { number } = parsed.data;
+
+  let outcome: CorrectHoursOutcome;
+  try {
+    outcome = await getDb().transaction((tx) =>
+      correctHoursInTransaction(tx, {
+        actor: { id: actor.id, role: actor.role, isActive: true },
+        data: parsed.data,
+      }),
+    );
+  } catch (error) {
+    console.error("Correcting hours failed:", describeError(error));
+    return { ok: false, fieldErrors: {}, formError: LOGIN_MESSAGES.technicalProblem };
+  }
+
+  switch (outcome.kind) {
+    case "corrected":
+      break;
+    case "not-found":
+      return { ok: false, fieldErrors: {}, formError: TASK_ACTION_MESSAGES.taskNotFound };
+    case "invoiced":
+      return {
+        ok: false,
+        fieldErrors: {},
+        formError: CORRECT_HOURS_MESSAGES.invoiced,
+        reload: true,
+      };
+    case "changed":
+      return { ok: false, fieldErrors: {}, formError: TASK_ACTION_MESSAGES.changed, reload: true };
+    case "refused":
+      // The actor is a signed-in, active backoffice user and the input was validated: not expected.
+      return { ok: false, fieldErrors: {}, formError: LOGIN_MESSAGES.technicalProblem };
+  }
+
+  revalidatePath(TASKS_PATH);
+  revalidatePath(`${TASKS_PATH}/${number}`);
+  // `redirect()` throws, so it stays outside the try/catch above.
+  redirect(`${TASKS_PATH}/${number}?corrected=1`);
 }

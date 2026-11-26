@@ -7,7 +7,7 @@ import { telHref } from "@/lib/phone";
 import type { TaskDetail } from "@/lib/tasks/detail";
 import { formatTaskNumber, workTypeLabel } from "@/lib/tasks/labels";
 import { buildTimeline, formatMoment, type TimelineItem } from "@/lib/tasks/timeline";
-import { RESET_MESSAGES } from "@/lib/tasks/messages";
+import { CORRECT_HOURS_MESSAGES, RESET_MESSAGES } from "@/lib/tasks/messages";
 import { canEditTask } from "@/lib/tasks/transitions";
 import { INVOICE_MESSAGES } from "@/lib/tasks/invoice-messages";
 import { formatDate, formatHours, formatTimeOfDay } from "@/lib/time/format";
@@ -15,6 +15,7 @@ import { cn } from "@/lib/utils";
 
 import { SavedNotice } from "@/components/saved-notice";
 
+import { CorrectHoursDialog } from "./correct-hours-dialog";
 import { ResetTaskDialog } from "./reset-task-dialog";
 import { TaskInvoiceActions } from "./task-invoice-actions";
 
@@ -140,6 +141,7 @@ export function TaskDetailView({
   task,
   saved = false,
   reset = false,
+  corrected = false,
   invoiced = null,
   technicians = [],
 }: {
@@ -147,6 +149,8 @@ export function TaskDetailView({
   saved?: boolean;
   /** The task was just reset (`?reset=1`): shows the confirmation. */
   reset?: boolean;
+  /** The hours were just corrected (`?corrected=1`): shows the confirmation. */
+  corrected?: boolean;
   /** The technicians that "Terugzetten" offers; only needed for an Opgepikt task. */
   technicians?: readonly { id: string; fullName: string }[];
   /** `?invoiced=` of the address after marking or unmarking (BT-17). */
@@ -167,6 +171,11 @@ export function TaskDetailView({
             task.assignee.fullName,
             `${formatDate(task.scheduledDate, { omitCurrentYear: true, now })} om ${formatTimeOfDay(task.startTime)}`,
           )}
+        </SavedNotice>
+      ) : null}
+      {corrected && task.completion?.correctedMinutes != null ? (
+        <SavedNotice param="corrected">
+          {CORRECT_HOURS_MESSAGES.done(formatHours(task.completion.correctedMinutes))}
         </SavedNotice>
       ) : null}
       {invoiced ? (
@@ -217,6 +226,18 @@ export function TaskDetailView({
                 />
               ) : null}
             </>
+          ) : null}
+          {task.status === "completed" && task.completion ? (
+            // The version in the key: after a correction the page has a new version and the
+            // dialog starts closed again.
+            <CorrectHoursDialog
+              key={task.version}
+              taskNumber={task.number}
+              version={task.version}
+              completedByName={task.completion.completedByName}
+              workedMinutes={task.completion.workedMinutes}
+              currentMinutes={task.completion.correctedMinutes ?? task.completion.workedMinutes}
+            />
           ) : null}
           <TaskInvoiceActions number={task.number} version={task.version} status={task.status} />
         </div>

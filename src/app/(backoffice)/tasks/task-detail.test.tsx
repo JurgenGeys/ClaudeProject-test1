@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("./invoice-actions", () => ({ markInvoiced: vi.fn(), unmarkInvoiced: vi.fn() }));
@@ -7,7 +7,7 @@ import type { TaskDetail } from "@/lib/tasks/detail";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
 // The dialog "Terugzetten" imports the Server Action; it is tested in reset-task-dialog.test.tsx.
-vi.mock("./actions", () => ({ resetTask: vi.fn() }));
+vi.mock("./actions", () => ({ resetTask: vi.fn(), correctHours: vi.fn() }));
 
 import { TaskDetailView } from "./task-detail";
 
@@ -385,4 +385,77 @@ describe("TaskDetailView (B3): invoicing (BT-17)", () => {
       ).not.toBeInTheDocument();
     },
   );
+});
+
+describe("TaskDetailView (B3): Uren corrigeren (BT-15)", () => {
+  const completed: TaskDetail = {
+    ...task,
+    status: "completed",
+    pickedUpAt: new Date("2026-11-20T14:00:00Z"),
+    completion,
+  };
+
+  it("offers 'Uren corrigeren' for an Afgewerkt task, next to 'Markeer als gefactureerd'", () => {
+    render(<TaskDetailView task={completed} />);
+    expect(screen.getByRole("button", { name: "Uren corrigeren" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Markeer als gefactureerd" })).toBeInTheDocument();
+  });
+
+  it.each(["open", "assigned", "picked_up", "invoiced", "cancelled"] as const)(
+    "status %s: no 'Uren corrigeren' (Gefactureerd is locked)",
+    (status) => {
+      render(
+        <TaskDetailView
+          task={{
+            ...task,
+            status,
+            pickedUpAt: new Date("2026-11-23T06:48:00Z"),
+            completion: status === "invoiced" ? completion : null,
+            cancelledAt: status === "cancelled" ? new Date("2026-11-23T10:20:00Z") : null,
+          }}
+        />,
+      );
+      expect(screen.queryByRole("button", { name: "Uren corrigeren" })).not.toBeInTheDocument();
+    },
+  );
+
+  it("shows the hours that count in the dialog as the start, also after an earlier correction", () => {
+    render(
+      <TaskDetailView
+        task={{
+          ...completed,
+          completion: {
+            ...completion,
+            correctedMinutes: 90,
+            correctionReason: "x",
+            correctedAt: new Date("2026-11-23T09:05:00Z"),
+            correctedByName: "Sofie Peeters",
+          },
+        }}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Uren corrigeren" }));
+    const dialog = screen.getByRole("dialog");
+    expect(dialog).toHaveTextContent("Ingevuld door Jens Maes: 2u00.");
+    expect(within(dialog).getByLabelText(/Nieuwe uren/)).toHaveValue("90");
+  });
+
+  it("confirms a correction with the new hours, and only when there is one", () => {
+    const corrected: TaskDetail = {
+      ...completed,
+      completion: {
+        ...completion,
+        correctedMinutes: 90,
+        correctionReason: "Pauze",
+        correctedAt: new Date("2026-11-23T09:05:00Z"),
+        correctedByName: "Sofie Peeters",
+      },
+    };
+    const { rerender } = render(<TaskDetailView task={corrected} corrected />);
+    expect(screen.getByRole("status")).toHaveTextContent("Uren gecorrigeerd naar 1u30.");
+    rerender(<TaskDetailView task={completed} corrected />);
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    rerender(<TaskDetailView task={corrected} />);
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+  });
 });
