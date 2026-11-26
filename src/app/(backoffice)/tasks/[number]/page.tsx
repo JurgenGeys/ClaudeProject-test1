@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 
 import { checkRoleAccess } from "@/lib/auth/role-access";
 import { getTaskDetail } from "@/lib/tasks/detail";
+import { listAssignableTechnicians } from "@/lib/technicians/queries";
 import { parseTaskNumber } from "@/lib/validation/task-number";
 
 import { TaskDetailView } from "../task-detail";
@@ -28,13 +29,17 @@ export default async function TaskDetailPage({
   if (!task) {
     notFound();
   }
-  const { saved, invoiced } = await searchParams;
+  const { saved, reset, invoiced } = await searchParams;
+  // Only "Terugzetten" (Opgepikt) needs the choice list of technicians.
+  const technicians = task.status === "picked_up" ? await listAssignableTechnicians() : [];
 
   return (
     <TaskDetailView
       task={task}
       saved={saved === "1"}
+      reset={reset === "1"}
       invoiced={invoiced === "marked" || invoiced === "unmarked" ? invoiced : null}
+      technicians={technicians}
     />
   );
 }

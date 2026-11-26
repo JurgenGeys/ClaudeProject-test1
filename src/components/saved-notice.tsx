@@ -12,7 +12,14 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
  * the parameter on the server and only renders this component when it is valid; the effect also
  * runs again when the message changes, for a component that stays mounted between two actions.
  */
-export function SavedNotice({ children, param = "saved" }: { children: string; param?: string }) {
+export function SavedNotice({
+  children,
+  param = "saved",
+}: {
+  children: string;
+  /** The address parameter that asked for this message; it is removed once shown. */
+  param?: string;
+}) {
   useEffect(() => {
     const url = new URL(window.location.href);
     if (url.searchParams.has(param)) {

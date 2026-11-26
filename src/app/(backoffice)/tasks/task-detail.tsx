@@ -7,6 +7,7 @@ import { telHref } from "@/lib/phone";
 import type { TaskDetail } from "@/lib/tasks/detail";
 import { formatTaskNumber, workTypeLabel } from "@/lib/tasks/labels";
 import { buildTimeline, formatMoment, type TimelineItem } from "@/lib/tasks/timeline";
+import { RESET_MESSAGES } from "@/lib/tasks/messages";
 import { canEditTask } from "@/lib/tasks/transitions";
 import { INVOICE_MESSAGES } from "@/lib/tasks/invoice-messages";
 import { formatDate, formatHours, formatTimeOfDay } from "@/lib/time/format";
@@ -14,6 +15,7 @@ import { cn } from "@/lib/utils";
 
 import { SavedNotice } from "@/components/saved-notice";
 
+import { ResetTaskDialog } from "./reset-task-dialog";
 import { TaskInvoiceActions } from "./task-invoice-actions";
 
 const CARD = "rounded-lg border border-border bg-card p-5";
@@ -130,16 +132,23 @@ function Completion({ task, now }: { task: TaskDetail; now: Date }) {
  * B3 (design chapter 3): the task for the back office, read only. Shows the status and the
  * number, the customer, location, instructions and technician, the timeline and, from
  * Afgewerkt on, the completion. A cancelled task shows a grey bar with who, when and why.
- * The only action is "Bewerken" (Open, Toegewezen, Opgepikt); the other actions of the design
- * (Terugzetten, annuleren, uren corrigeren, factureren) come with their own build tasks.
+ * The actions: "Bewerken" (Open, Toegewezen, Opgepikt) and "Terugzetten" with its dialog
+ * (Opgepikt, BT-14); the other actions of the design (annuleren, uren corrigeren, factureren)
+ * come with their own build tasks.
  */
 export function TaskDetailView({
   task,
   saved = false,
+  reset = false,
   invoiced = null,
+  technicians = [],
 }: {
   task: TaskDetail;
   saved?: boolean;
+  /** The task was just reset (`?reset=1`): shows the confirmation. */
+  reset?: boolean;
+  /** The technicians that "Terugzetten" offers; only needed for an Opgepikt task. */
+  technicians?: readonly { id: string; fullName: string }[];
   /** `?invoiced=` of the address after marking or unmarking (BT-17). */
   invoiced?: "marked" | "unmarked" | null;
 }) {
@@ -152,6 +161,14 @@ export function TaskDetailView({
   return (
     <>
       {saved ? <SavedNotice>{`Taak ${number} bewaard.`}</SavedNotice> : null}
+      {reset && task.status === "assigned" && task.assignee ? (
+        <SavedNotice param="reset">
+          {RESET_MESSAGES.done(
+            task.assignee.fullName,
+            `${formatDate(task.scheduledDate, { omitCurrentYear: true, now })} om ${formatTimeOfDay(task.startTime)}`,
+          )}
+        </SavedNotice>
+      ) : null}
       {invoiced ? (
         <SavedNotice param="invoiced">
           {invoiced === "marked" ? INVOICE_MESSAGES.taskMarked : INVOICE_MESSAGES.unmarked}
@@ -178,9 +195,28 @@ export function TaskDetailView({
         </div>
         <div className="flex flex-wrap gap-2">
           {editable ? (
-            <Button asChild className="h-11 px-4 md:h-10">
-              <Link href={`/tasks/${task.number}/edit`}>Bewerken</Link>
-            </Button>
+            <>
+              <Button
+                asChild
+                variant={task.status === "picked_up" ? "outline" : "default"}
+                className="h-11 px-4 md:h-10"
+              >
+                <Link href={`/tasks/${task.number}/edit`}>Bewerken</Link>
+              </Button>
+              {task.status === "picked_up" ? (
+                // The version in the key: after a reset the page has a new version and the dialog
+                // starts closed again.
+                <ResetTaskDialog
+                  key={task.version}
+                  taskNumber={task.number}
+                  version={task.version}
+                  technicians={technicians}
+                  currentAssigneeId={task.assignee?.id ?? null}
+                  scheduledDate={task.scheduledDate}
+                  startTime={formatTimeOfDay(task.startTime)}
+                />
+              ) : null}
+            </>
           ) : null}
           <TaskInvoiceActions number={task.number} version={task.version} status={task.status} />
         </div>
