@@ -1,13 +1,21 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 
 import { getDb } from "@/db/client";
 import { authFailureMessage } from "@/lib/auth/action-errors";
 import { LOGIN_MESSAGES } from "@/lib/auth/messages";
 import { AuthError, requireRole, type CurrentUser } from "@/lib/auth/session";
-import { PICK_UP_MESSAGES, TASK_ACTION_MESSAGES } from "@/lib/tasks/messages";
+import { completeTaskInTransaction, type CompleteOutcome } from "@/lib/tasks/complete";
+import { COMPLETE_MESSAGES, PICK_UP_MESSAGES, TASK_ACTION_MESSAGES } from "@/lib/tasks/messages";
 import { pickUpTaskInTransaction, type PickUpOutcome } from "@/lib/tasks/pick-up";
+import {
+  parseCompleteTaskForm,
+  type CompleteTaskFieldErrors,
+} from "@/lib/validation/complete-task";
+import { fieldSummary } from "@/lib/validation/field-summary";
+import { COMPLETION_MESSAGES } from "@/lib/validation/messages";
 import { parsePickUpTaskForm } from "@/lib/validation/pick-up-task";
 
 /**
@@ -114,4 +122,111 @@ export async function pickUpTask(
       // An active technician is not refused for another reason: not expected.
       return refused("error", LOGIN_MESSAGES.technicalProblem);
   }
+}
+
+/**
+ * Result of `completeTask` when the task was not completed (a completed task redirects):
+ * - `fields`: hours or notes are wrong; `fieldErrors` hold the messages (design T3);
+ * - `not-assigned`, `changed`, `cancelled`: what happened to the task meanwhile (design T2/T3);
+ * - `error`: a technical problem, no access or switched off. What he typed stays on the screen.
+ */
+export type CompleteTaskState =
+  | null
+  | {
+      ok: false;
+      kind: "fields";
+      message: string;
+      fieldErrors: CompleteTaskFieldErrors;
+    }
+  | { ok: false; kind: "not-assigned" | "changed" | "cancelled" | "error"; message: string };
+
+/**
+ * Completes a task (design T3; BT-13). The same order of steps as `pickUpTask`:
+ * 1. `requireRole("technician")`; the technician is the user of the session;
+ * 2. Zod validation on the server: only the task number, the version, the minutes and the notes
+ *    are read from the form;
+ * 3. one transaction (`completeTaskInTransaction`): lock the task and his profile, the rules, the
+ *    version, the completion row and the new status, with the time of the database;
+ * 4. a refusal gives the message of the design; a double completion with the same data is a
+ *    silent success (no second row); success goes to Mijn taken with "Taak afgemeld. Bedankt!".
+ */
+export async function completeTask(
+  _previous: CompleteTaskState,
+  formData: FormData,
+): Promise<CompleteTaskState> {
+  let actor: CurrentUser;
+  try {
+    actor = await requireRole("technician");
+  } catch (error) {
+    if (error instanceof AuthError) {
+      return refusedCompletion("error", authFailureMessage(error));
+    }
+    throw error;
+  }
+
+  const parsed = parseCompleteTaskForm(formData);
+  if (!parsed.ok) {
+    if (parsed.kind === "invalid-form") {
+      return refusedCompletion("changed", TASK_ACTION_MESSAGES.changed);
+    }
+    const count = Object.keys(parsed.fieldErrors).length;
+    return {
+      ok: false,
+      kind: "fields",
+      message:
+        count === 1 && parsed.fieldErrors.workedMinutes === COMPLETION_MESSAGES.minutesRequired
+          ? COMPLETE_MESSAGES.summaryHours
+          : fieldSummary(count),
+      fieldErrors: parsed.fieldErrors,
+    };
+  }
+  const { number, version, workedMinutes, notes } = parsed.data;
+
+  let outcome: CompleteOutcome;
+  try {
+    outcome = await getDb().transaction((tx) =>
+      completeTaskInTransaction(tx, {
+        actor: { id: actor.id, role: actor.role, isActive: true },
+        number,
+        version,
+        workedMinutes,
+        notes,
+      }),
+    );
+  } catch (error) {
+    console.error("Completing a task failed:", describeError(error));
+    return refusedCompletion("error", LOGIN_MESSAGES.technicalProblem);
+  }
+
+  switch (outcome.kind) {
+    case "completed":
+    case "already-completed":
+      revalidatePath(MY_TASKS_PATH);
+      revalidatePath(`${MY_TASKS_PATH}/${number}`);
+      revalidatePath(TASKS_PATH);
+      revalidatePath(`${TASKS_PATH}/${number}`);
+      // `redirect()` throws, so it stays outside the try/catch above.
+      redirect(`${MY_TASKS_PATH}?completed=1`);
+    case "not-assigned":
+      // No revalidation: it could re-render this page as "not found" and take the message away.
+      return refusedCompletion("not-assigned", PICK_UP_MESSAGES.notAssigned);
+    case "cancelled":
+      revalidatePath(`${MY_TASKS_PATH}/${number}`);
+      return refusedCompletion("cancelled", PICK_UP_MESSAGES.cancelled);
+    case "changed":
+      // No revalidation, like pickUpTask: the button "Pagina herladen" reads the page again.
+      return refusedCompletion("changed", TASK_ACTION_MESSAGES.changed);
+    case "inactive":
+      return refusedCompletion("error", LOGIN_MESSAGES.accountDisabled);
+    case "refused":
+      // An active technician with valid hours is not refused for another reason.
+      return refusedCompletion("error", LOGIN_MESSAGES.technicalProblem);
+  }
+}
+
+function refusedCompletion(
+  kind: "not-assigned" | "changed" | "cancelled" | "error",
+  message: string,
+): CompleteTaskState {
+  return { ok: false, kind, message };
 }

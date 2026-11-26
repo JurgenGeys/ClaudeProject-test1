@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { StatusBadge } from "@/components/status-badge";
 import { firstLine } from "@/lib/tasks/instructions";
+import { COMPLETE_MESSAGES } from "@/lib/tasks/messages";
 import { formatTaskNumber, workTypeLabel } from "@/lib/tasks/labels";
 import type { MyDoneTask, MyOpenTask } from "@/lib/tasks/my-tasks";
 import { relativeDay } from "@/lib/tasks/my-tasks-groups";
@@ -88,7 +89,7 @@ export function MyTaskCard({
       </p>
       {busy && task.pickedUpAt ? (
         <p className="mt-2 text-sm font-medium text-amber-900">
-          Opgepikt om {formatTime(task.pickedUpAt)}
+          Opgepikt om {formatTime(task.pickedUpAt)} · {COMPLETE_MESSAGES.cardHint}
         </p>
       ) : null}
     </Link>

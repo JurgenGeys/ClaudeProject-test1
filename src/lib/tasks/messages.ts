@@ -39,3 +39,32 @@ export const PICK_UP_MESSAGES = {
   confirming: "Bezig met oppikken…",
   cancel: "Annuleren",
 } as const;
+
+/** Texts of finishing a task (design T1, T2 and T3). Dutch, for end users. */
+export const COMPLETE_MESSAGES = {
+  /** The button at the bottom of T2 (a link to T3) and its hint. */
+  button: "Afmelden",
+  buttonHint: "Tik hierop als het werk klaar is.",
+  /** Added to the "Opgepikt om" notice of T2. */
+  pickedUpNoticeHint: "Meld af als je klaar bent.",
+  /** On the card "Bezig" of T1, after "Opgepikt om 07:48 · ". */
+  cardHint: "tik om af te melden",
+  heading: "Taak afmelden",
+  backToTask: "← Terug naar de taak",
+  hoursLegend: "Gewerkte uren",
+  hoursHelp: "Enkel de tijd bij de klant. De verplaatsing telt niet mee.",
+  lessLabel: "Kwartier minder",
+  moreLabel: "Kwartier meer",
+  perQuarter: "Per kwartier",
+  quickGroup: "Snelkeuze",
+  notesLabel: "Notities",
+  notesOptional: "(niet verplicht)",
+  notesPlaceholder: "Bv. filter vervangen, toestel lekt licht aan binnenunit",
+  notesHint: "Kantoor leest dit bij het factureren.",
+  summaryHours: "Vul de gewerkte uren in om af te melden.",
+  submit: "Taak afmelden",
+  submitting: "Bezig met afmelden…",
+  cancel: "Annuleren",
+  /** Shown on T1 after finishing (`/my-tasks?completed=1`). */
+  done: "Taak afgemeld. Bedankt!",
+} as const;

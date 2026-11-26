@@ -135,9 +135,9 @@ describe("MyTaskCard", () => {
       />,
     );
     expect(screen.getByRole("link")).toHaveTextContent("Opgepikt");
-    // 06:48 UTC on 23/11 is 07:48 in Belgium (UTC+1); no "tik om af te melden" before BT-13.
+    // 06:48 UTC on 23/11 is 07:48 in Belgium (UTC+1); the card says how to finish it (BT-13).
     expect(screen.getByRole("link")).toHaveTextContent("Opgepikt om 07:48");
-    expect(screen.getByRole("link")).not.toHaveTextContent("tik om af te melden");
+    expect(screen.getByRole("link")).toHaveTextContent("Opgepikt om 07:48 · tik om af te melden");
   });
 
   it("shows the picked up time in Belgian summer time too", () => {

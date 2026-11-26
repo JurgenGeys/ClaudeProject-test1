@@ -377,11 +377,11 @@ test.describe("Taak (T2)", () => {
     await expect(instructions).toContainText("Jaarlijks onderhoud 2 split-units");
     await expect(instructions).toContainText("Filters reinigen");
 
-    // BT-12: a Toegewezen task has Oppikken; BT-13 (Afmelden) is not built yet.
+    // A Toegewezen task has Oppikken and no Afmelden (that is for an Opgepikt task).
     await expect(
       page.getByRole("button", { name: "Oppikken", exact: true }).filter({ visible: true }),
     ).toBeVisible();
-    await expect(page.getByRole("button", { name: "Afmelden" })).toHaveCount(0);
+    await expect(page.getByRole("link", { name: "Afmelden", exact: true })).toHaveCount(0);
 
     await test.step("the way back", async () => {
       const back = page.getByRole("link", { name: "← Mijn taken" });
@@ -408,7 +408,12 @@ test.describe("Taak (T2)", () => {
     ]);
     await signInAs(page, kevin, `/my-tasks/${number}`);
     await expect(page.getByRole("status")).toContainText("Opgepikt om 07:48");
-    await expect(page.getByRole("button", { name: /Oppikken|Afmelden/ })).toHaveCount(0);
+    await expect(page.getByRole("status")).toContainText("Meld af als je klaar bent.");
+    await expect(page.getByRole("button", { name: "Oppikken" })).toHaveCount(0);
+    // Afmelden is a big link to T3, with its hint.
+    await expect(
+      page.getByRole("link", { name: "Afmelden", exact: true }).filter({ visible: true }),
+    ).toHaveAttribute("href", `/my-tasks/${number}/complete`);
   });
 
   test("a finished task shows his own report, and Gefactureerd is shown as Afgewerkt", async ({

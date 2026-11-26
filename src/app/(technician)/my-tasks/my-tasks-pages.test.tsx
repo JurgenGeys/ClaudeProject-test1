@@ -183,3 +183,15 @@ describe("Taak (T2)", () => {
     );
   });
 });
+
+describe("Mijn taken (T1) after finishing a task", () => {
+  it("shows 'Taak afgemeld. Bedankt!' for ?completed=1 and not without it", async () => {
+    checkRoleAccess.mockResolvedValue({ kind: "allowed", user: kevin });
+    getMyTasks.mockResolvedValue({ tab: "todo", tasks: [] });
+    const { unmount } = render(await listPage({ completed: "1" }));
+    expect(screen.getByRole("status")).toHaveTextContent("Taak afgemeld. Bedankt!");
+    unmount();
+    render(await listPage({}));
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+  });
+});
