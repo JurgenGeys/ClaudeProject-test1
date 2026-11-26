@@ -85,10 +85,13 @@ const visible = (locator: Locator) => locator.filter({ visible: true });
 const openButton = (page: Page) => visible(page.getByRole("button", { name: "Terugzetten" }));
 const dialog = (page: Page) => page.getByRole("dialog", { name: "Taak terugzetten" });
 
-async function expectTapTarget(locator: Locator): Promise<void> {
-  const box = await locator.boundingBox();
-  expect(box).not.toBeNull();
-  expect(box!.height).toBeGreaterThanOrEqual(40);
+/**
+ * The height that the stylesheet gives the element. Not `boundingBox()`: that includes the
+ * zoom-in animation of the dialog and measures 39,9 px for a 40 px button.
+ */
+async function expectTapTarget(locator: Locator, minimum: number): Promise<void> {
+  const height = await locator.evaluate((element) => parseFloat(getComputedStyle(element).height));
+  expect(height).toBeGreaterThanOrEqual(minimum);
 }
 
 test.describe("Terugzetten (B3)", () => {
@@ -177,6 +180,7 @@ test.describe("Terugzetten (B3)", () => {
   test("the dialog works with the keyboard and has tap targets that are big enough", async ({
     page,
     token,
+    isMobile,
     technicians: { kevin },
   }) => {
     const number = await pickedUpTask(token, kevin);
@@ -198,7 +202,7 @@ test.describe("Terugzetten (B3)", () => {
       dialog(page).getByRole("button", { name: "Annuleren" }),
       dialog(page).getByRole("button", { name: "Terugzetten" }),
     ]) {
-      await expectTapTarget(target);
+      await expectTapTarget(target, isMobile ? 44 : 40);
     }
     await dialog(page).getByRole("button", { name: "Annuleren" }).click();
     await expect(dialog(page)).toHaveCount(0);
@@ -208,14 +212,21 @@ test.describe("Terugzetten (B3)", () => {
   test("a missing date is refused under the field and nothing is saved", async ({
     page,
     token,
-    technicians: { kevin },
+    technicians: { kevin, jens },
   }) => {
     const number = await pickedUpTask(token, kevin);
     await openTask(page, number);
     await openButton(page).click();
+    await dialog(page).getByLabel("Technieker").selectOption({ label: jens.fullName });
+    await dialog(page).getByLabel("Startuur").fill("10:15");
     await dialog(page).getByLabel("Datum").fill("");
     await dialog(page).getByRole("button", { name: "Terugzetten" }).click();
     await expect(dialog(page).getByText("Kies een datum.")).toBeVisible();
+    // The other choices are still there after the refusal.
+    await expect(dialog(page).getByLabel("Technieker").locator("option:checked")).toHaveText(
+      jens.fullName,
+    );
+    await expect(dialog(page).getByLabel("Startuur")).toHaveValue("10:15");
     expect((await readTaskPickUp(number)).status).toBe("picked_up");
   });
 
@@ -253,11 +264,16 @@ test.describe("Terugzetten (B3)", () => {
     await openButton(page).click();
     await changeTaskInstructions(number, "Andere instructies van een collega");
 
+    await dialog(page).getByLabel("Datum").fill("2031-03-12");
+    await dialog(page).getByLabel("Startuur").fill("10:15");
     await dialog(page).getByRole("button", { name: "Terugzetten" }).click();
     await expect(
       dialog(page).getByText("Deze taak is intussen gewijzigd. Bekijk de taak opnieuw."),
     ).toBeVisible();
     expect((await readTaskPickUp(number)).status).toBe("picked_up");
+    // What was chosen is still there: the form is not set back to the old planning.
+    await expect(dialog(page).getByLabel("Datum")).toHaveValue("2031-03-12");
+    await expect(dialog(page).getByLabel("Startuur")).toHaveValue("10:15");
 
     await dialog(page).getByRole("button", { name: "Pagina herladen" }).click();
     await expect(page.getByText("Andere instructies van een collega")).toBeVisible();

@@ -151,9 +151,9 @@ describe("TaskDetailView (B3)", () => {
       const button = screen.getByRole("button", { name: "Terugzetten" });
       expect(button).toBeInTheDocument();
       expect(screen.getByRole("link", { name: "Bewerken" })).toBeInTheDocument();
-      // The Terugzetten button comes first: it is the action of an Opgepikt task.
+      // Bewerken (outline) comes first, then Terugzetten as the main action (the mockup).
       expect(
-        button.compareDocumentPosition(screen.getByRole("link", { name: "Bewerken" })) &
+        screen.getByRole("link", { name: "Bewerken" }).compareDocumentPosition(button) &
           Node.DOCUMENT_POSITION_FOLLOWING,
       ).toBeTruthy();
     });

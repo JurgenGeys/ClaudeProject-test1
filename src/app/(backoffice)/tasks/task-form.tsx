@@ -11,7 +11,7 @@ import {
   type FormEvent,
 } from "react";
 
-import { FieldError } from "@/components/field-error";
+import { describedBy, FieldError } from "@/components/field-error";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -58,12 +58,6 @@ const ESTIMATED_DURATIONS = Array.from(
   { length: MAX_ESTIMATED_MINUTES / QUARTER_MINUTES },
   (_, index) => (index + 1) * QUARTER_MINUTES,
 );
-
-/** The ids of the messages a field refers to, or `undefined` when there are none. */
-function describedBy(...ids: (string | false | undefined)[]): string | undefined {
-  const used = ids.filter(Boolean).join(" ");
-  return used || undefined;
-}
 
 function Required() {
   return (

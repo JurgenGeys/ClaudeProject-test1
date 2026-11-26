@@ -131,6 +131,43 @@ describe("the dialog Terugzetten", () => {
     expect(screen.getByRole("dialog")).toBeInTheDocument();
   });
 
+  it("keeps what was chosen after a refusal, so a second click cannot save the old planning", async () => {
+    resetTask.mockResolvedValue({
+      ok: false,
+      fieldErrors: { scheduledDate: "Kies een datum." },
+    });
+    const dialog = await openDialog();
+    fireEvent.change(within(dialog).getByLabelText("Technieker"), { target: { value: JENS } });
+    fireEvent.change(within(dialog).getByLabelText("Datum"), { target: { value: "2026-12-01" } });
+    fireEvent.change(within(dialog).getByLabelText("Startuur"), { target: { value: "13:15" } });
+    await submit(dialog);
+    await within(dialog).findByText("Kies een datum.");
+
+    expect(within(dialog).getByLabelText("Technieker")).toHaveValue(JENS);
+    expect(within(dialog).getByLabelText("Datum")).toHaveValue("2026-12-01");
+    expect(within(dialog).getByLabelText("Startuur")).toHaveValue("13:15");
+
+    await submit(dialog);
+    const data = resetTask.mock.calls[1][1] as FormData;
+    expect(data.get("assigneeId")).toBe(JENS);
+    expect(data.get("scheduledDate")).toBe("2026-12-01");
+  });
+
+  it("starts afresh every time it is opened: no old message, the current planning again", async () => {
+    resetTask.mockResolvedValue({ ok: false, fieldErrors: {}, formError: "Dat is niet gelukt." });
+    const dialog = await openDialog();
+    fireEvent.change(within(dialog).getByLabelText("Technieker"), { target: { value: JENS } });
+    await submit(dialog);
+    await within(dialog).findByRole("alert");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Annuleren" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole("button", { name: "Terugzetten" }));
+    const again = await screen.findByRole("dialog");
+    expect(within(again).queryByRole("alert")).toBeNull();
+    expect(within(again).getByLabelText("Technieker")).toHaveValue(KEVIN);
+  });
+
   it("says the task changed meanwhile and reloads the page on request", async () => {
     resetTask.mockResolvedValue({
       ok: false,

@@ -190,8 +190,9 @@ export async function updateTask(
 }
 
 /**
- * Result of `resetTask` when the task was not reset. A reset task redirects instead. The dialog
- * keeps what was chosen itself; nothing is echoed back.
+ * Result of `resetTask` when the task was not reset. A reset task redirects instead. Nothing is echoed
+ * back: the dialog sends its form by hand (not with `action=`), so React does not clear it and
+ * a refused dialog keeps what was chosen.
  */
 export type ResetTaskState = null | {
   ok: false;
@@ -242,6 +243,7 @@ export async function resetTask(
   try {
     outcome = await getDb().transaction((tx) =>
       resetTaskInTransaction(tx, {
+        // `requireRole` only returns an active user; the transaction does not read his profile again.
         actor: { id: actor.id, role: actor.role, isActive: true },
         data: parsed.data,
       }),

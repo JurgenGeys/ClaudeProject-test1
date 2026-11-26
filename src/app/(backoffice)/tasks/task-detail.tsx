@@ -174,6 +174,13 @@ export function TaskDetailView({
         </div>
         {editable ? (
           <div className="flex flex-wrap gap-2">
+            <Button
+              asChild
+              variant={task.status === "picked_up" ? "outline" : "default"}
+              className="h-11 px-4 md:h-10"
+            >
+              <Link href={`/tasks/${task.number}/edit`}>Bewerken</Link>
+            </Button>
             {task.status === "picked_up" ? (
               // The version in the key: after a reset the page has a new version and the dialog
               // starts closed again.
@@ -187,13 +194,6 @@ export function TaskDetailView({
                 startTime={formatTimeOfDay(task.startTime)}
               />
             ) : null}
-            <Button
-              asChild
-              variant={task.status === "picked_up" ? "outline" : "default"}
-              className="h-11 px-4 md:h-10"
-            >
-              <Link href={`/tasks/${task.number}/edit`}>Bewerken</Link>
-            </Button>
           </div>
         ) : null}
       </div>
