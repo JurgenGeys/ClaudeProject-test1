@@ -291,6 +291,130 @@ daarna `pnpm test:e2e`. Die sleutels bestaan enkel op de runner. `supabase/confi
 
 `pnpm test` draait zonder database; databasetests (`*.db.test.ts`) lopen enkel via `pnpm test:db`.
 
+## Online testomgeving (Vercel + Supabase)
+
+Met deze stappen zet je een testomgeving online die je zelf kunt aanklikken: de applicatie draait op Vercel
+(regio Frankfurt, zie [ADR-0004](docs/adr/0004-hosting-vercel.md)) en gebruikt een eigen Supabase-project in
+Frankfurt. Je hoeft niets te programmeren; je kopieert enkel waarden van het ene scherm naar het andere.
+Behandel de geheime waarden (sleutels en wachtwoorden) als een bankcode: stuur ze nooit per mail of chat en zet ze
+nooit in de repository.
+
+Voorwaarde: deze wijziging (pull request) is eerst gemerged naar `main`. De workflow voor de database start
+bewust enkel vanaf `main`.
+
+**Let op:** de end-to-end tests (`pnpm test:e2e`) maken gebruikers aan en ruimen ze op. Draai ze **nooit** tegen dit
+project, enkel tegen de lokale Supabase.
+
+### Stap 1. Supabase-project aanmaken
+
+1. Ga naar <https://supabase.com/dashboard> en meld je aan. Kies **New project**.
+2. Kies een naam (bv. `planning-test`) en bij **Region** de regio **Central EU (Frankfurt)**. Dat is verplicht: de
+   data moet in de EU blijven.
+3. Laat Supabase het **database-wachtwoord** genereren (knop _Generate a password_), of kies er zelf een met enkel
+   letters en cijfers. Tekens als `@ # / : ? %` breken de connection string. Bewaar het in je wachtwoordbeheerder; je
+   kunt het later niet meer bekijken, enkel vervangen.
+4. Wacht tot het project klaar is (enkele minuten).
+5. Zet meteen, vóór de applicatie online komt, _Authentication, Sign In / Providers_, **Allow new users to sign up** uit.
+   Gebruikers komen enkel via een uitnodiging of het seed-script.
+
+### Stap 2. Waarden verzamelen
+
+Open het project en klik bovenaan op **Connect**.
+
+| Waarde                                                | Waar vind je ze                                                                                                                                     | Geheim?                 |
+| ----------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------- |
+| Project-URL (`https://<id>.supabase.co`)              | _Project Settings, Data API_ (of het tabblad **Connect**)                                                                                           | Nee                     |
+| Publishable key                                       | _Project Settings, API Keys_, de sleutel die met `sb_publishable_` begint                                                                           | Nee (mag publiek)       |
+| Secret key                                            | _Project Settings, API Keys_, de sleutel die met `sb_secret_` begint (klik op het oogje)                                                            | **Ja**                  |
+| Connection string **Session pooler** (poort 5432)     | **Connect**, tabblad _Connection string_, methode **Session pooler**. Vul `[YOUR-PASSWORD]` in met je database-wachtwoord. Voor de GitHub-workflow. | **Ja** (met wachtwoord) |
+| Connection string **Transaction pooler** (poort 6543) | Zelfde plek, methode **Transaction pooler**, ook met je wachtwoord ingevuld. Voor Vercel.                                                           | **Ja** (met wachtwoord) |
+
+Gebruik niet de _Direct connection_: die werkt enkel via IPv6, en zowel Vercel als GitHub Actions gebruiken IPv4.
+De poolers (gebruikersnaam `postgres.<project-id>`) werken wel. De applicatie gebruikt `prepare: false` en is
+daarom compatibel met de transaction pooler.
+
+### Stap 3. De database inrichten via GitHub
+
+De tabellen worden nooit met de hand in Supabase aangemaakt, maar met de migraties uit de repository.
+
+1. Open de repository op GitHub, ga naar _Settings, Environments_ en kies **New environment**. Naam: `test`.
+2. In die environment: zet bij **Deployment branches and tags** de optie op **Selected branches and tags** en voeg
+   `main` toe. Voeg onder **Environment secrets** deze vier secrets toe (naam exact zo):
+   - `DATABASE_URL`: de **Session pooler**-string (poort 5432) uit stap 2;
+   - `NEXT_PUBLIC_SUPABASE_URL`: de project-URL;
+   - `SUPABASE_SECRET_KEY`: de secret key;
+   - `SEED_BACKOFFICE_PASSWORD`: een wachtwoord naar keuze voor jezelf, minstens 12 tekens.
+
+   Migreren alleen (zonder de eerste gebruiker) heeft enkel `DATABASE_URL` nodig.
+
+3. Ga naar _Actions_, kies links **Deploy database (test environment)** en klik **Run workflow** (branch `main`).
+   Vink **Also create the first backoffice user** aan en vul je naam en e-mailadres in. De workflow past de migraties
+   toe en maakt de eerste backoffice-gebruiker met het wachtwoord uit `SEED_BACKOFFICE_PASSWORD`. De logs tonen nooit
+   een geheime waarde, maar het e-mailadres en de naam die je invult staan wel in de Actions-log. Opnieuw starten is veilig.
+4. Na de eerste aanmelding: wijzig het wachtwoord van de backoffice-gebruiker, en verwijder daarna de secret
+   `SEED_BACKOFFICE_PASSWORD` uit de environment `test`.
+
+Start de workflow **direct na de merge** van deze wijziging (of van elke latere wijziging met een nieuwe migratie):
+Vercel deployt na elke merge naar `main` meteen, en de nieuwe code verwacht de nieuwe tabellen. De migraties lopen in
+één transactie. Mislukt de workflow, dan blijft de database ongewijzigd. Los de fout op en start de workflow opnieuw,
+of zet in Vercel (_Deployments_) de vorige deployment terug met **Instant Rollback**.
+
+Gaat er iets mis ("permission denied for table users")? Zie punt 7 van de checklist in
+[Een echt Supabase-project](#techniekers-uitnodigen), hierboven.
+
+### Stap 4. De applicatie op Vercel zetten
+
+1. Ga naar <https://vercel.com/signup> en kies **Continue with GitHub**. Voor louter testen volstaat het gratis
+   Hobby-plan; voor commercieel gebruik is het betalende Pro-plan nodig.
+2. Kies **Add New, Project**, geef Vercel toegang tot de repository en klik **Import**. Vercel herkent Next.js zelf;
+   laat de standaardinstellingen staan. De regio staat al vast op Frankfurt (`fra1`) door `vercel.json`.
+3. Open vóór het deployen **Environment Variables** en voeg toe (vink bij elke variabele **Production** aan; zie de
+   opmerking over previews hieronder):
+
+   | Naam                                   | Waarde                                                | Mag `NEXT_PUBLIC_`? |
+   | -------------------------------------- | ----------------------------------------------------- | ------------------- |
+   | `NEXT_PUBLIC_SUPABASE_URL`             | project-URL                                           | Ja, moet zo heten   |
+   | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | publishable key                                       | Ja, moet zo heten   |
+   | `NEXT_PUBLIC_COMPANY_NAME`             | bedrijfsnaam van de klant (optioneel)                 | Ja, moet zo heten   |
+   | `SUPABASE_SECRET_KEY`                  | secret key                                            | **NEE, nooit**      |
+   | `DATABASE_URL`                         | **Transaction pooler**-string (poort 6543) uit stap 2 | **NEE, nooit**      |
+   | `COMPANY_PHONE`                        | telefoonnummer van het kantoor (optioneel)            | **NEE**             |
+   | `SITE_URL`                             | wordt in stap 5 ingevuld                              | **NEE**             |
+
+   Alles met `NEXT_PUBLIC_` komt in de browser terecht en wordt bij het bouwen vastgelegd: wijzig je zo'n waarde, dan
+   moet je opnieuw deployen. De andere variabelen worden bij elk verzoek op de server gelezen. Zet een geheime waarde
+   (secret key, database-string) dus nooit achter een naam met `NEXT_PUBLIC_`.
+
+4. Klik **Deploy**. Na een paar minuten toont Vercel het adres, bv. `https://planning-test.vercel.app`. Kopieer het
+   (zonder `/` op het einde).
+
+### Stap 5. Adres instellen en Supabase afstellen
+
+1. Vercel, _Settings, Environment Variables_: voeg `SITE_URL` toe met dat adres (enkel Production). Ga naar
+   _Deployments_, open de laatste deployment, kies **Redeploy**.
+2. Stel in het Supabase-dashboard de punten uit de checklist hierboven in ([Een echt Supabase-project](#techniekers-uitnodigen),
+   punten 1 tot 4): **Site URL** = hetzelfde adres; bij **Redirect URLs** komt `<adres>/auth/confirm`; controleer dat **Allow new
+   users to sign up** uit staat (stap 1); plak de mailsjablonen uit `supabase/templates/invite.html` en `recovery.html` (de uitleg staat bij de
+   punten).
+3. Open het adres in je browser en meld je aan met het e-mailadres en het wachtwoord van de backoffice-gebruiker
+   uit stap 3. Voeg daarna een technieker toe om de uitnodigingsmail te testen.
+
+### Goed om te weten
+
+- **Mails**: de ingebouwde mailserver van Supabase is enkel om te testen (keuze K6): zeer weinig mails per uur, en
+  enkel naar teamleden van het Supabase-project. Nodig voor je test dus enkel iemand uit die teamlid is van het project, of wacht op een eigen SMTP-dienst.
+- **`SITE_URL` en previews**: Vercel maakt voor elke pull request een eigen preview-adres. `SITE_URL` staat vast: de link in een
+  uitnodigings- of herstelmail wijst **altijd** naar dat ene adres (de testomgeving), niet naar de preview, ook als de
+  mail vanuit een preview verstuurd werd. Dat is bewust (anders kan iemand met een vervalste `Host`-header een mail met een link naar een andere site uitlokken).
+  Aanmelden met een wachtwoord werkt op een preview wel (als de variabelen er staan), maar de link in een mail opent de
+  testomgeving en niet de preview. Daarom staan de variabelen in stap 4 enkel op **Production**: een preview toont dan een
+  duidelijke configuratiefout en raakt nooit je data. Wil je previews met de testdatabase gebruiken, vink dan **Preview**
+  aan; uitnodigen en "Wachtwoord vergeten" testen kan dan enkel op de testomgeving zelf.
+- **Wijzigingen**: elke merge naar `main` deployt automatisch naar Production. Nieuwe migraties zet je pas in de
+  database door de workflow opnieuw te starten (zonder het vinkje voor de backoffice-gebruiker).
+- **Logs en privacy**: zoektermen staan in de URL (bv. `?q=Peeters`) en kunnen in de logs van Vercel belanden. Gebruik in de testomgeving dus
+  geen echte persoonsgegevens.
+
 ## CI
 
 Elke pull request draait drie jobs: `Lint, typecheck, unit tests, audit`, `End-to-end tests` en

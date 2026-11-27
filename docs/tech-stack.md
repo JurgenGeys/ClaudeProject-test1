@@ -8,24 +8,24 @@ Status per keuze:
 
 ## Overzicht
 
-| Laag                      | Keuze                                               | Status   |
-| ------------------------- | --------------------------------------------------- | -------- |
-| Taal                      | TypeScript, `strict` mode                           | Beslist  |
-| Framework                 | Next.js met App Router                              | Beslist  |
-| Runtime                   | Node.js, huidige LTS-versie                         | Beslist  |
-| Package manager           | pnpm                                                | Beslist  |
-| Styling & UI-componenten  | Tailwind CSS + shadcn/ui                            | Beslist  |
-| Validatie van input       | Zod                                                 | Beslist  |
-| Database                  | PostgreSQL via Supabase, EU-regio (Frankfurt)       | Beslist  |
-| Database-toegang          | Drizzle ORM (schema en migraties in de repository)  | Beslist  |
-| Authenticatie             | Supabase Auth                                       | Beslist  |
-| Bestandsopslag            | Supabase Storage                                    | Beslist  |
-| Hosting van de applicatie | Voorkeur voor hosting in de EU (GDPR)               | **Open** |
-| Unit- en componenttests   | Vitest + Testing Library                            | Beslist  |
-| End-to-end tests          | Playwright                                          | Beslist  |
-| Linting & formatting      | ESLint + Prettier                                   | Beslist  |
-| CI/CD                     | GitHub Actions                                      | Beslist  |
-| Beveiligingsscans         | Dependabot, Semgrep Community Edition, `pnpm audit` | Beslist  |
+| Laag                      | Keuze                                               | Status  |
+| ------------------------- | --------------------------------------------------- | ------- |
+| Taal                      | TypeScript, `strict` mode                           | Beslist |
+| Framework                 | Next.js met App Router                              | Beslist |
+| Runtime                   | Node.js, huidige LTS-versie                         | Beslist |
+| Package manager           | pnpm                                                | Beslist |
+| Styling & UI-componenten  | Tailwind CSS + shadcn/ui                            | Beslist |
+| Validatie van input       | Zod                                                 | Beslist |
+| Database                  | PostgreSQL via Supabase, EU-regio (Frankfurt)       | Beslist |
+| Database-toegang          | Drizzle ORM (schema en migraties in de repository)  | Beslist |
+| Authenticatie             | Supabase Auth                                       | Beslist |
+| Bestandsopslag            | Supabase Storage                                    | Beslist |
+| Hosting van de applicatie | Vercel, regio Frankfurt (`fra1`), zie ADR-0004      | Beslist |
+| Unit- en componenttests   | Vitest + Testing Library                            | Beslist |
+| End-to-end tests          | Playwright                                          | Beslist |
+| Linting & formatting      | ESLint + Prettier                                   | Beslist |
+| CI/CD                     | GitHub Actions                                      | Beslist |
+| Beveiligingsscans         | Dependabot, Semgrep Community Edition, `pnpm audit` | Beslist |
 
 ## Richtlijnen per laag
 
@@ -83,6 +83,4 @@ Een pull request met een falende stap wordt niet gemerged.
 
 ## Open beslissingen
 
-### Hosting
-
-Nog te kiezen. Vereiste: data en applicatie in de EU.
+Geen open keuzes in dit overzicht. (Hosting is beslist door Jurgen op 26/11/2026: zie ADR-0004.)

@@ -8,6 +8,8 @@ import type { TaskDetail } from "@/lib/tasks/detail";
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
 // The dialog "Terugzetten" imports the Server Action; it is tested in reset-task-dialog.test.tsx.
 vi.mock("./actions", () => ({ resetTask: vi.fn(), correctHours: vi.fn() }));
+// The dialog "Taak annuleren" imports its Server Action; it is tested in cancel-task-dialog.test.tsx.
+vi.mock("./cancel-actions", () => ({ cancelTask: vi.fn() }));
 
 import { TaskDetailView } from "./task-detail";
 
@@ -195,9 +197,72 @@ describe("TaskDetailView (B3)", () => {
     });
   });
 
-  it("builds none of the actions of the later build tasks", () => {
+  describe("Taak annuleren (BT-14b)", () => {
+    const cancelled = {
+      ...task,
+      status: "cancelled" as const,
+      cancelledAt: new Date("2026-11-23T10:20:00Z"),
+      cancelledByName: "Sofie Peeters",
+    };
+
+    it.each(["open", "assigned"] as const)(
+      "is offered for a %s task, before Bewerken (the mockup)",
+      (status) => {
+        render(
+          <TaskDetailView
+            task={{ ...task, status, assignee: status === "open" ? null : task.assignee }}
+          />,
+        );
+        const button = screen.getByRole("button", { name: "Taak annuleren" });
+        expect(
+          button.compareDocumentPosition(screen.getByRole("link", { name: "Bewerken" })) &
+            Node.DOCUMENT_POSITION_FOLLOWING,
+        ).toBeTruthy();
+      },
+    );
+
+    it.each(["picked_up", "completed", "invoiced", "cancelled"] as const)(
+      "is not offered for a %s task",
+      (status) => {
+        render(
+          <TaskDetailView
+            task={{
+              ...task,
+              status,
+              pickedUpAt: new Date("2026-11-23T06:48:00Z"),
+              completion: status === "completed" || status === "invoiced" ? completion : null,
+              cancelledAt: status === "cancelled" ? cancelled.cancelledAt : null,
+            }}
+          />,
+        );
+        expect(screen.queryByRole("button", { name: "Taak annuleren" })).not.toBeInTheDocument();
+      },
+    );
+
+    it("shows the confirmation of the design after a cancellation, and only when the task is Geannuleerd", () => {
+      const { rerender } = render(<TaskDetailView task={cancelled} cancelled />);
+      expect(screen.getByRole("status")).toHaveTextContent("Taak #1043 is geannuleerd.");
+      // Not cancelled (any more): the message would be untrue.
+      rerender(<TaskDetailView task={task} cancelled />);
+      expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    });
+
+    it("shows no confirmation without ?cancelled=1", () => {
+      render(<TaskDetailView task={cancelled} />);
+      expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    });
+
+    it("gives a cancelled task no actions at all (read only)", () => {
+      render(<TaskDetailView task={cancelled} />);
+      expect(screen.queryByRole("button")).not.toBeInTheDocument();
+      expect(screen.queryByRole("link", { name: "Bewerken" })).not.toBeInTheDocument();
+    });
+  });
+
+  it("Toegewezen: offers 'Taak annuleren', and none of the actions that belong to other statuses", () => {
     render(<TaskDetailView task={task} />);
-    for (const name of [/annuleren/i, /terugzetten/i, /corrigeren/i, /gefactureerd/i]) {
+    expect(screen.getByRole("button", { name: "Taak annuleren" })).toBeInTheDocument();
+    for (const name of [/terugzetten/i, /corrigeren/i, /gefactureerd/i]) {
       expect(screen.queryByRole("button", { name })).not.toBeInTheDocument();
     }
   });

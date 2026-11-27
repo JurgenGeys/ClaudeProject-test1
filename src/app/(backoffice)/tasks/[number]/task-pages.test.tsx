@@ -16,6 +16,7 @@ vi.mock("@/lib/tasks/detail", () => ({ getTaskDetail }));
 vi.mock("@/lib/technicians/queries", () => ({ listAssignableTechnicians }));
 vi.mock("next/navigation", () => ({ notFound, useRouter: () => ({ refresh: vi.fn() }) }));
 vi.mock("../invoice-actions", () => ({ markInvoiced: vi.fn(), unmarkInvoiced: vi.fn() }));
+vi.mock("../cancel-actions", () => ({ cancelTask: vi.fn() }));
 vi.mock("../actions", () => ({
   createTask: vi.fn(),
   updateTask: vi.fn(),
@@ -128,6 +129,28 @@ describe("the task page (B3)", () => {
     render(await detailPage("1043"));
     expect(listAssignableTechnicians).toHaveBeenCalledTimes(1);
     expect(screen.getByRole("button", { name: "Terugzetten" })).toBeInTheDocument();
+  });
+
+  it("shows the cancellation confirmation only for ?cancelled=1 and a cancelled task", async () => {
+    getTaskDetail.mockResolvedValue({
+      ...task,
+      status: "cancelled",
+      cancelledAt: new Date("2026-11-23T10:20:00Z"),
+      cancelledByName: "Sofie Peeters",
+    });
+    render(await detailPage("1043", { cancelled: "1" }));
+    expect(screen.getByRole("status")).toHaveTextContent("Taak #1043 is geannuleerd.");
+  });
+
+  it("shows no cancellation confirmation for another value of ?cancelled", async () => {
+    getTaskDetail.mockResolvedValue({
+      ...task,
+      status: "cancelled",
+      cancelledAt: new Date("2026-11-23T10:20:00Z"),
+      cancelledByName: "Sofie Peeters",
+    });
+    render(await detailPage("1043", { cancelled: "yes" }));
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
   });
 
   it("shows the reset confirmation only for ?reset=1", async () => {

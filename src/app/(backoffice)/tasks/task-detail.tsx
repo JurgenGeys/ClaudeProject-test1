@@ -7,6 +7,7 @@ import { telHref } from "@/lib/phone";
 import type { TaskDetail } from "@/lib/tasks/detail";
 import { formatTaskNumber, workTypeLabel } from "@/lib/tasks/labels";
 import { buildTimeline, formatMoment, type TimelineItem } from "@/lib/tasks/timeline";
+import { CANCEL_MESSAGES } from "@/lib/tasks/cancel-messages";
 import { CORRECT_HOURS_MESSAGES, RESET_MESSAGES } from "@/lib/tasks/messages";
 import { canEditTask } from "@/lib/tasks/transitions";
 import { INVOICE_MESSAGES } from "@/lib/tasks/invoice-messages";
@@ -16,6 +17,7 @@ import { cn } from "@/lib/utils";
 import { SavedNotice } from "@/components/saved-notice";
 
 import { CorrectHoursDialog } from "./correct-hours-dialog";
+import { CancelTaskDialog } from "./cancel-task-dialog";
 import { ResetTaskDialog } from "./reset-task-dialog";
 import { TaskInvoiceActions } from "./task-invoice-actions";
 
@@ -133,15 +135,16 @@ function Completion({ task, now }: { task: TaskDetail; now: Date }) {
  * B3 (design chapter 3): the task for the back office, read only. Shows the status and the
  * number, the customer, location, instructions and technician, the timeline and, from
  * Afgewerkt on, the completion. A cancelled task shows a grey bar with who, when and why.
- * The actions: "Bewerken" (Open, Toegewezen, Opgepikt) and "Terugzetten" with its dialog
- * (Opgepikt, BT-14); the other actions of the design (annuleren, uren corrigeren, factureren)
- * come with their own build tasks.
+ * The actions: "Taak annuleren" with its dialog (Open, Toegewezen, BT-14b), "Bewerken" (Open,
+ * Toegewezen, Opgepikt), "Terugzetten" with its dialog (Opgepikt, BT-14), "Uren corrigeren"
+ * with its dialog (Afgewerkt, BT-15) and the invoicing buttons (BT-17).
  */
 export function TaskDetailView({
   task,
   saved = false,
   reset = false,
   corrected = false,
+  cancelled = false,
   invoiced = null,
   technicians = [],
 }: {
@@ -151,6 +154,8 @@ export function TaskDetailView({
   reset?: boolean;
   /** The hours were just corrected (`?corrected=1`): shows the confirmation. */
   corrected?: boolean;
+  /** The task was just cancelled (`?cancelled=1`): shows the confirmation. */
+  cancelled?: boolean;
   /** The technicians that "Terugzetten" offers; only needed for an Opgepikt task. */
   technicians?: readonly { id: string; fullName: string }[];
   /** `?invoiced=` of the address after marking or unmarking (BT-17). */
@@ -178,6 +183,9 @@ export function TaskDetailView({
           {CORRECT_HOURS_MESSAGES.done(formatHours(task.completion.correctedMinutes))}
         </SavedNotice>
       ) : null}
+      {cancelled && task.status === "cancelled" ? (
+        <SavedNotice param="cancelled">{CANCEL_MESSAGES.done(number)}</SavedNotice>
+      ) : null}
       {invoiced ? (
         <SavedNotice param="invoiced">
           {invoiced === "marked" ? INVOICE_MESSAGES.taskMarked : INVOICE_MESSAGES.unmarked}
@@ -203,6 +211,17 @@ export function TaskDetailView({
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
+          {task.status === "open" || task.status === "assigned" ? (
+            // The version in the key: after a refused attempt that reloads the page, the dialog
+            // starts closed and empty again.
+            <CancelTaskDialog
+              key={task.version}
+              taskNumber={task.number}
+              taskLabel={number}
+              version={task.version}
+              assigneeName={task.assignee?.fullName ?? null}
+            />
+          ) : null}
           {editable ? (
             <>
               <Button
