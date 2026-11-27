@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { checkRoleAccess } from "@/lib/auth/role-access";
+import { EXPORT_MESSAGES } from "@/lib/export/messages";
 import { previousMonth } from "@/lib/export/period";
 import { brusselsDayKey } from "@/lib/time/format";
 import { parseExportParams, parseExportProblem } from "@/lib/validation/export";
@@ -28,25 +29,32 @@ export default async function ExportPage({ searchParams }: PageProps<"/tasks/exp
   const fallback = previousMonth(brusselsDayKey(new Date()));
   // Without any day in the address the form starts with the previous month; a day that was
   // given stays, so an error does not wipe the form.
-  const noDays = !raw.from && !raw.to;
+  // A first visit has no days and no problem in the address: it starts with the previous month
+  // and shows no complaint. Once days or `?problem=` are there (after a submit), what was given
+  // stays as it is, also when a day is missing, and the problem is shown.
+  const firstVisit = raw.from === undefined && raw.to === undefined && raw.problem === undefined;
   const values = {
-    from: noDays ? fallback.from : (given.from ?? ""),
-    to: noDays ? fallback.to : (given.to ?? ""),
+    from: firstVisit ? fallback.from : (given.from ?? ""),
+    to: firstVisit ? fallback.to : (given.to ?? ""),
     scope: given.scope,
   };
-  // The problem of the address counts only when its facts agree with the parameters.
+  // `?problem=empty` counts only when the parameters are valid; the other problems are found again here.
   const requested = parseExportProblem(raw.problem);
-  const problem = parsed.ok ? (requested === "empty" ? "empty" : null) : parsed.problem;
+  const problem = firstVisit
+    ? null
+    : parsed.ok
+      ? requested === "empty"
+        ? "empty"
+        : null
+      : parsed.problem;
 
   return (
     <div className="mx-auto w-full max-w-3xl">
       <Link href="/tasks" className="text-sm underline-offset-4 hover:underline">
-        ← Taken
+        {EXPORT_MESSAGES.back}
       </Link>
-      <h1 className="mt-2 text-2xl font-semibold tracking-tight">Exporteren voor de facturatie</h1>
-      <p className="mt-1 text-sm text-muted-foreground">
-        Download de afgewerkte taken van een periode. Het bestand opent in Excel.
-      </p>
+      <h1 className="mt-2 text-2xl font-semibold tracking-tight">{EXPORT_MESSAGES.title}</h1>
+      <p className="mt-1 text-sm text-muted-foreground">{EXPORT_MESSAGES.intro}</p>
       <ExportForm
         // Fresh fields when the address changes (after an error, Back button).
         key={`${values.from}|${values.to}|${values.scope}|${problem}`}

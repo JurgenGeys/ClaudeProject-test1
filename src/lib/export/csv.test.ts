@@ -14,7 +14,7 @@ import {
 
 const row: ExportRow = {
   number: 1042,
-  scheduledDate: "2026-10-02",
+  completedDay: "2026-10-02",
   customerName: "Fam. Hermans",
   street: "Kerkstraat 9",
   postalCode: "2350",

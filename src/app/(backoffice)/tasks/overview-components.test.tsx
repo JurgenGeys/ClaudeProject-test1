@@ -126,6 +126,17 @@ describe("TaskFilters", () => {
     expect(screen.getByRole("button", { name: "Filteren" })).toHaveAttribute("type", "submit");
   });
 
+  it.each([
+    ["completed", true],
+    ["invoiced", true],
+    ["active", false],
+    ["assigned", false],
+  ] as const)("says on tab %s that the period is the day of completing: %s", (tab, shown) => {
+    render(<TaskFilters filters={{ ...none, tab }} technicians={technicians} />);
+    const hint = screen.queryByText(/de dag waarop de taak is afgemeld/);
+    expect(Boolean(hint)).toBe(shown);
+  });
+
   it("lists switched-off technicians too, marked as such", () => {
     render(<TaskFilters filters={none} technicians={technicians} />);
     const options = within(screen.getByLabelText("Technieker")).getAllByRole("option");

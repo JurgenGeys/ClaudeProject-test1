@@ -5,6 +5,8 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 import * as schema from "@/db/schema";
 import { queryExportRows } from "@/lib/export/query";
+import { queryTaskOverview } from "@/lib/tasks/overview";
+import { parseTaskOverviewParams } from "@/lib/validation/task-overview";
 
 // The export query (BT-16) against the real database (local Supabase in CI): which tasks are
 // selected (status, period in Belgian time, never cancelled), which hours count, what is read.
@@ -125,12 +127,13 @@ describe("queryExportRows", () => {
   it("returns exactly the columns of the file, with the labels' source values", async () => {
     await inRolledBackTransaction(async (tx) => {
       const ctx = await setUp(tx);
+      // Planned on the 9th, completed on the 10th: the date in the file is the day of completing.
       const number = await seed(tx, ctx, { worked: 75, scheduledDate: "2033-11-09" });
       const rows = await queryExportRows(tx, { ...PERIOD, scope: "completed" });
       expect(rows).toEqual([
         {
           number,
-          scheduledDate: "2033-11-09",
+          completedDay: "2033-11-10",
           customerName: "Exporttest Bakkerij",
           street: "Gasthuisstraat 23",
           postalCode: "2300",
@@ -240,14 +243,123 @@ describe("queryExportRows", () => {
     });
   });
 
-  it("orders by planned day, start time and task number", async () => {
+  it("orders by the day of completing and then the task number", async () => {
     await inRolledBackTransaction(async (tx) => {
       const ctx = await setUp(tx);
-      const late = await seed(tx, ctx, { scheduledDate: "2033-11-20" });
-      const early = await seed(tx, ctx, { scheduledDate: "2033-11-03" });
-      const sameDay = await seed(tx, ctx, { scheduledDate: "2033-11-03" });
+      const late = await seed(tx, ctx, { completedAt: "2033-11-20T10:00:00Z" });
+      const early = await seed(tx, ctx, { completedAt: "2033-11-03T15:00:00Z" });
+      // The same Belgian day as `early`, an hour earlier: the day counts, not the hour.
+      const sameDay = await seed(tx, ctx, { completedAt: "2033-11-03T14:00:00Z" });
       const rows = await queryExportRows(tx, { ...PERIOD, scope: "completed" });
       expect(rows.map((row) => row.number)).toEqual([early, sameDay, late]);
+    });
+  });
+
+  it("writes the Belgian day of completing, also just after midnight", async () => {
+    await inRolledBackTransaction(async (tx) => {
+      const ctx = await setUp(tx);
+      await seed(tx, ctx, { completedAt: "2033-11-09T23:30:00Z" }); // 10/11 00:30 in Belgium
+      const [row] = await queryExportRows(tx, { ...PERIOD, scope: "completed" });
+      expect(row.completedDay).toBe("2033-11-10");
+    });
+  });
+
+  it.each([
+    // Spring forward on 27/03/2033: that day has 23 hours (23:00Z the day before up to 22:00Z).
+    ["2033-03-27", "2033-03-26T22:59:59Z", false],
+    ["2033-03-27", "2033-03-26T23:00:00Z", true],
+    ["2033-03-27", "2033-03-27T21:59:59Z", true],
+    ["2033-03-27", "2033-03-27T22:00:00Z", false],
+    // Fall back on 30/10/2033: that day has 25 hours (22:00Z the day before up to 23:00Z).
+    ["2033-10-30", "2033-10-29T21:59:59Z", false],
+    ["2033-10-30", "2033-10-29T22:00:00Z", true],
+    ["2033-10-30", "2033-10-30T22:59:59Z", true],
+    ["2033-10-30", "2033-10-30T23:00:00Z", false],
+  ])("on the clock change day %s, %s is inside the day: %s", async (day, completedAt, inside) => {
+    await inRolledBackTransaction(async (tx) => {
+      const ctx = await setUp(tx);
+      const number = await seed(tx, ctx, { completedAt });
+      const rows = await queryExportRows(tx, { from: day, to: day, scope: "completed" });
+      expect(rows.map((row) => row.number)).toEqual(inside ? [number] : []);
+    });
+  });
+
+  it("shows in the overview exactly the tasks of the file: a task planned 31/10 and completed 03/11 is in both", async () => {
+    await inRolledBackTransaction(async (tx) => {
+      const ctx = await setUp(tx);
+      const late = await seed(tx, ctx, {
+        scheduledDate: "2033-10-31",
+        completedAt: "2033-11-03T09:00:00Z",
+      });
+      // Planned inside November, completed in December: in neither.
+      const later = await seed(tx, ctx, {
+        scheduledDate: "2033-11-15",
+        completedAt: "2033-12-02T09:00:00Z",
+      });
+      const earlyStart = await seed(tx, ctx, {
+        scheduledDate: "2033-11-30",
+        completedAt: "2033-11-30T22:59:59Z",
+      });
+      const file = await queryExportRows(tx, { ...PERIOD, scope: "completed" });
+      const filters = parseTaskOverviewParams({
+        status: "completed",
+        from: PERIOD.from,
+        to: PERIOD.to,
+      });
+      const overview = await queryTaskOverview(tx, filters);
+      const inFile = file.map((row) => row.number).sort();
+      const inList = overview.rows.map((row) => row.number).sort();
+      expect(inFile).toEqual([late, earlyStart].sort());
+      expect(inList).toEqual(inFile);
+      expect(inList).not.toContain(later);
+      // The number on the tab is what the tab shows.
+      expect(overview.counts.completed).toBe(inList.length);
+    });
+  });
+
+  it("counts per tab with a period: Afgewerkt and Gefactureerd by day of completing, the others by planned day", async () => {
+    await inRolledBackTransaction(async (tx) => {
+      const ctx = await setUp(tx);
+      // Assigned: planned in November, so it counts; its completion day does not exist.
+      await seed(tx, ctx, { status: "assigned", scheduledDate: "2033-11-12" });
+      await seed(tx, ctx, { status: "assigned", scheduledDate: "2033-12-12" });
+      // Completed: planned in October, completed in November: counts. The reverse does not.
+      await seed(tx, ctx, {
+        scheduledDate: "2033-10-31",
+        completedAt: "2033-11-03T09:00:00Z",
+      });
+      await seed(tx, ctx, {
+        scheduledDate: "2033-11-15",
+        completedAt: "2033-12-02T09:00:00Z",
+      });
+      await seed(tx, ctx, {
+        status: "invoiced",
+        scheduledDate: "2033-10-20",
+        completedAt: "2033-11-04T09:00:00Z",
+      });
+      await seed(tx, ctx, { status: "cancelled", scheduledDate: "2033-11-20" });
+      const base = { status: "all", from: PERIOD.from, to: PERIOD.to };
+      const { counts } = await queryTaskOverview(tx, parseTaskOverviewParams(base));
+      expect(counts.assigned).toBe(1);
+      expect(counts.completed).toBe(1);
+      expect(counts.invoiced).toBe(1);
+      expect(counts.cancelled).toBe(1);
+      // Actief adds up its own statuses, Alle everything: both agree with the tabs.
+      expect(counts.active).toBe(counts.assigned + counts.completed);
+      expect(counts.all).toBe(4);
+      const all = await queryTaskOverview(tx, parseTaskOverviewParams(base));
+      expect(all.rows).toHaveLength(counts.all);
+      const invoicedTab = await queryTaskOverview(
+        tx,
+        parseTaskOverviewParams({ ...base, status: "invoiced" }),
+      );
+      expect(invoicedTab.rows).toHaveLength(1);
+      // One bound only: from the 3rd of November on, completed tasks are those of the 3rd or later.
+      const onlyFrom = await queryTaskOverview(
+        tx,
+        parseTaskOverviewParams({ status: "completed", from: "2033-12-01" }),
+      );
+      expect(onlyFrom.rows).toHaveLength(1);
     });
   });
 

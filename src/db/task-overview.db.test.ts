@@ -172,7 +172,13 @@ async function seed(tx: Tx) {
       corrected: 90,
       completedAt: "2026-11-23T09:00:00Z",
     }),
-    invoiced: await make({ status: "invoiced", date: "2026-11-10", assignee: kevin, worked: 60 }),
+    invoiced: await make({
+      status: "invoiced",
+      date: "2026-11-10",
+      assignee: kevin,
+      worked: 60,
+      completedAt: "2026-11-12T09:00:00Z",
+    }),
     cancelled: await make({ status: "cancelled", date: "2026-11-25", assignee: kevin }),
     cancelledUnassigned: await make({ status: "cancelled", date: "2026-11-27" }),
   };
@@ -306,11 +312,16 @@ describe("queryTaskOverview", () => {
     });
   });
 
-  it("filters on the planned day, both ends included", async () => {
+  it("filters on the planned day for open, assigned and picked up tasks, both ends included", async () => {
     await inRolledBackTransaction(async (tx) => {
       const { numbers, t } = await seed(tx);
-      const result = await overviewOf(tx, numbers, { from: "2026-11-23", to: "2026-11-24" });
-      expect(result.rows.map((r) => r.number)).toEqual([
+      const result = await overviewOf(tx, numbers, {
+        tab: "all",
+        from: "2026-11-23",
+        to: "2026-11-24",
+      });
+      const planned = result.rows.filter((r) => ["assigned", "picked_up"].includes(r.status));
+      expect(planned.map((r) => r.number)).toEqual([
         t.pickedUp,
         t.assignedKevinEarlier,
         t.assignedKevin,
@@ -318,7 +329,62 @@ describe("queryTaskOverview", () => {
       const from = await overviewOf(tx, numbers, { from: "2026-12-05" });
       expect(from.rows.map((r) => r.number)).toEqual([t.assignedJens]);
       const to = await overviewOf(tx, numbers, { to: "2026-11-20" });
-      expect(to.rows.map((r) => r.number)).toEqual([t.completed]);
+      expect(to.rows).toEqual([]);
+    });
+  });
+
+  it("filters Afgewerkt and Gefactureerd on the day of completing, not the planned day (decided by Jurgen, 27/11/2026)", async () => {
+    await inRolledBackTransaction(async (tx) => {
+      const { numbers, t } = await seed(tx);
+      // `completed` is planned on 20/11 but completed on 24/11; `completedCorrected` is planned on
+      // 21/11 and completed on 23/11.
+      const day24 = await overviewOf(tx, numbers, {
+        tab: "completed",
+        from: "2026-11-24",
+        to: "2026-11-24",
+      });
+      expect(day24.rows.map((r) => r.number)).toEqual([t.completed]);
+      const planned20 = await overviewOf(tx, numbers, {
+        tab: "completed",
+        from: "2026-11-20",
+        to: "2026-11-20",
+      });
+      expect(planned20.rows).toEqual([]);
+      const range = await overviewOf(tx, numbers, {
+        tab: "completed",
+        from: "2026-11-23",
+        to: "2026-11-24",
+      });
+      expect(range.rows.map((r) => r.number)).toEqual([t.completed, t.completedCorrected]);
+      // Gefactureerd: planned on 10/11, completed on 12/11.
+      const invoiced = await overviewOf(tx, numbers, {
+        tab: "invoiced",
+        from: "2026-11-12",
+        to: "2026-11-12",
+      });
+      expect(invoiced.rows.map((r) => r.number)).toEqual([t.invoiced]);
+      const invoicedPlanned = await overviewOf(tx, numbers, {
+        tab: "invoiced",
+        from: "2026-11-10",
+        to: "2026-11-10",
+      });
+      expect(invoicedPlanned.rows).toEqual([]);
+    });
+  });
+
+  it("makes the numbers on the tabs follow the same rule", async () => {
+    await inRolledBackTransaction(async (tx) => {
+      const { numbers } = await seed(tx);
+      const result = await overviewOf(tx, numbers, {
+        from: "2026-11-23",
+        to: "2026-11-24",
+      });
+      // Assigned x2 and picked up x1 by planned day, completed x2 by day of completing.
+      expect(result.counts.assigned).toBe(2);
+      expect(result.counts.picked_up).toBe(1);
+      expect(result.counts.completed).toBe(2);
+      expect(result.counts.invoiced).toBe(0);
+      expect(result.counts.active).toBe(5);
     });
   });
 

@@ -26,7 +26,7 @@ afterEach(() => vi.unstubAllGlobals());
 describe("ExportForm", () => {
   it("has labelled fields, the default scope and a GET form to the download route", () => {
     render(<ExportForm initial={initial} problem={null} />);
-    expect(screen.getByLabelText("Van")).toHaveValue("2026-10-01");
+    expect(screen.getByLabelText("Van", { exact: true })).toHaveValue("2026-10-01");
     expect(screen.getByLabelText("Tot en met")).toHaveValue("2026-10-31");
     expect(screen.getByRole("radio", { name: /Enkel nog te factureren/ })).toBeChecked();
     const form = screen.getByRole("form", { name: "Exporteren" });
@@ -36,7 +36,8 @@ describe("ExportForm", () => {
 
   it.each([
     ["missing", "Kies een begin- en einddatum."],
-    ["reversed", "De einddatum moet na de begindatum liggen."],
+    ["reversed", "De einddatum ligt vóór de begindatum."],
+    ["toolong", "De periode is te lang. Kies hoogstens 1 jaar (366 dagen)."],
     ["scope", "Kies welke taken je wilt exporteren."],
   ] as const)("shows the message of problem %s", (problem, message) => {
     render(<ExportForm initial={initial} problem={problem} />);
@@ -95,7 +96,26 @@ describe("ExportForm", () => {
     );
   });
 
-  it("does not follow a redirect to another site or page", async () => {
+  it("follows a redirect to the login page when the session has run out, without an error", async () => {
+    const response = new Response("", { status: 200 });
+    Object.defineProperty(response, "redirected", { value: true });
+    Object.defineProperty(response, "url", { value: `${window.location.origin}/login` });
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(response));
+    render(<ExportForm initial={initial} problem={null} />);
+    fireEvent.click(screen.getByRole("button", { name: "Download" }));
+    await waitFor(() => expect(push).toHaveBeenCalledWith("/login"));
+    expect(screen.queryByText(/kon niet worden gemaakt/)).not.toBeInTheDocument();
+  });
+
+  it("moves the focus to the message after downloading", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(csvResponse(3)));
+    render(<ExportForm initial={initial} problem={null} />);
+    fireEvent.click(screen.getByRole("button", { name: "Download" }));
+    const status = await screen.findByRole("status");
+    await waitFor(() => expect(document.activeElement).toBe(status));
+  });
+
+  it("does not follow a redirect to another site", async () => {
     const response = new Response("", { status: 200 });
     Object.defineProperty(response, "redirected", { value: true });
     Object.defineProperty(response, "url", { value: "https://evil.example/tasks/export" });

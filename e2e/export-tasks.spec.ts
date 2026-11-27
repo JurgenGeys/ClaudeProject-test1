@@ -44,14 +44,24 @@ const test = base.extend<Fixtures>({
     await removeCustomersNamed(token);
   },
   day: async ({}, run, testInfo) => {
-    // Desktop and mobile run side by side, and so do workers: every combination has its own day
+    // Desktop and mobile run side by side, and so do workers: every combination has its own day,
     // and the day after it (used for a task outside the period) is nobody else's.
     const offset = testInfo.project.name === "mobile" ? 12 : 10;
-    await run(`2032-03-${String(offset + testInfo.parallelIndex * 4).padStart(2, "0")}`);
+    await run(addDays("2032-03-01", offset + testInfo.parallelIndex * 4));
   },
 });
 
 const at = (day: string, time: string) => new Date(`${day}T${time}Z`);
+
+/** `2032-03-01` plus a number of days, as a real calendar day (never `2032-03-32`). */
+function addDays(day: string, days: number): string {
+  const date = new Date(`${day}T00:00:00Z`);
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
+/** `2032-03-05` as `05/03/2032`. */
+const shown = (day: string) => day.split("-").reverse().join("/");
 
 async function signInAsBackoffice(page: Page): Promise<void> {
   await signIn(page, BACKOFFICE);
@@ -104,7 +114,7 @@ test.describe("the export for invoicing (B4)", () => {
       await setTaskCompletedAt(number, at(day, "10:00:00"));
     }
     // Completed on the next day: outside the period.
-    await setTaskCompletedAt(other, at(`2032-03-${Number(day.slice(-2)) + 1}`, "10:00:00"));
+    await setTaskCompletedAt(other, at(addDays(day, 1), "10:00:00"));
 
     await signInAsBackoffice(page);
     await openExportPage(page, `?from=${day}&to=${day}`);
@@ -113,7 +123,7 @@ test.describe("the export for invoicing (B4)", () => {
       await expect(page.getByRole("heading", { level: 1 })).toHaveText(
         "Exporteren voor de facturatie",
       );
-      await expect(page.getByLabel("Van")).toHaveValue(day);
+      await expect(page.getByLabel("Van", { exact: true })).toHaveValue(day);
       await expect(page.getByLabel("Tot en met")).toHaveValue(day);
       await expect(page.getByRole("radio", { name: /Enkel nog te factureren/ })).toBeChecked();
     });
@@ -134,11 +144,11 @@ test.describe("the export for invoicing (B4)", () => {
       // Header, two tasks, and the empty piece after the last line break.
       expect(lines).toHaveLength(4);
       expect(lines[1]).toBe(
-        `${plain};01/03/2032;${token} Bakkerij;Teststraat 1, 9000 Gent;${technician.fullName};Onderhoud;'=1+1;1,25;"'- filter vervangen; toestel ""lekt""";Afgewerkt`,
+        `${plain};${shown(day)};${token} Bakkerij;Teststraat 1, 9000 Gent;${technician.fullName};Onderhoud;'=1+1;1,25;"'- filter vervangen; toestel ""lekt""";Afgewerkt`,
       );
       expect(lines[2]).toBe(
         // 2u00 by the technician, corrected to 1u30: the corrected hours count. No notes.
-        `${corrected};02/03/2032;${token} Bakkerij;Teststraat 1, 9000 Gent;${technician.fullName};Herstelling;E2E-taak;1,5;;Afgewerkt`,
+        `${corrected};${shown(day)};${token} Bakkerij;Teststraat 1, 9000 Gent;${technician.fullName};Herstelling;E2E-taak;1,5;;Afgewerkt`,
       );
       const numbers = lines.map((line) => line.split(";")[0]);
       for (const left of [invoiced, cancelled, other]) {
@@ -154,6 +164,20 @@ test.describe("the export for invoicing (B4)", () => {
       );
     });
 
+    await test.step("the link shows exactly the tasks of the file, also tasks planned earlier than the period", async () => {
+      // Both tasks of the file were planned on 1 and 2 March 2032, before the day of completing.
+      await page.getByRole("link", { name: "Naar de afgewerkte taken" }).click();
+      await expect(page).toHaveURL(`/tasks?status=completed&from=${day}&to=${day}`);
+      const link = (number: number) =>
+        page.getByRole("link", { name: new RegExp(`#${number}(?!\\d)`) });
+      await expect(link(plain).first()).toBeVisible();
+      await expect(link(corrected).first()).toBeVisible();
+      await expect(link(other)).toHaveCount(0);
+      await expect(link(invoiced)).toHaveCount(0);
+      await page.goBack();
+      await page.locator('form[data-hydrated="true"]').waitFor();
+    });
+
     await test.step("'Afgewerkt en gefactureerd' adds the invoiced task", async () => {
       await page.getByRole("radio", { name: /Afgewerkt en gefactureerd/ }).check();
       const [download] = await Promise.all([
@@ -161,7 +185,7 @@ test.describe("the export for invoicing (B4)", () => {
         page.getByRole("button", { name: "Download" }).click(),
       ]);
       const text = (await readFile((await download.path())!)).toString("utf8");
-      expect(text).toContain(`${invoiced};03/03/2032;`);
+      expect(text).toContain(`${invoiced};${shown(day)};`);
       expect(text).toContain(";Gefactureerd\r\n");
       expect(text.split("\r\n")).toHaveLength(5);
       await expect(page.getByRole("status")).toContainText("Het bestand met 3 taken is gedownload");
@@ -171,7 +195,7 @@ test.describe("the export for invoicing (B4)", () => {
   test("tells that there is nothing to export for a period without tasks", async ({ page }) => {
     await signInAsBackoffice(page);
     await openExportPage(page);
-    await page.getByLabel("Van").fill("2032-02-01");
+    await page.getByLabel("Van", { exact: true }).fill("2032-02-01");
     await page.getByLabel("Tot en met").fill("2032-02-01");
     await page.getByRole("button", { name: "Download" }).click();
     await expect(page).toHaveURL(/\/tasks\/export\?.*problem=empty/);
@@ -180,7 +204,7 @@ test.describe("the export for invoicing (B4)", () => {
     );
     await expect(page.getByText("Kies een andere periode.")).toBeVisible();
     // The form keeps the days.
-    await expect(page.getByLabel("Van")).toHaveValue("2032-02-01");
+    await expect(page.getByLabel("Van", { exact: true })).toHaveValue("2032-02-01");
   });
 
   test("starts with the previous month and refuses a missing or reversed period", async ({
@@ -188,34 +212,57 @@ test.describe("the export for invoicing (B4)", () => {
   }) => {
     await signInAsBackoffice(page);
     await openExportPage(page);
-    const from = await page.getByLabel("Van").inputValue();
+    const from = await page.getByLabel("Van", { exact: true }).inputValue();
     const to = await page.getByLabel("Tot en met").inputValue();
     expect(from).toMatch(/^\d{4}-\d{2}-01$/);
     expect(to >= from).toBe(true);
 
-    await page.getByLabel("Van").fill("");
+    await page.getByLabel("Van", { exact: true }).fill("");
     await page.getByRole("button", { name: "Download" }).click();
     await expect(page.getByRole("alert")).toHaveText("Kies een begin- en einddatum.");
 
-    await page.getByLabel("Van").fill("2032-03-20");
+    await page.getByLabel("Van", { exact: true }).fill("2032-03-20");
     await page.getByLabel("Tot en met").fill("2032-03-10");
     await page.getByRole("button", { name: "Download" }).click();
-    await expect(page.getByRole("alert")).toHaveText("De einddatum moet na de begindatum liggen.");
+    await expect(page.getByRole("alert")).toHaveText("De einddatum ligt vóór de begindatum.");
     await expect(page.getByLabel("Tot en met")).toHaveAttribute("aria-invalid", "true");
+  });
+
+  test("refuses a period of more than a year", async ({ page }) => {
+    await signInAsBackoffice(page);
+    await openExportPage(page);
+    await page.getByLabel("Van", { exact: true }).fill("2031-01-01");
+    await page.getByLabel("Tot en met").fill("2032-01-02");
+    await page.getByRole("button", { name: "Download" }).click();
+    await expect(page.getByRole("alert")).toHaveText(
+      "De periode is te lang. Kies hoogstens 1 jaar (366 dagen).",
+    );
+    await expect(page.getByLabel("Tot en met")).toHaveAttribute("aria-invalid", "true");
+  });
+
+  test("shows no complaint at a first visit", async ({ page }) => {
+    await signInAsBackoffice(page);
+    await openExportPage(page);
+    await expect(page.getByRole("alert")).toHaveCount(0);
+    await expect(page.getByLabel("Tot en met")).not.toHaveAttribute("aria-invalid", "true");
   });
 
   test("is reachable from the button in the task overview, and back", async ({
     page,
-    isMobile,
+    technician,
+    token,
   }) => {
-    test.skip(isMobile, "the back office works on a laptop");
+    // The button is only shown when there are tasks: make one of our own.
+    const customerId = await createCustomer(`${token} Bakkerij`, BACKOFFICE.email, {
+      street: "Gasthuisstraat 23",
+      postalCode: "2300",
+      city: "Turnhout",
+    });
+    await createTasksWithStatus(technician.email, BACKOFFICE.email, customerId, [
+      { status: "assigned", scheduledDate: "2032-03-05" },
+    ]);
     await signInAsBackoffice(page);
-    // Only shown when there are tasks; the other tests of the suite have made some, but make sure.
-    const link = page.getByRole("link", { name: "Exporteren" });
-    if ((await link.count()) === 0) {
-      test.skip(true, "no tasks in the database yet, so the button is not shown");
-    }
-    await link.click();
+    await page.getByRole("link", { name: "Exporteren" }).click();
     await expect(page).toHaveURL("/tasks/export");
     await page.getByRole("link", { name: "← Taken" }).click();
     await expect(page).toHaveURL("/tasks");
@@ -225,7 +272,7 @@ test.describe("the export for invoicing (B4)", () => {
     await signIn(page, technician);
     await expect(page).toHaveURL("/my-tasks");
     await page.goto("/tasks/export");
-    await expect(page.getByText("Deze pagina is niet voor jou bedoeld.")).toBeVisible();
+    await expect(page.getByText("Deze pagina is niet voor jou bedoeld")).toBeVisible();
     const response = await page.request.get(
       "/tasks/export/download?from=2032-03-01&to=2032-03-31&scope=all",
       { maxRedirects: 0 },

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useRef, useState, useSyncExternalStore, type FormEvent } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore, type FormEvent } from "react";
 
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -15,7 +15,6 @@ import type { ExportProblem, ExportScope } from "@/lib/validation/export";
 
 type Done = { count: number; filename: string; from: string; to: string };
 
-const EXPORT_PAGE = "/tasks/export";
 const DOWNLOAD_PATH = "/tasks/export/download";
 
 /**
@@ -37,6 +36,12 @@ export function ExportForm({
   const [failed, setFailed] = useState(false);
   const noticeRef = useRef<HTMLDivElement>(null);
   // Tells the end-to-end tests that the script is active (like the other forms).
+  // Moves the focus to the message once it is on the screen, so it is read out.
+  useEffect(() => {
+    if (done) {
+      noticeRef.current?.focus();
+    }
+  }, [done]);
   const hydrated = useSyncExternalStore(
     () => () => {},
     () => true,
@@ -59,9 +64,10 @@ export function ExportForm({
         credentials: "same-origin",
       });
       if (response.redirected) {
-        // A problem: the route sent us to this page with `?problem=`. Follow it, same site only.
+        // The route sent us on: back to this page with `?problem=` (a problem with the request),
+        // or to the login page (the session ran out). Follow it, on this site only.
         const target = new URL(response.url);
-        if (target.origin === window.location.origin && target.pathname === EXPORT_PAGE) {
+        if (target.origin === window.location.origin) {
           router.push(`${target.pathname}${target.search}`);
           return;
         }
@@ -89,8 +95,6 @@ export function ExportForm({
       link.remove();
       URL.revokeObjectURL(url);
       setDone({ count, filename, from, to });
-      // Let the message be read out.
-      queueMicrotask(() => noticeRef.current?.focus());
     } catch {
       setFailed(true);
     } finally {
@@ -98,7 +102,9 @@ export function ExportForm({
     }
   }
 
-  const fieldProblem = problem === "missing" || problem === "reversed";
+  const fieldProblem = problem === "missing" || problem === "reversed" || problem === "toolong";
+  const fieldMessage =
+    problem === "missing" ? M.missing : problem === "reversed" ? M.reversed : M.tooLong;
   const describedBy = fieldProblem ? "export-period-hint export-problem" : "export-period-hint";
   return (
     <form
@@ -144,7 +150,10 @@ export function ExportForm({
 
       <fieldset className="grid gap-3">
         <legend className="text-sm font-medium">
-          {M.period} <span className="text-red-700">*</span>
+          {M.period}{" "}
+          <span className="text-red-700" aria-hidden="true">
+            *
+          </span>
         </legend>
         <p id="export-period-hint" className="text-sm text-muted-foreground">
           {M.periodHint}
@@ -181,7 +190,7 @@ export function ExportForm({
         </div>
         {fieldProblem ? (
           <p id="export-problem" role="alert" className="text-sm font-medium text-red-700">
-            {problem === "missing" ? M.missing : M.reversed}
+            {fieldMessage}
           </p>
         ) : null}
       </fieldset>

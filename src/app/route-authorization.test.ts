@@ -145,6 +145,35 @@ describe("authorization per Server Action", () => {
   });
 });
 
+/** The body of a route handler (`export async function GET(...) {...}`), up to the next export. */
+function routeHandlers(source: string): { name: string; body: string }[] {
+  const parts = source.split(/^export async function /m).slice(1);
+  return parts
+    .map((part) => ({ name: /^(\w+)/.exec(part)?.[1] ?? "", body: part.split(/^export /m)[0] }))
+    .filter(({ name }) => /^(GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS)$/.test(name));
+}
+
+describe("order of the steps in a route handler", () => {
+  const routes = guarded.filter((file) => /(^|[\\/])route\.tsx?$/.test(file));
+
+  it("finds the export route", () => {
+    expect(routes.map((file) => relative(APP_DIR, file).replaceAll("\\", "/"))).toContain(
+      "(backoffice)/tasks/export/download/route.ts",
+    );
+  });
+
+  it.each(routes.map((file) => [relative(APP_DIR, file).replaceAll("\\", "/"), file]))(
+    "%s checks the role before it reads the request or the database",
+    (_name, file) => {
+      const handlers = routeHandlers(readFileSync(file, "utf8"));
+      expect(handlers.length).toBeGreaterThan(0);
+      for (const { name, body } of handlers) {
+        expect(workBeforeCheck(body), `${name} must check the role first`).toBeNull();
+      }
+    },
+  );
+});
+
 describe("workBeforeCheck", () => {
   it("accepts an action that checks first", () => {
     const body =

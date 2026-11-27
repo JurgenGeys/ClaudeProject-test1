@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, asc, desc, eq, gte, inArray, lte, sql, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, lte, notInArray, or, sql, type SQL } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 
 import { getDb, type Database } from "@/db/client";
@@ -14,6 +14,7 @@ import {
   type TaskOverviewFilters,
 } from "@/lib/validation/task-overview";
 
+import { completedBetween } from "./completion-period";
 import { countsPerTab, type TabCounts } from "./overview-counts";
 import { taskStatuses, type TaskStatus, type WorkType } from "./types";
 import { taskVersion } from "./version";
@@ -98,21 +99,43 @@ export async function queryFilterTechnicians(
 /** Longest piece of the instructions that is read: lists only show the first line. */
 const INSTRUCTIONS_PREVIEW_LENGTH = 300;
 
+/** Statuses whose period is the day of completing; the other statuses use the planned day. */
+const COMPLETION_DAY_STATUSES = ["completed", "invoiced"] as const satisfies readonly TaskStatus[];
+
 /**
  * The conditions of the technician and period filters, which the counts and the list share.
  * An impossible period (end before start) is not applied.
+ *
+ * The period depends on the status (decided by Jurgen, 27/11/2026): for Afgewerkt and Gefactureerd
+ * it is the day the technician completed the task (Belgian time, both days included, the same
+ * rule as the export, so its link shows exactly the tasks of the file); for the other statuses it
+ * is the planned day. It is decided per task, not per tab, so the numbers on the tabs add up: the
+ * number on a tab is what that tab shows, "Actief" and "Alle" are the sum of their statuses.
  */
 function extraConditions(filters: TaskOverviewFilters): SQL[] {
   const conditions: SQL[] = [];
-  const period = !isPeriodReversed(filters);
+  const applyPeriod = !isPeriodReversed(filters);
   if (filters.technician) {
     conditions.push(eq(tasks.assigneeId, filters.technician));
   }
-  if (period && filters.from) {
-    conditions.push(gte(tasks.scheduledDate, filters.from));
-  }
-  if (period && filters.to) {
-    conditions.push(lte(tasks.scheduledDate, filters.to));
+  if (applyPeriod && (filters.from || filters.to)) {
+    const planned: SQL[] = [];
+    if (filters.from) {
+      planned.push(gte(tasks.scheduledDate, filters.from));
+    }
+    if (filters.to) {
+      planned.push(lte(tasks.scheduledDate, filters.to));
+    }
+    const period = or(
+      and(notInArray(tasks.status, [...COMPLETION_DAY_STATUSES]), ...planned),
+      and(
+        inArray(tasks.status, [...COMPLETION_DAY_STATUSES]),
+        ...completedBetween(filters.from, filters.to),
+      ),
+    );
+    if (period) {
+      conditions.push(period);
+    }
   }
   return conditions;
 }
@@ -153,6 +176,7 @@ export async function queryTaskOverview(
     db
       .select({ status: tasks.status, total: sql<number>`count(*)::int` })
       .from(tasks)
+      .leftJoin(taskCompletions, eq(taskCompletions.taskId, tasks.id))
       .where(and(...extra))
       .groupBy(tasks.status),
     db.select({ id: tasks.id }).from(tasks).limit(1),

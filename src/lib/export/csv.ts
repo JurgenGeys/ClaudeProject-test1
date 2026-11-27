@@ -1,5 +1,5 @@
 import { formatHoursDecimal } from "@/lib/time/format";
-import { formatTaskNumber, taskStatusLabel, workTypeLabel } from "@/lib/tasks/labels";
+import { taskStatusLabel, workTypeLabel } from "@/lib/tasks/labels";
 import type { TaskStatus, WorkType } from "@/lib/tasks/types";
 
 /**
@@ -32,8 +32,8 @@ export const EXPORT_COLUMNS = [
 /** One task of the export, as the query returns it. */
 export type ExportRow = {
   number: number;
-  /** Planned day as `2026-11-24`. */
-  scheduledDate: string;
+  /** The day the technician completed the task (Belgian time) as `2026-11-24`: the period of the export. */
+  completedDay: string;
   customerName: string;
   /** The place of work of the task (not necessarily the address of the customer). */
   street: string;
@@ -81,8 +81,8 @@ export function csvRow(row: ExportRow): string {
   const address = `${row.street}, ${row.postalCode} ${row.city}`;
   return [
     // A plain number (1042, without `#`), so Excel can sort on it. Not text: nothing to neutralize.
-    formatTaskNumber(row.number).slice(1),
-    formatExportDate(row.scheduledDate),
+    String(row.number),
+    formatExportDate(row.completedDay),
     csvTextCell(row.customerName),
     csvTextCell(address),
     csvTextCell(row.technicianName ?? ""),

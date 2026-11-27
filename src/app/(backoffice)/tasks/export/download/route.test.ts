@@ -27,7 +27,7 @@ import { GET } from "./route";
 
 const row: ExportRow = {
   number: 1042,
-  scheduledDate: "2026-11-02",
+  completedDay: "2026-11-02",
   customerName: "Bakkerij",
   street: "Straat 1",
   postalCode: "2300",
@@ -115,6 +115,11 @@ describe("GET /tasks/export/download", () => {
       "?from=2026-11-30&to=2026-11-01",
       "reversed",
       "/tasks/export?from=2026-11-30&to=2026-11-01&scope=completed&problem=reversed",
+    ],
+    [
+      "?from=2026-01-01&to=2027-01-02",
+      "toolong",
+      "/tasks/export?from=2026-01-01&to=2027-01-02&scope=completed&problem=toolong",
     ],
     [
       "?from=2026-11-01&to=2026-11-30&scope=bad",

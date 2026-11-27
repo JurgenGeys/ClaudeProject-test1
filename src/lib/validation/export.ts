@@ -16,8 +16,17 @@ export type ExportScope = (typeof exportScopes)[number];
 export const DEFAULT_EXPORT_SCOPE: ExportScope = "completed";
 
 /** What is wrong with the request: used as `?problem=` on the export page. */
-export const exportProblems = ["missing", "reversed", "scope", "empty"] as const;
+export const exportProblems = ["missing", "reversed", "toolong", "scope", "empty"] as const;
 export type ExportProblem = (typeof exportProblems)[number];
+
+/** The longest period of one export: one year (decided by Jurgen, 27/11/2026), both days included. */
+export const MAX_EXPORT_DAYS = 366;
+
+/** Number of days from `from` to `to`, both included. Both are valid `YYYY-MM-DD` days. */
+export function daysInPeriod(from: string, to: string): number {
+  const ms = Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`);
+  return Math.round(ms / 86_400_000) + 1;
+}
 
 export type ExportParams = { from: string; to: string; scope: ExportScope };
 
@@ -57,6 +66,9 @@ export function parseExportParams(raw: RawParams): ExportParamsResult {
   // The same day is fine (a one-day export); only an end before the start is wrong.
   if (to < from) {
     return { ok: false, problem: "reversed", from, to, scope: validScope };
+  }
+  if (daysInPeriod(from, to) > MAX_EXPORT_DAYS) {
+    return { ok: false, problem: "toolong", from, to, scope: validScope };
   }
   if (!scope.success) {
     return { ok: false, problem: "scope", from, to, scope: validScope };

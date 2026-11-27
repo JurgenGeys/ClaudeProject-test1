@@ -40,7 +40,7 @@ export function ExportExample() {
         className="mt-3 overflow-x-auto rounded-md border"
         tabIndex={0}
         role="region"
-        aria-label="Voorbeeld van het bestand"
+        aria-label="Voorbeeld"
       >
         <table className="w-full text-left text-xs">
           <caption className="sr-only">Voorbeeld met twee verzonnen taken</caption>
@@ -66,7 +66,8 @@ export function ExportExample() {
           </tbody>
         </table>
       </div>
-      <p className="mt-3 text-sm text-muted-foreground">{EXPORT_MESSAGES.exampleNote}</p>
+      <p className="mt-3 text-sm text-muted-foreground">{EXPORT_MESSAGES.dateNote}</p>
+      <p className="mt-1 text-sm text-muted-foreground">{EXPORT_MESSAGES.exampleNote}</p>
     </section>
   );
 }

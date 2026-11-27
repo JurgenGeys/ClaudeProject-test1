@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
 import { checkRoleAccess } from "@/lib/auth/role-access";
+import { EXPORT_MESSAGES } from "@/lib/export/messages";
 import { INVOICE_MESSAGES } from "@/lib/tasks/invoice-messages";
 import { getTaskOverview } from "@/lib/tasks/overview";
 import { hasExtraFilters, taskOverviewHref } from "@/lib/validation/task-overview";
@@ -72,7 +73,7 @@ export default async function TasksPage({ searchParams }: PageProps<"/tasks">) {
             <Button asChild variant="outline" className="h-11 px-4 md:h-10">
               <Link href="/tasks/export">
                 <Download aria-hidden="true" />
-                Exporteren
+                {EXPORT_MESSAGES.button}
               </Link>
             </Button>
             {newTaskButton}

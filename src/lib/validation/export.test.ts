@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { exportPageHref, parseExportParams, parseExportProblem } from "./export";
+import { daysInPeriod, exportPageHref, parseExportParams, parseExportProblem } from "./export";
 
 describe("parseExportParams", () => {
   it("accepts a period and a scope", () => {
@@ -44,6 +44,19 @@ describe("parseExportParams", () => {
     });
   });
 
+  it("accepts exactly 366 days and refuses 367 (a year is the longest period)", () => {
+    expect(parseExportParams({ from: "2028-01-01", to: "2028-12-31" }).ok).toBe(true); // 366 days
+    expect(parseExportParams({ from: "2026-01-01", to: "2026-12-31" }).ok).toBe(true); // 365 days
+    expect(parseExportParams({ from: "2026-01-01", to: "2027-01-02" })).toMatchObject({
+      ok: false,
+      problem: "toolong",
+    });
+    expect(parseExportParams({ from: "2028-01-01", to: "2029-01-01" })).toMatchObject({
+      ok: false,
+      problem: "toolong",
+    });
+  });
+
   it.each(["everything", "", "ALL", ["all", "completed"]])("says 'scope' for scope %j", (scope) => {
     expect(parseExportParams({ from: "2026-11-01", to: "2026-11-30", scope })).toMatchObject({
       ok: false,
@@ -71,5 +84,13 @@ describe("exportPageHref", () => {
     expect(exportPageHref({ from: null, to: null, scope: "completed", problem: "missing" })).toBe(
       "/tasks/export?scope=completed&problem=missing",
     );
+  });
+});
+
+describe("daysInPeriod", () => {
+  it("counts both days, also over the clock change", () => {
+    expect(daysInPeriod("2026-11-05", "2026-11-05")).toBe(1);
+    expect(daysInPeriod("2033-03-26", "2033-03-28")).toBe(3);
+    expect(daysInPeriod("2033-10-29", "2033-10-31")).toBe(3);
   });
 });
