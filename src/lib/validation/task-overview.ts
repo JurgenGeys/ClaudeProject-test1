@@ -29,7 +29,7 @@ export const activeStatuses = [
 const MIN_YEAR = 2000;
 const MAX_YEAR = 2100;
 
-const dayParam = z.iso.date().refine((value) => {
+export const dayParam = z.iso.date().refine((value) => {
   const year = Number(value.slice(0, 4));
   return year >= MIN_YEAR && year <= MAX_YEAR;
 });
