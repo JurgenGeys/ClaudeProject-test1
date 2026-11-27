@@ -52,26 +52,51 @@ const test = base.extend<Fixtures>({
       role: "technician",
     };
     const token = `Zqxflow${testInfo.project.name}${Date.now()}${random}`;
-    await run({ technician, token });
-    // Customers (and with them the tasks) first: the tasks refer to the technician.
-    await removeCustomersNamed(token);
-    await removeTasksOf(technician.email);
-    await removeUser(technician.email);
+    try {
+      await run({ technician, token });
+    } finally {
+      // Customers (and with them the tasks) first: the tasks refer to the technician. Every step
+      // is tried, also when an earlier one fails, so as little as possible is left behind.
+      const failures: unknown[] = [];
+      for (const clean of [
+        () => removeCustomersNamed(token),
+        () => removeTasksOf(technician.email),
+        () => removeUser(technician.email),
+      ]) {
+        try {
+          await clean();
+        } catch (error) {
+          failures.push(error);
+        }
+      }
+      if (failures.length > 0) {
+        throw new Error(`Cleaning up failed: ${failures.map(String).join("; ")}`);
+      }
+    }
   },
   office: async ({ browser, baseURL }, run) => {
     const context = await browser.newContext({ ...devices["Desktop Chrome"], baseURL });
-    await run(await context.newPage());
-    await context.close();
+    try {
+      await run(await context.newPage());
+    } finally {
+      await context.close();
+    }
   },
   phone: async ({ browser, baseURL }, run) => {
     const context = await browser.newContext({ ...devices["Pixel 7"], baseURL });
-    await run(await context.newPage());
-    await context.close();
+    try {
+      await run(await context.newPage());
+    } finally {
+      await context.close();
+    }
   },
 });
 
-test.beforeEach(({ isMobile }) => {
-  test.skip(isMobile, "The tests open a desktop and a phone context themselves: run them once");
+test.beforeEach(({}, testInfo) => {
+  test.skip(
+    testInfo.project.name !== "desktop",
+    "The tests open a desktop and a phone context themselves: run them once",
+  );
 });
 
 /** Everything is looked up among the visible elements: Next keeps the previous route hidden in the DOM. */
@@ -89,6 +114,13 @@ function brusselsDay(moment: Date = new Date()): string {
 
 /** `2026-11-27` as `27/11/2026`. */
 const shown = (day: string) => day.split("-").reverse().join("/");
+
+/**
+ * The status label of a task page (the badge), by its status. Not a text search: the reset dialog
+ * and the messages also contain words like "Toegewezen".
+ */
+const statusLabel = (page: Page, status: string, text: string) =>
+  visible(page.locator(`[data-status="${status}"]`)).filter({ hasText: text });
 
 const taskNumberPattern = (number: number) => new RegExp(`#${number}(?!\\d)`);
 
@@ -123,7 +155,7 @@ async function inviteTechnician(office: Page, technician: TestUser): Promise<str
   await dialog.getByLabel(/^E-mailadres/).fill(technician.email);
   await dialog.getByRole("button", { name: "Uitnodiging versturen" }).click();
   await expect(dialog).toBeHidden();
-  await expect(office.getByRole("status")).toContainText(
+  await expect(visible(office.getByRole("status"))).toContainText(
     `Uitnodiging verstuurd naar ${technician.email}.`,
   );
   const row = office.getByRole("row", { name: new RegExp(technician.email) });
@@ -182,7 +214,7 @@ async function createTask(office: Page, { technician, token }: Traject): Promise
   // The address loses `?saved=1` once the confirmation is shown, so only the path is checked.
   await expect(office).toHaveURL(/\/tasks\/\d+(\?saved=1)?$/);
   const number = Number(new URL(office.url()).pathname.split("/").at(-1));
-  await expect(office.getByRole("status")).toHaveText(`Taak #${number} bewaard.`);
+  await expect(visible(office.getByRole("status"))).toHaveText(`Taak #${number} bewaard.`);
   return number;
 }
 
@@ -205,6 +237,17 @@ async function pickUp(phone: Page): Promise<void> {
   );
   await phone.getByRole("button", { name: "Ja, ik vertrek" }).click();
   await expect(visible(phone.getByRole("status").filter({ hasText: "Opgepikt om" }))).toBeVisible();
+}
+
+/** The picked up task is under Bezig on Mijn taken (a fresh load). Opens it when `open` is set. */
+async function expectUnderBezig(phone: Page, number: number, open = false): Promise<void> {
+  await phone.goto("/my-tasks");
+  const busy = visible(phone.getByRole("region", { name: "Bezig" }));
+  await expect(busy).toContainText(`#${number}`);
+  if (open) {
+    await busy.getByRole("link").click();
+    await expect(phone).toHaveURL(`/my-tasks/${number}`);
+  }
 }
 
 /** On T2 of a picked up task: Afmelden, 2u00 and a note on T3, Taak afmelden. */
@@ -260,18 +303,23 @@ test.describe("the main flow", () => {
       const link = await inviteTechnician(office, technician);
       await acceptInvitation(phone, link, technician);
       await expect(phone.getByText("Je hebt geen taken.")).toBeVisible();
+      // The office now sees the technician as active.
+      await office.goto("/technicians");
+      const row = office.getByRole("row", { name: new RegExp(technician.email) });
+      await expect(row.getByText("Actief", { exact: true })).toBeVisible();
     });
 
     await test.step("the office makes a customer and a task with the kind of work, and assigns it", async () => {
       number = await createTask(office, traject);
       expect(number).toBeGreaterThanOrEqual(1001);
-      await expect(office.getByText("Toegewezen", { exact: true }).first()).toBeVisible();
+      await expect(statusLabel(office, "assigned", "Toegewezen")).toBeVisible();
       await expect(office.getByRole("heading", { level: 1 })).toContainText(`${token} Bakkerij`);
     });
 
     await test.step("the technician sees the task under Mijn taken and picks it up", async () => {
       await openOnPhone(phone, number, token);
       await pickUp(phone);
+      await expectUnderBezig(phone, number, true);
     });
 
     await test.step("the office sees the task as Opgepikt in the overview", async () => {
@@ -319,6 +367,7 @@ test.describe("the main flow", () => {
         "Uren gecorrigeerd naar 1u30.",
       );
       const block = visible(office.getByRole("region", { name: "Afmelding" }));
+      await expect(block).toContainText("1u30");
       await expect(block).toContainText(
         `Oorspronkelijk door ${technician.fullName} ingevuld: 2u00.`,
       );
@@ -334,9 +383,9 @@ test.describe("the main flow", () => {
       expect(mine).toEqual([
         `${number};${shown(day)};${token} Bakkerij;Nieuwstraat 7, 9000 Gent;${technician.fullName};Onderhoud;Jaarlijks onderhoud van de koeling;1,5;"${notes}";Afgewerkt`,
       ]);
-      await expect(office.getByRole("status").filter({ hasText: "gedownload" })).toContainText(
-        `taken-${day}-tot-${day}.csv`,
-      );
+      await expect(
+        visible(office.getByRole("status").filter({ hasText: "gedownload" })),
+      ).toContainText(`taken-${day}-tot-${day}.csv`);
     });
 
     await test.step("the office marks the task as invoiced, and its hours are locked", async () => {
@@ -411,7 +460,9 @@ test.describe("the main flow", () => {
       );
       await dialog.getByLabel(/Reden/).fill("Klant heeft zelf afgezegd");
       await dialog.getByRole("button", { name: "Taak annuleren" }).click();
-      await expect(office.getByRole("status")).toContainText(`Taak #${number} is geannuleerd.`);
+      await expect(visible(office.getByRole("status"))).toContainText(
+        `Taak #${number} is geannuleerd.`,
+      );
       await expect(office.getByText("Reden: Klant heeft zelf afgezegd")).toBeVisible();
     });
 
@@ -454,23 +505,24 @@ test.describe("the main flow", () => {
     await signInAs(phone, technician, "/my-tasks");
     await openOnPhone(phone, number, token);
     await pickUp(phone);
+    await expectUnderBezig(phone, number);
 
     await test.step("the office puts the picked up task back to Toegewezen", async () => {
       await office.goto(`/tasks/${number}`);
-      await expect(office.getByText("Opgepikt", { exact: true }).first()).toBeVisible();
+      await expect(statusLabel(office, "picked_up", "Opgepikt")).toBeVisible();
       // An Opgepikt task cannot be cancelled: the office resets it first.
       await expect(visible(office.getByRole("button", { name: "Taak annuleren" }))).toHaveCount(0);
       const dialog = office.getByRole("dialog", { name: "Taak terugzetten" });
       await openDialogWith(visible(office.getByRole("button", { name: "Terugzetten" })), dialog);
       await dialog.getByRole("button", { name: "Terugzetten" }).click();
-      await expect(office.getByRole("status")).toContainText("Taak teruggezet.");
-      await expect(office.getByText("Toegewezen", { exact: true }).first()).toBeVisible();
+      await expect(visible(office.getByRole("status"))).toContainText("Taak teruggezet.");
+      await expect(statusLabel(office, "assigned", "Toegewezen")).toBeVisible();
     });
 
     await test.step("the technician has the task again, no longer under Bezig, with Oppikken", async () => {
       await phone.goto("/my-tasks");
       await expect(taskLink(phone, number)).toBeVisible();
-      await expect(phone.getByRole("region", { name: "Bezig" })).toHaveCount(0);
+      await expect(visible(phone.getByRole("region", { name: "Bezig" }))).toHaveCount(0);
       await taskLink(phone, number).click();
       await expect(phone).toHaveURL(`/my-tasks/${number}`);
       await expect(
