@@ -88,3 +88,24 @@ export const RESET_MESSAGES = {
   done: (technician: string, moment: string) =>
     `Taak teruggezet. Ze staat opnieuw op Toegewezen bij ${technician}, voor ${moment}.`,
 } as const;
+
+/** Texts of correcting the hours of an Afgewerkt task (design B3, dialog "Uren corrigeren"). Dutch, for end users. */
+export const CORRECT_HOURS_MESSAGES = {
+  button: "Uren corrigeren",
+  dialogTitle: "Uren corrigeren",
+  /** "Ingevuld door Kevin Wouters: <strong>2u00</strong>. De oorspronkelijke uren blijven zichtbaar." */
+  filledInBy: (name: string) => `Ingevuld door ${name}:`,
+  originalStaysVisible: "De oorspronkelijke uren blijven zichtbaar.",
+  newHours: "Nieuwe uren",
+  newHoursHint: "Per kwartier, zonder verplaatsing.",
+  reason: "Reden",
+  reasonPlaceholder: "Bv. pauze niet afgetrokken",
+  confirm: "Correctie bewaren",
+  confirming: "Bezig met bewaren…",
+  cancel: "Annuleren",
+  /** The task became Gefactureerd while the dialog was open (design B3). */
+  invoiced:
+    "Deze taak is al gefactureerd. Maak eerst de markering ongedaan als je de uren wilt wijzigen.",
+  /** "Uren gecorrigeerd naar 1u30." after saving. */
+  done: (hours: string) => `Uren gecorrigeerd naar ${hours}.`,
+} as const;

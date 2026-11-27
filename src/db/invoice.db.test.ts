@@ -4,6 +4,7 @@ import postgres from "postgres";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 import * as schema from "@/db/schema";
+import { correctHoursInTransaction } from "@/lib/tasks/correct-hours";
 import { markInvoicedInTransaction, unmarkInvoicedInTransaction } from "@/lib/tasks/invoice";
 import { queryTaskDetail } from "@/lib/tasks/detail";
 import { queryTaskOverview } from "@/lib/tasks/overview";
@@ -136,22 +137,20 @@ async function readCompletion(tx: Pick<Db, "select">, taskId: string) {
 }
 
 /**
- * What the back office does when it corrects hours (BT-15): lock the task, change the
- * completion and touch the task row, so that its version moves. Plain SQL: this test does not
- * depend on how `correctHours` will be written, only on the lock and the version.
+ * The real `correctHoursInTransaction` (BT-15), with the version that the task has right now, so
+ * that these tests are about the lock and the version of marking, not about a stale page.
  */
 async function correctHours(tx: Tx | Db, office: string, task: Seeded, minutes: number) {
-  await tx.select().from(schema.tasks).where(eq(schema.tasks.id, task.id)).for("update");
-  await tx
-    .update(schema.taskCompletions)
-    .set({
+  const current = (await queryTaskDetail(tx, task.number))!;
+  return correctHoursInTransaction(tx, {
+    actor: backoffice(office),
+    data: {
+      number: task.number,
+      version: current.version,
       correctedMinutes: minutes,
-      correctionReason: "pauze niet afgetrokken",
-      correctedBy: office,
-      correctedAt: new Date(),
-    })
-    .where(eq(schema.taskCompletions.taskId, task.id));
-  await tx.update(schema.tasks).set({ updatedBy: office }).where(eq(schema.tasks.id, task.id));
+      reason: "pauze niet afgetrokken",
+    },
+  });
 }
 
 async function setUp(tx: Tx | Db) {
@@ -599,27 +598,16 @@ describe("markInvoicedInTransaction: other people act at the same moment", () =>
       );
       await mark.isReady;
 
-      // A correction as BT-15 will do it: lock, then only when still Afgewerkt.
       let finished = false;
       const correction = connect()
-        .transaction(async (tx) => {
-          const [locked] = await tx
-            .select({ status: schema.tasks.status })
-            .from(schema.tasks)
-            .where(eq(schema.tasks.id, task.id))
-            .for("update");
-          if (locked.status === "completed") {
-            await correctHours(tx, office, task, 30);
-          }
-          return locked.status;
-        })
+        .transaction((tx) => correctHours(tx, office, task, 30))
         .finally(() => (finished = true));
       await sleep(400);
       expect(finished).toBe(false);
 
       mark.release();
       expect(await mark.result).toMatchObject({ marked: [task.number] });
-      expect(await correction).toBe("invoiced");
+      expect(await correction).toEqual({ kind: "invoiced" });
       expect(await readCompletion(db, task.id)).toMatchObject({ correctedMinutes: null });
     } finally {
       await removeTestData();
