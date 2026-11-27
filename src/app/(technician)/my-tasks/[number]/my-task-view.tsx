@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 
 import { StatusBadge } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
+import { formatAddressLine, mapsHref } from "@/lib/maps";
 import { telHref } from "@/lib/phone";
 import type { TaskDetail } from "@/lib/tasks/detail";
 import { formatTaskNumber, workTypeLabel } from "@/lib/tasks/labels";
@@ -22,6 +23,12 @@ import {
   PickUpBar,
   PickUpTask,
 } from "./pick-up-task";
+
+/** A whole row that is a link (address, phone number), with a button-like label on the right. */
+const ROW_LINK =
+  "flex min-h-11 items-center justify-between gap-3 rounded-md py-1 outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50";
+const ROW_BUTTON =
+  "inline-flex h-11 shrink-0 items-center rounded-md border border-slate-300 px-3 text-sm font-medium";
 
 const CARD = "mt-3 rounded-lg border border-border bg-card p-4";
 
@@ -107,8 +114,8 @@ function CancelledTask({ task }: { task: TaskDetail }) {
 
 /**
  * T2 (design chapter 3): what the technician needs to do the task. A Toegewezen task has the
- * button Oppikken with its confirmation (BT-12); an Opgepikt task has the button Afmelden, a link to T3 (BT-13). Phone and maps links
- * with their own buttons come with BT-19; the phone number is already a plain `tel:` link.
+ * button Oppikken with its confirmation (BT-12); an Opgepikt task has the button Afmelden, a link to T3 (BT-13).
+ * The address is a link to the maps app and the phone number a `tel:` link with the button Bellen (BT-19).
  * A finished task (Afgewerkt or Gefactureerd, both "Afgewerkt" here) shows the technician's
  * own report, with the hours he filled in. A cancelled task shows only that message.
  */
@@ -129,6 +136,11 @@ export function MyTaskView({
   const status = finished ? "completed" : task.status;
   const completion = finished ? task.completion : null;
   const canPickUp = task.status === "assigned";
+  const address = {
+    street: task.locationStreet,
+    postalCode: task.locationPostalCode,
+    city: task.locationCity,
+  };
 
   const content = (
     <>
@@ -203,25 +215,33 @@ export function MyTaskView({
       ) : null}
 
       <Block id="heading-location" title="Locatie">
-        <p className="mt-1 text-base">
-          {task.locationStreet}
-          <br />
-          {task.locationPostalCode} {task.locationCity}
-        </p>
+        <a
+          href={mapsHref(address)}
+          rel="noopener noreferrer"
+          aria-label={`Open in kaarten: ${formatAddressLine(address)}`}
+          className={cn(ROW_LINK, "mt-1")}
+        >
+          <span className="text-base">
+            {task.locationStreet}
+            <br />
+            {task.locationPostalCode} {task.locationCity}
+          </span>
+          <span className={ROW_BUTTON}>Open in kaarten</span>
+        </a>
       </Block>
 
       {finished ? null : (
         <Block id="heading-customer" title="Klant">
           <p className="mt-1 font-medium">{task.customer.name}</p>
           {task.customer.phone ? (
-            <p className="mt-1">
-              <a
-                href={telHref(task.customer.phone)}
-                className="inline-flex min-h-11 items-center underline underline-offset-4"
-              >
-                {task.customer.phone}
-              </a>
-            </p>
+            <a
+              href={telHref(task.customer.phone)}
+              aria-label={`Bellen: ${task.customer.phone}`}
+              className={cn(ROW_LINK, "mt-1")}
+            >
+              <span>{task.customer.phone}</span>
+              <span className={ROW_BUTTON}>Bellen</span>
+            </a>
           ) : null}
           {task.customer.notes ? (
             <p className="mt-2 rounded-md bg-muted px-3 py-2 text-sm text-slate-700">
