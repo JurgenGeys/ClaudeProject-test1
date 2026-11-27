@@ -77,6 +77,14 @@ describe("the tasks page (B1)", () => {
     expect(screen.getByRole("link", { name: "Nieuwe taak" })).toHaveAttribute("href", "/tasks/new");
   });
 
+  it("has an 'Exporteren' button that leads to the export page (B4)", async () => {
+    await renderPage();
+    expect(screen.getByRole("link", { name: "Exporteren" })).toHaveAttribute(
+      "href",
+      "/tasks/export",
+    );
+  });
+
   it("shows the tabs, the filters and the tasks", async () => {
     await renderPage();
     expect(screen.getByRole("navigation", { name: "Status" })).toBeInTheDocument();
@@ -102,6 +110,7 @@ describe("the tasks page (B1)", () => {
       await renderPage();
       expect(screen.getByText("Er zijn nog geen taken.")).toBeInTheDocument();
       expect(screen.getAllByRole("link", { name: "Nieuwe taak" })).toHaveLength(1);
+      expect(screen.queryByRole("link", { name: "Exporteren" })).not.toBeInTheDocument();
       expect(screen.queryByRole("navigation", { name: "Status" })).not.toBeInTheDocument();
       expect(screen.queryByRole("form", { name: "Filters" })).not.toBeInTheDocument();
     });

@@ -95,6 +95,11 @@ export function TaskFilters({
       <Button type="submit" variant="outline" className="h-11 px-4 md:h-10">
         Filteren
       </Button>
+      {filters.tab === "completed" || filters.tab === "invoiced" ? (
+        <p className="w-full text-xs text-muted-foreground">
+          Bij deze tab geldt de periode voor de dag waarop de taak is afgemeld.
+        </p>
+      ) : null}
       {hasExtraFilters(filters) ? (
         <Link
           href={taskOverviewHref({ tab: filters.tab })}
