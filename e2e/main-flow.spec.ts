@@ -159,11 +159,18 @@ async function createTask(office: Page, { technician, token }: Traject): Promise
   await office.locator('form[data-hydrated="true"]:visible').waitFor();
 
   await office.getByRole("button", { name: "+ Nieuwe klant" }).click();
-  await office.getByLabel(/^Naam/).fill(`${token} Bakkerij`);
+  // The application focuses the name field in a timer after the click. Fill in only after that
+  // has happened, or the timer can move the focus while the next field is being filled in.
+  const name = office.getByLabel(/^Naam/);
+  await expect(name).toBeFocused();
+  await name.fill(`${token} Bakkerij`);
   await office.getByLabel("Telefoon").fill("014 41 22 87");
   await office.getByLabel("Straat en nummer").fill("Nieuwstraat 7");
   await office.getByLabel("Postcode").fill("9000");
   await office.getByLabel("Gemeente").fill("Gent");
+  // Check the fields before saving: a wrong value must fail here, not in a later step.
+  await expect(name).toHaveValue(`${token} Bakkerij`);
+  await expect(office.getByLabel("Telefoon")).toHaveValue("014 41 22 87");
 
   await office.getByRole("radio", { name: "Onderhoud" }).check();
   await office.getByLabel("Instructies").fill("Jaarlijks onderhoud van de koeling");
