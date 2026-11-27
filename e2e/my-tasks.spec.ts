@@ -392,6 +392,43 @@ test.describe("Taak (T2)", () => {
     });
   });
 
+  test("the address opens the maps app and the phone number has a Bellen button (BT-19)", async ({
+    page,
+    token,
+    technicians: { kevin },
+  }) => {
+    const customer = await customerOf(token, "Kaart", "014 41 22 87");
+    const [number] = await createTasksWithStatus(kevin.email, BACKOFFICE.email, customer, [
+      { status: "assigned", scheduledDate: brusselsToday(), city: "Sint-Niklaas" },
+    ]);
+    await signInAs(page, kevin, `/my-tasks/${number}`);
+    await expect(page).toHaveURL(`/my-tasks/${number}`);
+
+    await test.step("the address is a link to the maps app with only the address", async () => {
+      const maps = page
+        .getByRole("link", { name: "Open in kaarten: Teststraat 1, 9000 Sint-Niklaas" })
+        .filter({ visible: true });
+      await expect(maps).toBeVisible();
+      await expect(maps).toContainText("Open in kaarten");
+      await expect(maps).toHaveAttribute(
+        "href",
+        "https://maps.google.com/?q=Teststraat+1%2C+9000+Sint-Niklaas",
+      );
+      await expect(maps).toHaveAttribute("rel", "noopener noreferrer");
+      await expectTapTarget(maps);
+    });
+
+    await test.step("the phone number has a Bellen button as a tel: link", async () => {
+      const call = page
+        .getByRole("region", { name: "Klant" })
+        .getByRole("link", { name: "Bellen: 014 41 22 87" })
+        .filter({ visible: true });
+      await expect(call).toBeVisible();
+      await expect(call).toHaveAttribute("href", "tel:014412287");
+      await expectTapTarget(call);
+    });
+  });
+
   test("a picked up task shows when it was picked up", async ({
     page,
     token,

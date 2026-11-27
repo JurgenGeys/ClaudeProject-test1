@@ -60,6 +60,43 @@ const completion = {
   correctedByName: null,
 };
 
+describe("T2 links to the maps app and the phone (BT-19)", () => {
+  it("opens the address in the maps app, with only the address in the URL", () => {
+    view();
+    const link = within(screen.getByRole("region", { name: "Locatie" })).getByRole("link", {
+      name: "Open in kaarten: Gasthuisstraat 23, 2300 Turnhout",
+    });
+    expect(link).toHaveAttribute(
+      "href",
+      "https://maps.google.com/?q=Gasthuisstraat+23%2C+2300+Turnhout",
+    );
+    expect(link).toHaveAttribute("rel", "noopener noreferrer");
+    expect(link).toHaveTextContent("Open in kaarten");
+    expect(link.getAttribute("href")).not.toContain("Bakkerij");
+    expect(link.getAttribute("href")).not.toContain("1042");
+  });
+
+  it("has a button Bellen next to the phone number, as a tel: link", () => {
+    view();
+    const link = within(screen.getByRole("region", { name: "Klant" })).getByRole("link", {
+      name: "Bellen: 014 41 22 87",
+    });
+    expect(link).toHaveAttribute("href", "tel:014412287");
+    expect(link).toHaveTextContent("Bellen");
+  });
+
+  it("has no Bellen link when the customer has no phone number", () => {
+    view({ customer: { ...base.customer, phone: null } });
+    expect(screen.queryByRole("link", { name: /Bellen/ })).not.toBeInTheDocument();
+  });
+
+  it("keeps the address link on a finished task, which has no Klant block", () => {
+    view({ status: "completed", completion });
+    expect(screen.getByRole("link", { name: /Open in kaarten/ })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /Bellen/ })).not.toBeInTheDocument();
+  });
+});
+
 describe("T2 for a task that is Toegewezen", () => {
   it("shows number, status, customer, work type, planned moment, estimate and the blocks", () => {
     view();
@@ -77,7 +114,7 @@ describe("T2 for a task that is Toegewezen", () => {
     expect(location).toHaveTextContent("Gasthuisstraat 23");
     expect(location).toHaveTextContent("2300 Turnhout");
     const customer = screen.getByRole("region", { name: "Klant" });
-    expect(within(customer).getByRole("link", { name: "014 41 22 87" })).toHaveAttribute(
+    expect(within(customer).getByRole("link", { name: "Bellen: 014 41 22 87" })).toHaveAttribute(
       "href",
       "tel:014412287",
     );
