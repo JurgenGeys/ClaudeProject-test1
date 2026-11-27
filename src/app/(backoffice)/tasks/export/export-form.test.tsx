@@ -44,6 +44,23 @@ describe("ExportForm", () => {
     expect(screen.getByRole("alert")).toHaveTextContent(message);
   });
 
+  it.each(["reversed", "toolong"] as const)(
+    "marks the end day invalid for problem %s (and not the start day)",
+    (problem) => {
+      render(<ExportForm initial={initial} problem={problem} />);
+      expect(screen.getByLabelText("Tot en met")).toHaveAttribute("aria-invalid", "true");
+      expect(screen.getByLabelText("Van", { exact: true })).not.toHaveAttribute("aria-invalid");
+    },
+  );
+
+  it("marks no field invalid for an empty period or a first visit", () => {
+    const { unmount } = render(<ExportForm initial={initial} problem="empty" />);
+    expect(screen.getByLabelText("Tot en met")).not.toHaveAttribute("aria-invalid");
+    unmount();
+    render(<ExportForm initial={initial} problem={null} />);
+    expect(screen.getByLabelText("Tot en met")).not.toHaveAttribute("aria-invalid");
+  });
+
   it("explains an empty period with the dates of the design", () => {
     render(<ExportForm initial={initial} problem="empty" />);
     expect(screen.getByRole("alert")).toHaveTextContent(

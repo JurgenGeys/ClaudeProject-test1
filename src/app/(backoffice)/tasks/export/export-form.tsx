@@ -181,7 +181,7 @@ export function ExportForm({
               required
               defaultValue={initial.to}
               aria-invalid={
-                fieldProblem && (problem === "reversed" || !initial.to) ? true : undefined
+                fieldProblem && (problem !== "missing" || !initial.to) ? true : undefined
               }
               aria-describedby={describedBy}
               className="h-11 w-auto md:h-10"
