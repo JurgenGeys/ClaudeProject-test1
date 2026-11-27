@@ -1,4 +1,4 @@
-import { Plus } from "lucide-react";
+import { Download, Plus } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import type { ReactNode } from "react";
@@ -34,7 +34,7 @@ function ListArea({ selectable, children }: { selectable: boolean; children: Rea
 /**
  * The task overview (B1): status tabs with counts, filters on technician and period (all in the
  * URL), and the tasks as a table or, on a phone, as cards. On the tab Afgewerkt the rows have
- * checkboxes for "Markeer als gefactureerd" (BT-17). "Exporteren" follows in BT-16.
+ * checkboxes for "Markeer als gefactureerd" (BT-17). "Exporteren" opens B4 (BT-16).
  */
 export default async function TasksPage({ searchParams }: PageProps<"/tasks">) {
   // Every page checks the role itself (ADR-0002, rule 3); the layout only handles the display.
@@ -67,7 +67,17 @@ export default async function TasksPage({ searchParams }: PageProps<"/tasks">) {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-semibold tracking-tight">Taken</h1>
         {/* With no tasks at all the button is in the empty state, so there is one link, not two. */}
-        {hasAnyTask ? newTaskButton : null}
+        {hasAnyTask ? (
+          <div className="flex flex-wrap gap-2">
+            <Button asChild variant="outline" className="h-11 px-4 md:h-10">
+              <Link href="/tasks/export">
+                <Download aria-hidden="true" />
+                Exporteren
+              </Link>
+            </Button>
+            {newTaskButton}
+          </div>
+        ) : null}
       </div>
 
       {!hasAnyTask ? (
