@@ -63,6 +63,12 @@ function addDays(day: string, days: number): string {
 /** `2032-03-05` as `05/03/2032`. */
 const shown = (day: string) => day.split("-").reverse().join("/");
 
+/**
+ * The messages of the form. Looked up inside the form: after a client navigation Next adds its
+ * own route announcer (`role="alert"`) to the page, which is not ours and may not be counted.
+ */
+const alerts = (page: Page) => page.getByRole("form", { name: "Exporteren" }).getByRole("alert");
+
 async function signInAsBackoffice(page: Page): Promise<void> {
   await signIn(page, BACKOFFICE);
   await expect(page).toHaveURL("/tasks");
@@ -199,7 +205,7 @@ test.describe("the export for invoicing (B4)", () => {
     await page.getByLabel("Tot en met").fill("2032-02-01");
     await page.getByRole("button", { name: "Download" }).click();
     await expect(page).toHaveURL(/\/tasks\/export\?.*problem=empty/);
-    await expect(page.getByRole("alert")).toContainText(
+    await expect(alerts(page)).toContainText(
       "Er zijn geen afgewerkte taken tussen 01/02/2032 en 01/02/2032. Er is niets te exporteren.",
     );
     await expect(page.getByText("Kies een andere periode.")).toBeVisible();
@@ -219,12 +225,12 @@ test.describe("the export for invoicing (B4)", () => {
 
     await page.getByLabel("Van", { exact: true }).fill("");
     await page.getByRole("button", { name: "Download" }).click();
-    await expect(page.getByRole("alert")).toHaveText("Kies een begin- en einddatum.");
+    await expect(alerts(page)).toHaveText("Kies een begin- en einddatum.");
 
     await page.getByLabel("Van", { exact: true }).fill("2032-03-20");
     await page.getByLabel("Tot en met").fill("2032-03-10");
     await page.getByRole("button", { name: "Download" }).click();
-    await expect(page.getByRole("alert")).toHaveText("De einddatum ligt vóór de begindatum.");
+    await expect(alerts(page)).toHaveText("De einddatum ligt vóór de begindatum.");
     await expect(page.getByLabel("Tot en met")).toHaveAttribute("aria-invalid", "true");
   });
 
@@ -234,7 +240,7 @@ test.describe("the export for invoicing (B4)", () => {
     await page.getByLabel("Van", { exact: true }).fill("2031-01-01");
     await page.getByLabel("Tot en met").fill("2032-01-02");
     await page.getByRole("button", { name: "Download" }).click();
-    await expect(page.getByRole("alert")).toHaveText(
+    await expect(alerts(page)).toHaveText(
       "De periode is te lang. Kies hoogstens 1 jaar (366 dagen).",
     );
     await expect(page.getByLabel("Tot en met")).toHaveAttribute("aria-invalid", "true");
@@ -243,7 +249,7 @@ test.describe("the export for invoicing (B4)", () => {
   test("shows no complaint at a first visit", async ({ page }) => {
     await signInAsBackoffice(page);
     await openExportPage(page);
-    await expect(page.getByRole("alert")).toHaveCount(0);
+    await expect(alerts(page)).toHaveCount(0);
     await expect(page.getByLabel("Tot en met")).not.toHaveAttribute("aria-invalid", "true");
   });
 
