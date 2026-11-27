@@ -829,3 +829,22 @@ export async function pickUpTaskBehindTheBack(number: number): Promise<void> {
       .where(eq(tasks.number, number));
   });
 }
+
+/**
+ * Moves the moment a task was completed (`task_completions.completed_at`), so a test can put its
+ * tasks on a day of its own (the export selects on that day, BT-16).
+ */
+export async function setTaskCompletedAt(number: number, completedAt: Date): Promise<void> {
+  assertLocalSupabase(process.env);
+  await withDb(async (db) => {
+    await db
+      .update(taskCompletions)
+      .set({ completedAt })
+      .where(
+        inArray(
+          taskCompletions.taskId,
+          db.select({ id: tasks.id }).from(tasks).where(eq(tasks.number, number)),
+        ),
+      );
+  });
+}
